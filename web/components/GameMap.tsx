@@ -69,7 +69,7 @@ export default function GameMap() {
 
   async function logout() {
     await supabase.auth.signOut();
-    setOrg(null); setLoggedIn(false);
+    window.location.href = "/";
   }
 
   return (
