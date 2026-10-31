@@ -441,12 +441,12 @@ begin
   end loop;
 
   -- servizi chiusi: nessuno slot ancora in corso e (pieni o scaduti)
-  update missions m set status = 'conclusa'
-   where status in ('aperta','completa','in_corso')
-     and (m.slots_taken = m.slots_total or m.expires_at <= now())
-     and m.slots_taken > 0
+  update missions mm set status = 'conclusa'
+   where mm.status in ('aperta','completa','in_corso')
+     and (mm.slots_taken = mm.slots_total or mm.expires_at <= now())
+     and mm.slots_taken > 0
      and not exists (select 1 from mission_assignments x
-                     where x.mission_id = m.id and x.status <> 'conclusa');
+                     where x.mission_id = mm.id and x.status <> 'conclusa');
   update missions set status = 'scaduta'
    where status = 'aperta' and expires_at <= now() and slots_taken = 0;
 

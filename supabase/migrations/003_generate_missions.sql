@@ -9,7 +9,7 @@ declare
                 or extract(hour from now() at time zone 'Europe/Rome') < 6;
   r numeric; t record; z record;
 begin
-  select count(*) into open_count from missions where status = 'aperta';
+  select count(*) into open_count from missions where status = 'aperta' and expires_at > now();
   to_create := least(3, 25 - open_count);
   if to_create <= 0 then return 0; end if;
 
