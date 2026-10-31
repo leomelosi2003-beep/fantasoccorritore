@@ -1,0 +1,4 @@
+# Su Render le inserisci quando crei il Blueprint (sono marcate sync: false)
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # segreta: solo sul server, mai nel frontend
+ANTHROPIC_API_KEY=sk-ant-...
