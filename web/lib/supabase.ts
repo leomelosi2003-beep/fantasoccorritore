@@ -1,25 +1,12 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-// L'URL del progetto non è segreto: se la variabile su Vercel manca o è sbagliata usiamo questo.
-const DEFAULT_URL = "https://saagkulmwofgvlssiucw.supabase.co";
+// URL del progetto e chiave publishable: entrambi pubblici per design,
+// la sicurezza la fanno le policy RLS e le funzioni RPC nel database.
+const URL = "https://saagkulmwofgvlssiucw.supabase.co";
+const KEY = "sb_publishable_g7clr76peeA2dkth4NzhJg_gDJODCZ2";
 
-const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const url = (rawUrl?.startsWith("https://") ? rawUrl : DEFAULT_URL).replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
-
-// Chiave publishable: pensata per il browser, la sicurezza la fanno le policy RLS.
-const key = "sb_publishable_g7clr76peeA2dkth4NzhJg_gDJODCZ2";
-
-// Se le variabili mancano mostriamo un messaggio chiaro invece di far crashare la pagina.
-export const configError: string | null = !url
-  ? "Manca NEXT_PUBLIC_SUPABASE_URL nelle Environment Variables di Vercel."
-  : !url.startsWith("https://")
-  ? "NEXT_PUBLIC_SUPABASE_URL deve iniziare con https:// (es. https://abcd.supabase.co)."
-  : !key
-  ? "Manca NEXT_PUBLIC_SUPABASE_ANON_KEY nelle Environment Variables di Vercel."
-  : null;
-
-// Solo chiave ANON nel frontend: la sicurezza la fanno RLS e le RPC.
-export const supabase: SupabaseClient | null = configError ? null : createClient(url!, key!);
+export const supabase = createClient(URL, KEY);
+export const configError: string | null = null;
 
 export type MissionPin = {
   id: string;
@@ -33,3 +20,39 @@ export type MissionPin = {
   lat: number;
   lng: number;
 };
+
+export type BasePin = {
+  id: string;
+  org_id: string;
+  name: string;
+  level: number;
+  is_headquarters: boolean;
+  org_name: string;
+  org_type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
+  lat: number;
+  lng: number;
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
+  funds: number;
+  reputation: number;
+};
+
+// Traduce i codici di errore del database in messaggi leggibili
+export function friendlyError(msg: string): string {
+  const map: Record<string, string> = {
+    "Invalid login credentials": "Email o password sbagliate.",
+    "User already registered": "Esiste già un account con questa email.",
+    "Email not confirmed": "Devi prima confermare l'email (controlla la posta).",
+    "TOO_CLOSE_TO_OWN_BASE": "Troppo vicina a un'altra tua sede (minimo 3 km).",
+    "INSUFFICIENT_FUNDS": "Fondi insufficienti.",
+  };
+  for (const k of Object.keys(map)) if (msg.includes(k)) return map[k];
+  if (msg.includes("organizations_owner_id_key")) return "Hai già creato la tua associazione.";
+  if (msg.includes("organizations_name_check")) return "Il nome deve avere tra 3 e 60 caratteri.";
+  if (msg.toLowerCase().includes("password")) return "La password deve avere almeno 6 caratteri.";
+  return msg;
+}
