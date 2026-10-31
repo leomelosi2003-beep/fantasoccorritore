@@ -17,6 +17,7 @@ export type MissionPin = {
   reward_funds: number;
   expires_at: string;
   status: string;
+  requires: string[];
   lat: number;
   lng: number;
 };

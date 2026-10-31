@@ -8,6 +8,8 @@ import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 
+const REQ: Record<string, string> = { ecg: "cardiomonitor (ECG)", spinale: "tavola spinale", defib: "defibrillatore" };
+
 const CODE_COLOR: Record<MissionPin["code"], string> = {
   nessuno: "#3B82F6", verde: "#16A34A", giallo: "#EAB308", rosso: "#DC2626",
 };
@@ -125,7 +127,8 @@ export default function GameMap() {
                         pathOptions={{ color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
             <Popup>
               <strong>{m.title}</strong><br />
-              Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds} €<br />
+              Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
+              {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
               Scade: {new Date(m.expires_at).toLocaleTimeString("it-IT")}
             </Popup>
           </CircleMarker>
