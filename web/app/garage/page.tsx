@@ -11,7 +11,7 @@ type Model = { id: string; name: string; base_cost: number; speed_factor: number
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: Slot; name: string; cost: number; provides: string[];
-  effects: { reward_mult?: number; on?: string; fatigue_mult?: number }; description: string | null; image_url: string | null; sort: number };
+  effects: { reward_mult?: number; on?: string; fatigue_mult?: number }; description: string | null; image_url: string | null; sort: number; starter: boolean };
 type Slot = "monitor" | "barella" | "massaggiatore" | "spinale" | "borsoni";
 type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean };
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
@@ -104,7 +104,9 @@ export default function Garage() {
   const model = models.find((m) => m.id === modelId);
   const builder = builders.find((b) => b.id === builderId);
   const pickedCodes = Object.values(picked).filter(Boolean) as string[];
-  const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + e.cost, 0);
+  const firstVehicle = vehicles.length === 0;
+  const priceOf = (e: Equip) => (firstVehicle && e.starter ? 0 : e.cost);
+  const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
   const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
   const ready = !!model && !!builder && !!picked.monitor && !!picked.barella;
   const caps = Array.from(new Set(equip.filter((e) => pickedCodes.includes(e.code)).flatMap((e) => e.provides)));
@@ -118,7 +120,9 @@ export default function Garage() {
 
   function openShop() {
     setShop(true); setMsg(null); setModelId(null); setBuilderId(null);
-    setPicked({ monitor: "dae", barella: "barella_std", borsoni: "borsoni" });
+    setPicked(vehicles.length === 0
+      ? { monitor: "dae", barella: "barella_std", borsoni: "borsoni", spinale: "spinale" }
+      : { monitor: "dae", barella: "barella_std", borsoni: "borsoni" });
     setCallSign(`Alfa ${vehicles.length + 1}`);
   }
 
@@ -216,6 +220,12 @@ export default function Garage() {
             </div>
 
             <h3 style={{ marginBottom: 8 }}>3. Presidi</h3>
+            {firstVehicle && (
+              <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
+                🎁 <strong>Primo mezzo:</strong> DAE, barella standard, borsoni e tavola spinale sono inclusi gratis.
+                Se vuoi qualcosa di meglio, gli upgrade si pagano.
+              </div>
+            )}
             {SLOTS.map(({ slot, title, required }) => {
               const opts = equip.filter((e) => e.slot === slot);
               return (
@@ -239,7 +249,9 @@ export default function Garage() {
                         {e.image_url && <img src={e.image_url} alt="" style={{ height: 48, objectFit: "contain" }} />}
                         <div style={{ fontWeight: 700 }}>{e.name}</div>
                         <div style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>{e.description}</div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{euro(e.cost)}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: priceOf(e) === 0 ? "#166534" : undefined }}>
+                          {priceOf(e) === 0 ? "Incluso" : euro(e.cost)}
+                        </div>
                       </button>
                     ))}
                   </div>
