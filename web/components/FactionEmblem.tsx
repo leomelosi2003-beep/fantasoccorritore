@@ -13,14 +13,14 @@ export default function FactionEmblem({
   const svg = { width: size, height: size, viewBox: "0 0 100 100", role: "img" as const };
 
   if (type === "blu_giallo") {
-    // Scudo blu con bordo giallo e "M."
+    // Scudo blu con bordo giallo e "M"
     return (
-      <svg {...svg} aria-label="M.">
+      <svg {...svg} aria-label="M">
         <path d="M50 4 L90 16 V48 C90 72 72 88 50 96 C28 88 10 72 10 48 V16 Z" fill="#1E3A8A" />
         <path d="M50 11 L83 21 V48 C83 67 69 81 50 88 C31 81 17 67 17 48 V21 Z"
               fill="none" stroke="#FACC15" strokeWidth="2.5" />
-        <text x="50" y="64" textAnchor="middle" fontFamily="Georgia, serif"
-              fontSize="38" fontWeight="700" fill="#FACC15">M.</text>
+        <text x="50" y="66" textAnchor="middle" fontFamily="Georgia, serif"
+              fontSize="44" fontWeight="700" fill="#FACC15">M</text>
       </svg>
     );
   }
