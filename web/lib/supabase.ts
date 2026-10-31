@@ -6,11 +6,8 @@ const DEFAULT_URL = "https://saagkulmwofgvlssiucw.supabase.co";
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const url = (rawUrl?.startsWith("https://") ? rawUrl : DEFAULT_URL).replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 
-// Se per errore URL e chiave sono stati scambiati su Vercel, recuperiamo la chiave dall'altra variabile.
-const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-const key = envKey && !envKey.startsWith("http") ? envKey
-          : rawUrl && !rawUrl.startsWith("http") ? rawUrl
-          : envKey;
+// Chiave publishable: pensata per il browser, la sicurezza la fanno le policy RLS.
+const key = "sb_publishable_g7clr76peeA2dkth4NzhJg_gDJODCZ2";
 
 // Se le variabili mancano mostriamo un messaggio chiaro invece di far crashare la pagina.
 export const configError: string | null = !url
