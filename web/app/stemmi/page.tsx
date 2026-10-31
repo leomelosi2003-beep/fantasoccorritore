@@ -1,22 +1,28 @@
-import FactionEmblem from "@/components/FactionEmblem";
+import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 
-const ITEMS = [
-  { type: "pubblica_assistenza", label: "Pubblica Assistenza" },
-  { type: "misericordia", label: "Misericordia" },
-  { type: "croce_rossa", label: "Croce Rossa" },
-  { type: "custom", label: "Personalizzata (es. \"Soccorso Labronico\")", name: "Soccorso Labronico" },
-] as const;
+// Anteprima: ogni stile con un nome di esempio (nel gioco il nome lo sceglie il giocatore)
+const EXAMPLES: Record<string, string> = {
+  blu_giallo: "Soccorso Labronico",
+  arancio_nero: "Volontari Ardenza",
+  rosso_bianco: "Emergenza Montenero",
+};
 
 export default function Stemmi() {
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", padding: 24, background: "#f6f6f4", minHeight: "100vh" }}>
-      <h1 style={{ marginTop: 0 }}>Stemmi delle fazioni</h1>
+      <h1 style={{ marginTop: 0 }}>Stili delle associazioni</h1>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
-        {ITEMS.map((it) => (
-          <div key={it.type} style={{ background: "#fff", borderRadius: 12, padding: 20, textAlign: "center",
-                                      boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
-            <FactionEmblem type={it.type} size={120} name={"name" in it ? it.name : ""} />
-            <div style={{ marginTop: 12, fontWeight: 600 }}>{it.label}</div>
+        {FACTION_STYLES.map((s) => (
+          <div key={s.type} style={{ background: "#fff", borderRadius: 12, padding: 20, textAlign: "center",
+                                     boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+            <FactionEmblem type={s.type} name={EXAMPLES[s.type]} size={120} />
+            <div style={{ marginTop: 12, fontWeight: 600 }}>{EXAMPLES[s.type]}</div>
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8 }}>
+              {s.colors.map((c) => (
+                <span key={c} style={{ width: 18, height: 18, borderRadius: 9, background: c,
+                                       border: "1px solid #ccc" }} />
+              ))}
+            </div>
           </div>
         ))}
       </div>
