@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
-import { renderToStaticMarkup } from "react-dom/server";
 import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
-import FactionEmblem from "@/components/FactionEmblem";
+import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 
 const CODE_COLOR: Record<MissionPin["code"], string> = {
   nessuno: "#3B82F6", verde: "#16A34A", giallo: "#EAB308", rosso: "#DC2626",
@@ -15,7 +14,7 @@ const CODE_COLOR: Record<MissionPin["code"], string> = {
 
 // Icona della sede: lo stemma della fazione su un cerchio bianco
 function baseIcon(type: BasePin["org_type"], mine: boolean) {
-  const svg = renderToStaticMarkup(<FactionEmblem type={type} size={mine ? 34 : 26} />);
+  const svg = emblemSvg(type, mine ? 30 : 22);
   const s = mine ? 44 : 34;
   return L.divIcon({
     className: "",

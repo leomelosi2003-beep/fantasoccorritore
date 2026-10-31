@@ -7,6 +7,24 @@ export const FACTION_STYLES: { type: FactionStyle; colors: string[] }[] = [
   { type: "rosso_bianco", colors: ["#DC2626", "#FFFFFF"] },
 ];
 
+// Stessi stemmi come stringa SVG, per le icone dei marker della mappa (Leaflet vuole HTML)
+const INNER: Record<FactionStyle, string> = {
+  blu_giallo:
+    '<path d="M50 4 L90 16 V48 C90 72 72 88 50 96 C28 88 10 72 10 48 V16 Z" fill="#1E3A8A"/>' +
+    '<path d="M50 11 L83 21 V48 C83 67 69 81 50 88 C31 81 17 67 17 48 V21 Z" fill="none" stroke="#FACC15" stroke-width="2.5"/>' +
+    '<text x="50" y="66" text-anchor="middle" font-family="Georgia, serif" font-size="44" font-weight="700" fill="#FACC15">M</text>',
+  arancio_nero:
+    '<circle cx="50" cy="50" r="47" fill="#111111"/><circle cx="50" cy="50" r="40" fill="#F97316"/>' +
+    '<circle cx="50" cy="50" r="34" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>' +
+    '<text x="50" y="59" text-anchor="middle" font-family="Georgia, serif" font-size="26" font-weight="700" fill="#FFFFFF" stroke="#111111" stroke-width="1.2" paint-order="stroke">P.A.</text>',
+  rosso_bianco:
+    '<rect x="38" y="14" width="24" height="72" fill="#DC2626"/><rect x="14" y="38" width="72" height="24" fill="#DC2626"/>',
+};
+
+export function emblemSvg(type: FactionStyle, size: number): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">${INNER[type]}</svg>`;
+}
+
 export default function FactionEmblem({
   type, size = 96,
 }: { type: FactionStyle; size?: number }) {
