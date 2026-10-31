@@ -86,6 +86,9 @@ export default function GameMap() {
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{org.name}</div>
                 <div style={{ fontSize: 12, color: "#555" }}>{org.funds.toLocaleString("it-IT")} € · ⭐ {org.reputation}</div>
               </div>
+              <button onClick={() => router.push("/garage")}
+                      style={{ border: "none", background: "#F97316", color: "#fff", borderRadius: 8,
+                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🚑 Garage</button>
               <button onClick={logout} style={{ border: "none", background: "#eee", borderRadius: 8,
                                                 padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>Esci</button>
             </>
