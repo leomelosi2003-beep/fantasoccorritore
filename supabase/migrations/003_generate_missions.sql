@@ -51,7 +51,7 @@ begin
                                     z.lat + (random() - 0.5) * 0.027), 4326)::geography,
             t.slots, t.roles, t.cert, t.dur, t.fat, t.reward,
             case when t.code = 'rosso' then 5 else 1 end,
-            now() + make_interval(mins => t.ttl), 'scheduler');
+            now() + interval '5 minutes', 'scheduler');  -- tutti i servizi scadono dopo 5 minuti
     n := n + 1;
   end loop;
   return n;
