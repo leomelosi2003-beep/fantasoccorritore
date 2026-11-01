@@ -1,0 +1,2 @@
+-- Posizione dei servizi: 40% Pisa (entro 9 km dal centro), 40% Livorno (entro 9 km), 13% paesi intorno, 7% ovunque.
+-- (patch del blocco "z := null; got := false;" ... "insert into missions" in generate_missions(); vedi SQL applicato)
