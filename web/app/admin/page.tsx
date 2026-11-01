@@ -24,6 +24,24 @@ const EMPTY = {
   pros: "", cons: "", night_fatigue: 0, rosso_fatigue: 0, contract_days: "", is_pack_eligible: true,
 };
 
+// Ritaglia la foto al centro in un quadrato 512×512 e la comprime in JPEG prima di caricarla
+async function squareJpeg(file: File): Promise<Blob> {
+  const img = await createImageBitmap(file);
+  const side = Math.min(img.width, img.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  canvas.getContext("2d")!.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 512, 512);
+  return new Promise((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("Immagine non valida"))), "image/jpeg", 0.85));
+}
+
+async function uploadPhoto(file: File): Promise<string> {
+  const blob = await squareJpeg(file);
+  const path = `${crypto.randomUUID()}.jpg`;
+  const up = await supabase.storage.from("volunteer-photos").upload(path, blob, { contentType: "image/jpeg" });
+  if (up.error) throw up.error;
+  return supabase.storage.from("volunteer-photos").getPublicUrl(path).data.publicUrl;
+}
+
 export default function Admin() {
   const router = useRouter();
   const [ok, setOk] = useState<boolean | null>(null);
@@ -34,6 +52,7 @@ export default function Admin() {
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("volunteers").select("*").order("created_at", { ascending: false });
@@ -52,23 +71,34 @@ export default function Admin() {
 
   function set<K extends keyof typeof EMPTY>(k: K, v: (typeof EMPTY)[K]) { setF((x) => ({ ...x, [k]: v })); }
 
-  function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
+  function usePhoto(file: File | null) {
+    if (file && !file.type.startsWith("image/")) { setMsg({ ok: false, text: "Il file deve essere un'immagine." }); return; }
     setPhoto(file);
     setPreview(file ? URL.createObjectURL(file) : null);
+  }
+  function pickPhoto(e: ChangeEvent<HTMLInputElement>) { usePhoto(e.target.files?.[0] ?? null); e.target.value = ""; }
+
+  async function changePhoto(v: Vol, file: File | undefined) {
+    if (!file) return;
+    setMsg(null);
+    try {
+      const url = await uploadPhoto(file);
+      const { error } = await supabase.from("volunteers").update({ avatar_url: url }).eq("id", v.id);
+      if (error) throw error;
+      setMsg({ ok: true, text: `Foto di ${v.first_name} ${v.last_name} aggiornata.` });
+      load();
+    } catch (e) { setMsg({ ok: false, text: friendlyError((e as Error).message) }); }
+  }
+
+  async function clearPhoto(v: Vol) {
+    await supabase.from("volunteers").update({ avatar_url: null }).eq("id", v.id);
+    load();
   }
 
   async function save() {
     setBusy(true); setMsg(null);
     try {
-      let avatar_url: string | null = null;
-      if (photo) {
-        const ext = photo.name.split(".").pop()?.toLowerCase() || "jpg";
-        const path = `${crypto.randomUUID()}.${ext}`;
-        const up = await supabase.storage.from("volunteer-photos").upload(path, photo, { contentType: photo.type });
-        if (up.error) throw up.error;
-        avatar_url = supabase.storage.from("volunteer-photos").getPublicUrl(path).data.publicUrl;
-      }
+      const avatar_url = photo ? await uploadPhoto(photo) : null;
       const { data: { session } } = await supabase.auth.getSession();
       const mods: Record<string, number> = {};
       if (f.night_fatigue) mods.night_fatigue = f.night_fatigue;
@@ -177,13 +207,30 @@ export default function Admin() {
             <input type="range" min={-0.4} max={0.4} step={0.05} value={f.rosso_fatigue}
                    onChange={(e) => set("rosso_fatigue", Number(e.target.value))} style={{ width: "100%" }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div><label style={lbl}>Durata contratto (giorni)</label>
-                <input style={inp} type="number" min={1} value={f.contract_days} onChange={(e) => set("contract_days", e.target.value)}
-                       placeholder={f.rarity === "comune" ? "7" : f.rarity === "epica" ? "21" : "42"} /></div>
-              <div><label style={lbl}>Foto</label>
-                <input type="file" accept="image/*" onChange={pickPhoto} style={{ fontSize: 13 }} /></div>
-            </div>
+            <label style={lbl}>Durata contratto (giorni)</label>
+            <input style={inp} type="number" min={1} value={f.contract_days} onChange={(e) => set("contract_days", e.target.value)}
+                   placeholder={f.rarity === "comune" ? "7" : f.rarity === "epica" ? "21" : "42"} />
+
+            <label style={lbl}>Foto del soccorritore</label>
+            <label onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                   onDragLeave={() => setDragOver(false)}
+                   onDrop={(e) => { e.preventDefault(); setDragOver(false); usePhoto(e.dataTransfer.files?.[0] ?? null); }}
+                   style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 12, cursor: "pointer",
+                            border: `2px dashed ${dragOver ? "#F97316" : "#ccc"}`, background: dragOver ? "#FFF7ED" : "#fafafa" }}>
+              {preview
+                ? <img src={preview} alt="" style={{ width: 72, height: 72, borderRadius: 12, objectFit: "cover" }} />
+                : <div style={{ width: 72, height: 72, borderRadius: 12, background: "#eee", display: "flex",
+                                alignItems: "center", justifyContent: "center", fontSize: 30 }}>📷</div>}
+              <div style={{ fontSize: 13, color: "#555", flex: 1 }}>
+                {preview ? "Clicca per cambiarla" : "Trascina qui la foto oppure clicca per sceglierla"}
+                <div style={{ fontSize: 12, color: "#888" }}>Viene ritagliata quadrata al centro. Senza foto si usa l&apos;avatar disegnato.</div>
+              </div>
+              <input type="file" accept="image/*" onChange={pickPhoto} style={{ display: "none" }} />
+            </label>
+            {preview && (
+              <button type="button" onClick={() => usePhoto(null)}
+                      style={{ ...btn, background: "#eee", color: "#111", fontSize: 12, padding: "6px 10px", marginTop: 6 }}>Rimuovi foto</button>
+            )}
 
             <label style={{ ...lbl, display: "flex", gap: 8, alignItems: "center" }}>
               <input type="checkbox" checked={f.is_pack_eligible} onChange={(e) => set("is_pack_eligible", e.target.checked)} />
@@ -217,6 +264,15 @@ export default function Admin() {
                                                            background: v.is_pack_eligible ? "#16A34A" : "#9CA3AF" }}>
                   {v.is_pack_eligible ? "Nei pacchetti" : "Fuori dai pacchetti"}
                 </button>
+                <label style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#1E3A8A" }} title="Cambia foto">
+                  📷
+                  <input type="file" accept="image/*" style={{ display: "none" }}
+                         onChange={(e) => { changePhoto(v, e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+                {v.avatar_url && (
+                  <button onClick={() => clearPhoto(v)} title="Togli foto"
+                          style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#9CA3AF" }}>✕📷</button>
+                )}
                 {v.source === "admin" && (
                   <button onClick={() => remove(v)} style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#DC2626" }}>Elimina</button>
                 )}
