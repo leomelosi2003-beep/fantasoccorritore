@@ -90,12 +90,12 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
     return { v, color: "#15803D", text: `✅ Libera in sede${v.base_name ? ` · ${v.base_name}` : ""}`, timer: null, order: 1 };
   }).sort((a, b) => a.order - b.order || (a.v.call_sign > b.v.call_sign ? 1 : -1));
 
-  const busy = rows.filter((r) => r.order === 0).length;
+  const inService = rows.filter((r) => r.order === 0).length;
 
   return (
     <div className="fs-fleet">
       <button className="fs-fleet-btn" onClick={() => setOpen(!open)}>
-        🚑 Mezzi <strong>{rows.length - busy}</strong>/{rows.length} liberi {open ? "▲" : "▼"}
+        🚑 Mezzi <strong>{rows.length - inService}</strong>/{rows.length} liberi {open ? "▲" : "▼"}
       </button>
       {open && (
         <div className="fs-fleet-list">
