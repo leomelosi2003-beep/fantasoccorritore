@@ -8,6 +8,7 @@ export type Card = {
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
   avanzato?: boolean; lent_to?: string | null; lent_from?: string | null;
+  training_until?: string | null; promoted?: boolean;
 };
 
 export const ROLE: Record<Card["role"], { label: string; icon: string }> = {
@@ -29,6 +30,8 @@ export const RARITY: Record<Card["rarity"], { label: string; border: string; glo
 function stateLabel(c: Card) {
   if (c.state === "scaduta") return { text: "Contratto scaduto", color: "#6B7280" };
   if (c.state === "in_servizio") return { text: "In servizio", color: "#2563EB" };
+  if (c.training_until && new Date(c.training_until) > new Date())
+    return { text: `📚 Corso fino alle ${new Date(c.training_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`, color: "#7C3AED" };
   if (c.state === "riposo" && c.rest_until && new Date(c.rest_until) > new Date())
     return { text: `Riposo fino alle ${new Date(c.rest_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`, color: "#A16207" };
   return { text: "Pronto", color: "#16A34A" };
@@ -71,6 +74,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
           <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.15 }}>{c.first_name} {c.last_name}</div>
           {c.nickname && <div style={{ fontSize: 12, color: "#666", fontStyle: "italic" }}>“{c.nickname}”</div>}
           <div style={{ fontSize: 12, marginTop: 2 }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
+          {c.promoted && <div style={{ fontSize: 11, color: "#7C3AED", fontWeight: 700 }}>🎓 Promosso con il corso</div>}
           {c.lent_to && <div style={{ fontSize: 11, color: "#B45309", fontWeight: 700 }}>🤝 Prestato a {c.lent_to}</div>}
           {c.lent_from && <div style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>🤝 In prestito da {c.lent_from}</div>}
         </div>

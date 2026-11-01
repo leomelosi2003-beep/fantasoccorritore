@@ -39,6 +39,23 @@ export default function Squadra() {
 
   useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
 
+  // Corso di formazione: avanzato → caposervizio
+  async function upgrade(c: Card) {
+    if (!window.confirm(`Mandare ${c.first_name} ${c.last_name} al corso da caposervizio?\n\nCosto 8.000 €. Il corso dura 1 ora, poi è caposervizio per sempre.`)) return;
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("training_course", { p_card: c.id });
+    setBusy(false);
+    if (error) {
+      const m = error.message;
+      setError(m.includes("INSUFFICIENT_FUNDS") ? "Servono 8.000 € per il corso."
+        : m.includes("CARD_BUSY") ? "È in servizio: aspetta che rientri."
+        : m.includes("CARD_LENT") ? "È in prestito a un alleato: riprendilo prima."
+        : friendlyError(m));
+      return;
+    }
+    await load();
+  }
+
   async function openPack() {
     setBusy(true); setError(null);
     const { data, error } = await supabase.rpc("open_weekly_pack");
@@ -118,7 +135,17 @@ export default function Squadra() {
             Nessun volontario. Apri il pacchetto per formare la tua prima squadra!
           </div>
         ) : (
-          <div style={grid}>{active.map((c) => <VolunteerCard key={c.id} c={c} />)}</div>
+          <div style={grid}>{active.map((c) => (
+            <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <VolunteerCard c={c} />
+              {c.role === "soccorritore_avanzato" && !c.lent_from && !c.lent_to && (
+                <button disabled={busy || c.state === "in_servizio"} onClick={() => upgrade(c)}
+                        style={{ ...btn, background: "#7C3AED", fontSize: 13, padding: "8px 10px", opacity: c.state === "in_servizio" ? 0.5 : 1 }}>
+                  📚 Migliora con un corso di formazione · 8.000 €
+                </button>
+              )}
+            </div>
+          ))}</div>
         )}
 
         {expired.length > 0 && (
