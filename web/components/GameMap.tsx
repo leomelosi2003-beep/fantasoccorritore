@@ -173,6 +173,9 @@ export default function GameMap() {
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
   const [notes, setNotes] = useState<{ id: string; text: string }[]>([]);
+  const [moneyPops, setMoneyPops] = useState<{ key: number; amount: number; label: string }[]>([]);
+  const [shownFunds, setShownFunds] = useState<number | null>(null);
+  const [fundsFlash, setFundsFlash] = useState(false);
   const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -212,7 +215,9 @@ export default function GameMap() {
       const list = (data as Assignment[]) ?? [];
       for (const a of list) {
         if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
-          showToast(`✅ ${a.call_sign} di nuovo disponibile: ${a.title.split(" — ")[0]} · +${(a.reward_funds ?? 0).toLocaleString("it-IT")} €`);
+          const amount = a.reward_funds ?? 0, key = Date.now() + Math.random();
+          setMoneyPops((p) => [...p, { key, amount, label: `${a.call_sign} · ${a.title.split(" — ")[0]}` }]);
+          setTimeout(() => setMoneyPops((p) => p.filter((x) => x.key !== key)), 3200);
           refreshOrg();
         }
       }
@@ -228,6 +233,28 @@ export default function GameMap() {
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, []);
+
+  // I soldi in alto salgono contando, con un lampo verde quando entrano
+  useEffect(() => {
+    if (!org) return;
+    const target = org.funds;
+    setShownFunds((from) => {
+      if (from === null || from === target) return target;
+      if (target > from) {
+        const start = performance.now(), dur = 1400, base = from;
+        setFundsFlash(true);
+        setTimeout(() => setFundsFlash(false), 1800);
+        const step = (t: number) => {
+          const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
+          setShownFunds(Math.round(base + (target - base) * e));
+          if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+        return from;
+      }
+      return target;
+    });
+  }, [org?.funds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Richieste e proposte per me (inviti in alleanza, offerte di acquisto): controllo ogni 20 secondi
   useEffect(() => {
@@ -320,7 +347,7 @@ export default function GameMap() {
             <FactionEmblem type={org.type} size={34} logo={org.logo_url} />
             <span className="fs-pill-text">
               <span className="fs-name">{org.name}</span>
-              <span className="fs-money">💶 {org.funds.toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
+              <span className={`fs-money${fundsFlash ? " fs-money-flash" : ""}`}>💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
             </span>
           </button>
         ) : loggedIn === false ? (
@@ -351,6 +378,19 @@ export default function GameMap() {
           ))}
         </div>
       )}
+
+      {/* Soldi che entrano: monete che volano e cifra grande */}
+      {moneyPops.map((p, i) => (
+        <div key={p.key} className="fs-pop" style={{ top: `${18 + i * 9}%` }}>
+          <div className="fs-pop-coins">
+            {Array.from({ length: 9 }).map((_, j) => (
+              <span key={j} style={{ ["--dx" as string]: `${(j - 4) * 26}px`, ["--d" as string]: `${j * 60}ms` }}>{j % 3 === 0 ? "💶" : "🪙"}</span>
+            ))}
+          </div>
+          <div className="fs-pop-amount">+{p.amount.toLocaleString("it-IT")} €</div>
+          <div className="fs-pop-label">✅ {p.label}</div>
+        </div>
+      ))}
 
       {/* Chat tra giocatori */}
       {org && <ChatPanel orgId={org.id} />}
@@ -520,7 +560,26 @@ export default function GameMap() {
           max-width: 100%; font-family: inherit; }
         .fs-pill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
         .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; }
-        .fs-money { font-size: 15px; font-weight: 700; color: #15803D; white-space: nowrap; }
+        .fs-money { font-size: 15px; font-weight: 700; color: #15803D; white-space: nowrap; transition: transform .2s; display: inline-block; }
+        .fs-money-flash { animation: money-flash 1.8s ease-out; }
+        @keyframes money-flash { 0% { transform: scale(1); text-shadow: none }
+          15% { transform: scale(1.25); text-shadow: 0 0 12px #22C55E; color: #16A34A }
+          60% { transform: scale(1.1); text-shadow: 0 0 8px #22C55E } 100% { transform: scale(1); text-shadow: none } }
+        .fs-pop { position: absolute; z-index: 1300; left: 50%; transform: translateX(-50%); pointer-events: none; text-align: center;
+          animation: pop-rise 3.2s ease-out forwards; }
+        .fs-pop-amount { font-size: 46px; font-weight: 900; color: #16A34A; -webkit-text-stroke: 2px #fff;
+          text-shadow: 0 4px 14px rgba(0,0,0,.35); letter-spacing: -1px; }
+        .fs-pop-label { display: inline-block; margin-top: 2px; background: rgba(17,17,17,.85); color: #fff; font-weight: 700;
+          font-size: 13px; padding: 4px 10px; border-radius: 999px; }
+        .fs-pop-coins { position: relative; height: 34px; }
+        .fs-pop-coins span { position: absolute; left: 50%; top: 10px; font-size: 26px; opacity: 0;
+          animation: coin-burst 1.6s ease-out var(--d) forwards; }
+        @keyframes coin-burst { 0% { transform: translate(-50%, 30px) scale(.4); opacity: 0 }
+          25% { opacity: 1 } 70% { transform: translate(calc(-50% + var(--dx)), -40px) scale(1.1) rotate(25deg); opacity: 1 }
+          100% { transform: translate(calc(-50% + var(--dx)), -10px) scale(.9) rotate(40deg); opacity: 0 } }
+        @keyframes pop-rise { 0% { transform: translate(-50%, 30px) scale(.6); opacity: 0 }
+          12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
+          80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
         .fs-nav { position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 6px; }
         .fs-btn { border: none; color: #fff; border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px;
