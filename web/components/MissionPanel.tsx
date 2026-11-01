@@ -136,7 +136,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const crewCards = cards.filter((c) => crew.includes(c.id));
   const missing = roleCheck(required, crewCards);
   const secondsLeft = Math.max(0, Math.floor((new Date(mission.expires_at).getTime() - now) / 1000));
-  const full = mission.slots_taken >= mission.slots_total;
+  // corsa al servizio: posti pieni ma nessuno ancora arrivato → si può partire lo stesso, vince chi arriva prima
+  const contest = !!mission.contestable;
+  const full = mission.slots_taken >= mission.slots_total && !contest;
 
   const available = useMemo(() => cards.filter(ready).sort((a, b) => b.energy - a.energy), [cards]);
   const unavailable = cards.filter((c) => !ready(c));
@@ -186,7 +188,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     onClaimed(`🚑 ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
   }
 
-  const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && secondsLeft > 0 && !full;
+  const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest) && !full;
   const isEvent = mission.category === "grande_evento";
   const code = isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
@@ -207,11 +209,26 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 14, flexWrap: "wrap" }}>
           <span>💶 {mission.reward_funds.toLocaleString("it-IT")} €</span>
           <span>🚑 {mission.slots_taken}/{mission.slots_total} mezzi</span>
-          <span>⏱️ {secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}` : "scaduto"}</span>
+          <span>⏱️ {contest ? "corsa in atto" : secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}` : "scaduto"}</span>
         </div>
       </div>
 
       <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
+        {contest && (() => {
+          const theirs = mission.first_arrival ? new Date(mission.first_arrival) : null;
+          const mine = eta ? new Date(now + eta.minutes * 60000) : null;
+          const ahead = theirs && mine ? mine < theirs : null;
+          return (
+            <div style={{ background: "#FFF7ED", border: "2px solid #F97316", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
+              <strong>⚔️ Servizio già preso da un'altra ambulanza</strong><br />
+              Nessuno è ancora arrivato: se arrivi prima tu, il servizio è tuo. Chi arriva dopo torna in sede senza premio.
+              {theirs && <><br />🏁 Loro arrivano alle <strong>{theirs.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong></>}
+              {mine && <> · tu alle <strong>{mine.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong></>}
+              {ahead !== null && <><br /><strong style={{ color: ahead ? "#15803D" : "#B91C1C" }}>{ahead ? "✅ Arriveresti prima tu!" : "❌ Arriveresti dopo di loro"}</strong></>}
+            </div>
+          );
+        })()}
+
         {/* Requisiti */}
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
           <strong>Equipaggio:</strong>{" "}
@@ -291,7 +308,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {error && <div style={{ color: "#B91C1C", fontSize: 14, marginBottom: 8 }}>{error}</div>}
         <button onClick={claim} disabled={!canGo}
                 style={{ ...btn, width: "100%", padding: 14, fontSize: 17, background: code.color, opacity: canGo ? 1 : 0.4 }}>
-          {busy ? "Invio…" : full ? "Servizio già coperto" : secondsLeft <= 0 ? "Servizio scaduto" : isEvent ? "🏟️ Vai in postazione" : "🚨 Parti!"}
+          {busy ? "Invio…" : full ? "Servizio già coperto" : contest ? "⚔️ Parti e arriva primo!" : secondsLeft <= 0 ? "Servizio scaduto" : isEvent ? "🏟️ Vai in postazione" : "🚨 Parti!"}
         </button>
       </div>
     </div>

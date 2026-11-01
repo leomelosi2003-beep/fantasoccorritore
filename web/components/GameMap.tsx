@@ -216,6 +216,9 @@ export default function GameMap() {
       const { data } = await supabase.from("my_assignments").select("*");
       const list = (data as Assignment[]) ?? [];
       for (const a of list) {
+        if (prev.get(a.id) && prev.get(a.id) !== "annullata" && prev.get(a.id) !== "conclusa" && a.status === "annullata") {
+          showToast(`⚔️ ${a.call_sign}: servizio perso, un'altra ambulanza è arrivata prima. Rientra in sede.`);
+        }
         if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
           const amount = a.reward_funds ?? 0, key = Date.now() + Math.random();
           setMoneyPops((p) => [...p, { key, amount, label: `${a.call_sign} · ${a.title.split(" — ")[0]}` }]);
@@ -485,8 +488,10 @@ export default function GameMap() {
         ))}
 
         {missions.filter((m) => m.category !== "grande_evento").map((m) => (
-          <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={10}
-                        pathOptions={{ color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
+          <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={m.contestable ? 12 : 10}
+                        pathOptions={m.contestable
+                          ? { color: "#111", weight: 3, dashArray: "4 4", fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
+                          : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
             <Popup>
               <strong>{m.title}</strong><br />
               {m.description && <>{m.description}<br /></>}
@@ -498,6 +503,14 @@ export default function GameMap() {
                   <button onClick={() => setSelected(m)}
                           style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
                                    background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
+                </div>
+              )}
+              {org && m.contestable && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>⚔️ Già preso, ma nessuno è ancora arrivato: chi arriva primo vince!</div>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "2px dashed #111", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                   background: "#F97316", color: "#fff", fontWeight: 800 }}>⚔️ Contendi il servizio</button>
                 </div>
               )}
             </Popup>

@@ -25,6 +25,8 @@ export type MissionPin = {
   venue?: string | null;
   event_id?: string | null;
   event_ends_at?: string | null;
+  contestable?: boolean;
+  first_arrival?: string | null;
   lat: number;
   lng: number;
 };
