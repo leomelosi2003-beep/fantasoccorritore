@@ -11,6 +11,15 @@ const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
 const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
+// Corsi di formazione disponibili per ogni ruolo
+const COURSES: Record<string, { target: string; label: string; price: number }[]> = {
+  soccorritore_base: [
+    { target: "autista", label: "autista", price: 4000 },
+    { target: "soccorritore_avanzato", label: "soccorritore avanzato", price: 6000 },
+  ],
+  soccorritore_avanzato: [{ target: "caposervizio", label: "caposervizio", price: 8000 }],
+};
+
 const PACKS = [
   { kind: "comune", price: 3000, icon: "📦", leg: "2%", epi: "13%", note: "",
     bg: "linear-gradient(135deg,#4B5563,#1F2937)", glow: "0 2px 8px rgba(0,0,0,.15)" },
@@ -49,15 +58,15 @@ export default function Squadra() {
 
   useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
 
-  // Corso di formazione: avanzato → caposervizio
-  async function upgrade(c: Card) {
-    if (!window.confirm(`Mandare ${c.first_name} ${c.last_name} al corso da caposervizio?\n\nCosto 8.000 €. Il corso dura 1 ora, poi è caposervizio per sempre.`)) return;
+  // Corsi di formazione: base → autista o avanzato, avanzato → caposervizio
+  async function upgrade(c: Card, target: string, label: string, price: number) {
+    if (!window.confirm(`Mandare ${c.first_name} ${c.last_name} al corso da ${label}?\n\nCosto ${price.toLocaleString("it-IT")} €. Il corso dura 1 ora, poi è ${label} per sempre.`)) return;
     setBusy(true); setError(null);
-    const { error } = await supabase.rpc("training_course", { p_card: c.id });
+    const { error } = await supabase.rpc("training_course", { p_card: c.id, p_target: target });
     setBusy(false);
     if (error) {
       const m = error.message;
-      setError(m.includes("INSUFFICIENT_FUNDS") ? "Servono 8.000 € per il corso."
+      setError(m.includes("INSUFFICIENT_FUNDS") ? `Servono ${price.toLocaleString("it-IT")} € per il corso.`
         : m.includes("CARD_BUSY") ? "È in servizio: aspetta che rientri."
         : m.includes("CARD_LENT") ? "È in prestito a un alleato: riprendilo prima."
         : friendlyError(m));
@@ -202,12 +211,12 @@ export default function Squadra() {
           <div style={grid}>{active.map((c) => (
             <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <VolunteerCard c={c} />
-              {c.role === "soccorritore_avanzato" && !c.lent_from && !c.lent_to && (
-                <button disabled={busy || c.state === "in_servizio"} onClick={() => upgrade(c)}
+              {!c.lent_from && !c.lent_to && COURSES[c.role]?.map((k) => (
+                <button key={k.target} disabled={busy || c.state === "in_servizio"} onClick={() => upgrade(c, k.target, k.label, k.price)}
                         style={{ ...btn, background: "#7C3AED", fontSize: 13, padding: "8px 10px", opacity: c.state === "in_servizio" ? 0.5 : 1 }}>
-                  📚 Migliora con un corso di formazione · 8.000 €
+                  📚 Corso {k.label} · {k.price.toLocaleString("it-IT")} €
                 </button>
-              )}
+              ))}
             </div>
           ))}</div>
         )}
