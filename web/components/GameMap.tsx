@@ -91,6 +91,9 @@ export default function GameMap() {
               <button onClick={() => router.push("/garage")}
                       style={{ border: "none", background: "#F97316", color: "#fff", borderRadius: 8,
                                padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🚑 Garage</button>
+              <button onClick={() => router.push("/negozio")}
+                      style={{ border: "none", background: "#111", color: "#fff", borderRadius: 8,
+                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛒 Presidi</button>
               <button onClick={logout} style={{ border: "none", background: "#eee", borderRadius: 8,
                                                 padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>Esci</button>
             </>

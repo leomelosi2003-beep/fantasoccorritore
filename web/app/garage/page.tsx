@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
 import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
+import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null };
@@ -161,6 +162,7 @@ export default function Garage() {
             <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Garage · {org.name}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
           </div>
+          <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333" }}>🛒 Presidi</button>
           {!shop && <button onClick={openShop} style={{ ...btn, background: "#F97316" }}>+ Nuovo mezzo</button>}
         </div>
       </div>
@@ -246,7 +248,7 @@ export default function Garage() {
                       <button key={e.code} onClick={() => setPicked((p) => ({ ...p, [slot]: e.code }))}
                               style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
                                        border: picked[slot] === e.code ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                        {e.image_url && <img src={e.image_url} alt="" style={{ height: 48, objectFit: "contain" }} />}
+                        <EquipmentIcon code={e.code} url={e.image_url} size={48} />
                         <div style={{ fontWeight: 700 }}>{e.name}</div>
                         <div style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>{e.description}</div>
                         <div style={{ fontWeight: 700, fontSize: 14, color: priceOf(e) === 0 ? "#166534" : undefined }}>
@@ -314,7 +316,10 @@ export default function Garage() {
                   {v.equipment?.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "6px 0" }}>
                       {v.equipment.map((c) => (
-                        <span key={c} style={{ fontSize: 11, background: "#f0f0ec", borderRadius: 6, padding: "2px 6px" }}>{eqName(c)}</span>
+                        <span key={c} title={eqName(c)} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11,
+                                                                 background: "#f0f0ec", borderRadius: 6, padding: "2px 6px" }}>
+                          <EquipmentIcon code={c} url={equip.find((e) => e.code === c)?.image_url} size={18} />{eqName(c)}
+                        </span>
                       ))}
                     </div>
                   )}
