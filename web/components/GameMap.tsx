@@ -24,6 +24,7 @@ function alongRoute(route: RoutePoint[], now: number) {
       const text = still
         ? (a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
         : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
+        : a.label === "Sede" ? `In viaggio verso ${b.label}`
         : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;
       return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, moving: !still, text, until: b.ms };
     }
@@ -302,6 +303,7 @@ export default function GameMap() {
                         pathOptions={{ color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
             <Popup>
               <strong>{m.title}</strong><br />
+              {m.description && <>{m.description}<br /></>}
               Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
               {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
               Scade: {new Date(m.expires_at).toLocaleTimeString("it-IT")}
