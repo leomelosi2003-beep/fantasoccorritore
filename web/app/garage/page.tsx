@@ -16,7 +16,9 @@ type Equip = { code: string; slot: string; category: string; name: string; cost:
 type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean };
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
-  status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[] };
+  status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
+  speed_level?: number };
+const SPEED_COST = [6000, 12000, 24000];
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
 const CERT: Record<Cert, { label: string; color: string }> = {
@@ -169,6 +171,19 @@ export default function Garage() {
       return;
     }
     setMsg({ ok: true, text: `${v.call_sign} ora è a ${byId.base[baseId]?.name}.` });
+    load();
+  }
+
+  // Potenziamento velocità: più veloce in strada e sul posto (3 livelli)
+  async function upgradeSpeed(v: Vehicle) {
+    const lvl = v.speed_level ?? 0;
+    if (lvl >= 3) return;
+    const cost = SPEED_COST[lvl];
+    if (!window.confirm(`Potenziare ${v.call_sign} al livello ${lvl + 1} per ${cost.toLocaleString("it-IT")} €?\n\n+12% velocità in strada e -12% di tempo sul posto per ogni livello.`)) return;
+    setMsg(null);
+    const { error } = await supabase.rpc("upgrade_vehicle_speed", { p_vehicle: v.id });
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    setMsg({ ok: true, text: `⚡ ${v.call_sign} ora è al livello ${lvl + 1}: più veloce!` });
     load();
   }
 
@@ -365,6 +380,26 @@ export default function Garage() {
                       </select>
                     ) : byId.base[v.base_id]?.name}
                   </div>
+                  {(() => {
+                    const lvl = v.speed_level ?? 0;
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>⚡ Velocità</span>
+                        <span style={{ display: "inline-flex", gap: 3 }}>
+                          {[0, 1, 2].map((i) => (
+                            <span key={i} style={{ width: 18, height: 8, borderRadius: 3, background: i < lvl ? "#F97316" : "#e5e5e0" }} />
+                          ))}
+                        </span>
+                        {lvl < 3 ? (
+                          <button onClick={() => upgradeSpeed(v)}
+                                  style={{ border: "none", background: "#F97316", color: "#fff", borderRadius: 8, padding: "4px 10px",
+                                           fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            Migliora · {SPEED_COST[lvl].toLocaleString("it-IT")} €
+                          </button>
+                        ) : <span style={{ fontSize: 12, color: "#15803D", fontWeight: 700 }}>Massimo! 🏁</span>}
+                      </div>
+                    );
+                  })()}
                   {v.equipment?.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "6px 0" }}>
                       {v.equipment.map((c) => (
@@ -408,6 +443,7 @@ function garageError(m: string) {
   if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))
     return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
+  if (m.includes("MAX_LEVEL")) return "È già al livello massimo.";
   if (m.includes("buy_vehicle") || m.includes("function")) return "Il garage non è ancora attivo nel database.";
   return friendlyError(m);
 }
