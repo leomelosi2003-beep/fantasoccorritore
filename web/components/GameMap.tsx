@@ -241,58 +241,39 @@ export default function GameMap() {
 
   return (
     <div style={{ position: "relative", fontFamily: "system-ui, sans-serif" }}>
-      {/* Barra in alto */}
-      <div style={{ position: "absolute", top: 10, left: 56, right: 10, zIndex: 1000, display: "flex",
-                    justifyContent: "flex-end", gap: 8, pointerEvents: "none" }}>
-        <div style={{ pointerEvents: "auto", background: "#fff", borderRadius: 12, padding: "6px 10px",
-                      boxShadow: "0 2px 8px rgba(0,0,0,.2)", display: "flex", alignItems: "center", gap: 10 }}>
-          {org ? (
-            <>
-              <button onClick={() => router.push("/associazione")} title="Modifica associazione"
-                      style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex",
-                               alignItems: "center", gap: 10, textAlign: "left" }}>
-              <FactionEmblem type={org.type} size={30} logo={org.logo_url} />
-              <div style={{ lineHeight: 1.2 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{org.name}</div>
-                <div style={{ fontSize: 12, color: "#555" }}>{org.funds.toLocaleString("it-IT")} € · ⭐ {org.reputation} · ✏️</div>
-              </div>
-              </button>
-              <button onClick={() => router.push("/garage")}
-                      style={{ border: "none", background: "#F97316", color: "#fff", borderRadius: 8,
-                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🚑 Garage</button>
-              <button onClick={() => router.push("/squadra")}
-                      style={{ border: "none", background: "#1E3A8A", color: "#fff", borderRadius: 8,
-                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>👥 Squadra</button>
-              {isAdmin && (
-                <button onClick={() => router.push("/admin")}
-                        style={{ border: "none", background: "#7C3AED", color: "#fff", borderRadius: 8,
-                                 padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛠️ Admin</button>
-              )}
-              <button onClick={() => router.push("/alleanza")}
-                      style={{ border: "none", background: "#15803D", color: "#fff", borderRadius: 8,
-                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🤝 Alleanza</button>
-              <button onClick={() => router.push("/negozio")}
-                      style={{ border: "none", background: "#111", color: "#fff", borderRadius: 8,
-                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛒 Presidi</button>
-              <button onClick={logout} style={{ border: "none", background: "#eee", borderRadius: 8,
-                                                padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>Esci</button>
-            </>
-          ) : loggedIn === false ? (
-            <button onClick={() => router.push("/login")}
-                    style={{ border: "none", background: "#111", color: "#fff", borderRadius: 8,
-                             padding: "8px 14px", cursor: "pointer", fontWeight: 600 }}>Accedi / Registrati</button>
-          ) : (
-            <span style={{ fontSize: 13, color: "#666" }}>…</span>
-          )}
-        </div>
+      {/* Barra in alto: associazione e soldi */}
+      <div className="fs-top">
+        {org ? (
+          <button className="fs-pill" onClick={() => router.push("/associazione")} title="Modifica associazione">
+            <FactionEmblem type={org.type} size={34} logo={org.logo_url} />
+            <span className="fs-pill-text">
+              <span className="fs-name">{org.name}</span>
+              <span className="fs-money">💶 {org.funds.toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
+            </span>
+          </button>
+        ) : loggedIn === false ? (
+          <button className="fs-pill" onClick={() => router.push("/login")} style={{ fontWeight: 700 }}>Accedi / Registrati</button>
+        ) : null}
       </div>
+
+      {/* Menu: in alto a destra sul computer, in basso sul telefono */}
+      {org && (
+        <nav className="fs-nav">
+          <button className="fs-btn" style={{ background: "#F97316" }} onClick={() => router.push("/garage")}><span>🚑</span>Garage</button>
+          <button className="fs-btn" style={{ background: "#1E3A8A" }} onClick={() => router.push("/squadra")}><span>👥</span>Squadra</button>
+          <button className="fs-btn" style={{ background: "#15803D" }} onClick={() => router.push("/alleanza")}><span>🤝</span>Alleanza</button>
+          <button className="fs-btn" style={{ background: "#111" }} onClick={() => router.push("/negozio")}><span>🛒</span>Presidi</button>
+          {isAdmin && <button className="fs-btn" style={{ background: "#7C3AED" }} onClick={() => router.push("/admin")}><span>🛠️</span>Admin</button>}
+          <button className="fs-btn fs-exit" onClick={logout}><span>🚪</span>Esci</button>
+        </nav>
+      )}
 
       {error && (
         <div style={{ position: "absolute", top: 64, left: 12, right: 12, zIndex: 1000, background: "#fff3f3",
                       color: "#900", border: "1px solid #e99", padding: "10px 14px", borderRadius: 8 }}>{error}</div>
       )}
 
-      <MapContainer center={[43.5485, 10.3106]} zoom={12} style={{ height: "100vh", width: "100%" }}>
+      <MapContainer center={[43.5485, 10.3106]} zoom={12} className="fs-map" style={{ width: "100%" }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -403,7 +384,33 @@ export default function GameMap() {
         })}
       </MapContainer>
 
-      <style>{`@keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
+      <style>{`
+        .fs-map { height: 100vh; height: 100dvh; }
+        .fs-top { position: absolute; top: 10px; left: 56px; z-index: 1000; max-width: calc(100% - 66px); }
+        .fs-pill { display: flex; align-items: center; gap: 10px; background: #fff; border: none; border-radius: 14px;
+          padding: 6px 12px 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; text-align: left;
+          max-width: 100%; font-family: inherit; }
+        .fs-pill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+        .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; }
+        .fs-money { font-size: 15px; font-weight: 700; color: #15803D; white-space: nowrap; }
+        .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
+        .fs-nav { position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 6px; }
+        .fs-btn { border: none; color: #fff; border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+          font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
+        .fs-exit { background: #fff !important; color: #333; }
+        .fs-toast { bottom: 24px; }
+        @media (max-width: 760px) {
+          .fs-nav { top: auto; bottom: 0; left: 0; right: 0; gap: 0; background: #fff; box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+            padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); justify-content: space-around; }
+          .fs-btn { flex: 1; flex-direction: column; gap: 2px; font-size: 11px; padding: 6px 2px; border-radius: 10px;
+            margin: 0 2px; box-shadow: none; min-width: 0; }
+          .fs-btn span { font-size: 20px; line-height: 1; }
+          .fs-exit { background: #f1f1f1 !important; }
+          .fs-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+          .leaflet-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
+          .fs-pill { padding: 5px 10px 5px 6px; }
+        }
+        @keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
         @keyframes ev-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,.6) } 50% { box-shadow: 0 0 0 10px rgba(124,58,237,0) } }`}</style>
 
       {selected && (
@@ -414,7 +421,7 @@ export default function GameMap() {
       )}
 
       {toast && (
-        <div style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 1200,
+        <div className="fs-toast" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 1200,
                       background: "#111", color: "#fff", padding: "12px 18px", borderRadius: 12, fontWeight: 600,
                       boxShadow: "0 6px 24px rgba(0,0,0,.35)", maxWidth: "90vw", textAlign: "center" }}>{toast}</div>
       )}
