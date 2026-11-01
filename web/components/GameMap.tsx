@@ -36,6 +36,7 @@ export default function GameMap() {
   const [missions, setMissions] = useState<MissionPin[]>([]);
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +50,8 @@ export default function GameMap() {
         .select("id,name,type,funds,reputation").eq("owner_id", session.user.id).maybeSingle();
       if (!data) { router.replace("/onboarding"); return; }
       setOrg(data as Organization);
+      const { data: prof } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).maybeSingle();
+      setIsAdmin(!!prof?.is_admin);
     })();
   }, [router]);
 
@@ -98,6 +101,11 @@ export default function GameMap() {
               <button onClick={() => router.push("/squadra")}
                       style={{ border: "none", background: "#1E3A8A", color: "#fff", borderRadius: 8,
                                padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>👥 Squadra</button>
+              {isAdmin && (
+                <button onClick={() => router.push("/admin")}
+                        style={{ border: "none", background: "#7C3AED", color: "#fff", borderRadius: 8,
+                                 padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛠️ Admin</button>
+              )}
               <button onClick={() => router.push("/negozio")}
                       style={{ border: "none", background: "#111", color: "#fff", borderRadius: 8,
                                padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛒 Presidi</button>
