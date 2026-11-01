@@ -1,6 +1,8 @@
 # Temporaneo: scarica le pagine delle fonti eventi per studiarne la struttura
 name: Debug fonti eventi
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -15,5 +17,9 @@ jobs:
           curl -sL -A "$UA" "https://www.modiglianiforum.com/tutti-eventi/" -o out/forum.html || true
           curl -sL -A "$UA" "https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=Livorno" -o out/tsdb.json || true
           ls -la out
-      - uses: actions/upload-artifact@v4
-        with: { name: fonti, path: out }
+      - run: |
+          cd out
+          git init -q -b debug-fonti
+          git -c user.name=bot -c user.email=bot@local add -A
+          git -c user.name=bot -c user.email=bot@local commit -qm fonti
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" debug-fonti
