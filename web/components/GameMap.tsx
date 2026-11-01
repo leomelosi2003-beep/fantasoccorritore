@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
+import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
 type Hospital = { id: string; name: string; capabilities: string[]; lat: number; lng: number };
@@ -15,7 +16,7 @@ type Hospital = { id: string; name: string; capabilities: string[]; lat: number;
 // Posizione dell'ambulanza lungo il percorso (sede → posto → ospedale → sede) e cosa sta facendo
 function alongRoute(route: RoutePoint[], now: number) {
   const pts = route.map((p) => ({ ...p, ms: new Date(p.t).getTime() }));
-  if (now <= pts[0].ms) return { lat: pts[0].lat, lng: pts[0].lng, moving: false, text: "In partenza", until: pts[0].ms };
+  if (now <= pts[0].ms) return { lat: pts[0].lat, lng: pts[0].lng, moving: false, text: "In partenza", until: pts[0].ms, leg: 0, f: 0 };
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (now <= b.ms) {
@@ -26,11 +27,28 @@ function alongRoute(route: RoutePoint[], now: number) {
         : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
         : a.label === "Sede" ? `In viaggio verso ${b.label}`
         : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;
-      return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, moving: !still, text, until: b.ms };
+      if (!still) {
+        const road = getLeg(legKey(a, b));
+        if (road) { const [lat, lng] = pointAt(road, f); return { lat, lng, moving: true, text, until: b.ms, leg: i, f }; }
+      }
+      return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, moving: !still, text, until: b.ms, leg: i, f };
     }
   }
   const last = pts[pts.length - 1];
-  return { lat: last.lat, lng: last.lng, moving: false, text: "In sede", until: last.ms };
+  return { lat: last.lat, lng: last.lng, moving: false, text: "In sede", until: last.ms, leg: pts.length, f: 1 };
+}
+
+// Strada ancora da fare: resto del tratto attuale + tratti successivi
+function remainingPath(route: RoutePoint[], leg: number, f: number): LatLng[][] {
+  const out: LatLng[][] = [];
+  for (let i = leg; i < route.length - 1; i++) {
+    const a = route[i], b = route[i + 1];
+    if (a.lat === b.lat && a.lng === b.lng) continue;
+    const from = i === leg ? f : 0;
+    const road = getLeg(legKey(a, b));
+    out.push(road ? slice(road, from) : [[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]);
+  }
+  return out;
 }
 
 const hospitalIcon = L.divIcon({
@@ -106,6 +124,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
@@ -148,6 +167,18 @@ export default function GameMap() {
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, []);
+
+  // Scarica le strade vere dei tratti in movimento dei servizi in corso
+  useEffect(() => {
+    for (const a of assignments) {
+      if (a.status === "conclusa" || !a.route?.length) continue;
+      for (let i = 0; i < a.route.length - 1; i++) {
+        const p = a.route[i], q = a.route[i + 1];
+        if (p.lat === q.lat && p.lng === q.lng) continue;
+        fetchLeg(p, q).then(() => setRoadsLoaded((n) => n + 1));
+      }
+    }
+  }, [assignments]);
 
   // Sessione: se sei loggato ma senza associazione vai all'onboarding
   useEffect(() => {
@@ -325,10 +356,18 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
+          const path = remainingPath(route, pos.leg, pos.f);
           const left = Math.max(0, Math.round((pos.until - now) / 60000));
           const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
           return (
-            <Marker key={a.id} position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving)}>
+            <Fragment key={a.id}>
+            {path.map((seg, i) => (
+              <Polyline key={`${a.id}-p${i}`} positions={seg}
+                        pathOptions={i === 0 && pos.moving
+                          ? { color: "#2563EB", weight: 5, opacity: 0.85 }
+                          : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
+            ))}
+            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
@@ -336,6 +375,7 @@ export default function GameMap() {
                 Libero tra {back} min
               </Popup>
             </Marker>
+            </Fragment>
           );
         })}
       </MapContainer>
