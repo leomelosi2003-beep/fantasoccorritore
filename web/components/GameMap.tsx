@@ -9,10 +9,41 @@ import { supabase, type MissionPin, type BasePin, type Organization } from "@/li
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 
+type RoutePoint = { lat: number; lng: number; t: string; label: string };
+type Hospital = { id: string; name: string; capabilities: string[]; lat: number; lng: number };
+
+// Posizione dell'ambulanza lungo il percorso (sede → posto → ospedale → sede) e cosa sta facendo
+function alongRoute(route: RoutePoint[], now: number) {
+  const pts = route.map((p) => ({ ...p, ms: new Date(p.t).getTime() }));
+  if (now <= pts[0].ms) return { lat: pts[0].lat, lng: pts[0].lng, moving: false, text: "In partenza", until: pts[0].ms };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (now <= b.ms) {
+      const f = (now - a.ms) / Math.max(1, b.ms - a.ms);
+      const still = a.lat === b.lat && a.lng === b.lng;
+      const text = still
+        ? (a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
+        : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
+        : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;
+      return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, moving: !still, text, until: b.ms };
+    }
+  }
+  const last = pts[pts.length - 1];
+  return { lat: last.lat, lng: last.lng, moving: false, text: "In sede", until: last.ms };
+}
+
+const hospitalIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:30px;height:30px;border-radius:8px;background:#fff;border:2px solid #DC2626;display:flex;
+         align-items:center;justify-content:center;font-size:18px;box-shadow:0 1px 4px rgba(0,0,0,.4)">🏥</div>`,
+  iconSize: [30, 30], iconAnchor: [15, 15],
+});
+
 type Assignment = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string;
   completed_at: string | null; reward_funds: number | null; title: string; code: MissionPin["code"];
   call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
+  route: RoutePoint[] | null; hospital: string | null;
 };
 
 type UpcomingEvent = { id: string; title: string; kind: string; starts_at: string; show_at: string | null;
@@ -77,6 +108,11 @@ export default function GameMap() {
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+
+  useEffect(() => {
+    supabase.from("hospitals_map").select("*").then(({ data, error }) => { if (!error) setHospitals((data as Hospital[]) ?? []); });
+  }, []);
 
   async function refreshOrg() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -207,6 +243,16 @@ export default function GameMap() {
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
+        {hospitals.map((h) => (
+          <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
+            <Popup>
+              <strong>🏥 {h.name}</strong><br />
+              {h.capabilities.map((c) => ({ ps: "Pronto soccorso", cardio: "Emodinamica", trauma_maggiore: "Trauma center",
+                pediatria: "Pediatria", dialisi: "Dialisi" } as Record<string, string>)[c] ?? c).join(" · ")}
+            </Popup>
+          </Marker>
+        ))}
+
         {bases.map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id)}>
             <Popup>
@@ -271,17 +317,21 @@ export default function GameMap() {
         ))}
 
         {assignments.filter((a) => a.status !== "conclusa" && now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
-          const t0 = new Date(a.assigned_at).getTime(), t1 = new Date(a.arrives_at).getTime();
-          const p = Math.min(1, Math.max(0, (now - t0) / Math.max(1, t1 - t0)));
-          const lat = a.base_lat + (a.lat - a.base_lat) * p, lng = a.base_lng + (a.lng - a.base_lng) * p;
-          const onScene = p >= 1;
-          const left = Math.max(0, Math.round(((onScene ? new Date(a.completes_at).getTime() : t1) - now) / 60000));
+          const route: RoutePoint[] = a.route?.length ? a.route : [
+            { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
+            { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
+            { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
+          ];
+          const pos = alongRoute(route, now);
+          const left = Math.max(0, Math.round((pos.until - now) / 60000));
+          const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
           return (
-            <Marker key={a.id} position={[lat, lng]} icon={ambulanceIcon(onScene)}>
+            <Marker key={a.id} position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving)}>
               <Popup>
-                <strong>{a.call_sign}</strong><br />
-                {a.title}<br />
-                {onScene ? `Sul posto · libero tra ${left} min` : `In viaggio · arrivo tra ${left} min`}
+                <strong>{a.call_sign}</strong> · {a.title}<br />
+                {pos.text} · {left} min<br />
+                {a.hospital && <>Ospedale: {a.hospital}<br /></>}
+                Libero tra {back} min
               </Popup>
             </Marker>
           );
