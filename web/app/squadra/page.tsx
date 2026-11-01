@@ -25,7 +25,7 @@ export default function Squadra() {
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/"); return; }
-    const { data: o } = await supabase.from("organizations").select("id,name,type,funds,reputation")
+    const { data: o } = await supabase.from("organizations").select("id,name,type,funds,reputation,logo_url")
       .eq("owner_id", session.user.id).maybeSingle();
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
@@ -73,7 +73,7 @@ export default function Squadra() {
       <div style={{ background: "#111", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
-          <FactionEmblem type={org.type} size={32} />
+          <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700 }}>Squadra · {org.name}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{active.length} volontari attivi</div>

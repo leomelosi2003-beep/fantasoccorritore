@@ -37,6 +37,7 @@ export type BasePin = {
   is_headquarters: boolean;
   org_name: string;
   org_type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
+  logo_url?: string | null;
   lat: number;
   lng: number;
 };
@@ -47,6 +48,7 @@ export type Organization = {
   type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
   funds: number;
   reputation: number;
+  logo_url?: string | null;
 };
 
 // Traduce i codici di errore del database in messaggi leggibili

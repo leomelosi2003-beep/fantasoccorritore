@@ -21,13 +21,19 @@ const INNER: Record<FactionStyle, string> = {
     '<rect x="38" y="14" width="24" height="72" fill="#DC2626"/><rect x="14" y="38" width="72" height="24" fill="#DC2626"/>',
 };
 
-export function emblemSvg(type: FactionStyle, size: number): string {
+export function emblemSvg(type: FactionStyle, size: number, logo?: string | null): string {
+  if (logo) return `<img src="${logo.replace(/"/g, "")}" width="${size}" height="${size}" style="border-radius:50%;object-fit:cover;display:block" alt=""/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">${INNER[type]}</svg>`;
 }
 
 export default function FactionEmblem({
-  type, size = 96,
-}: { type: FactionStyle; size?: number }) {
+  type, size = 96, logo,
+}: { type: FactionStyle; size?: number; logo?: string | null }) {
+  // Logo caricato dal giocatore
+  if (logo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logo} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />;
+  }
   const svg = { width: size, height: size, viewBox: "0 0 100 100", role: "img" as const };
 
   if (type === "blu_giallo") {

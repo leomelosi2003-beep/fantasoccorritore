@@ -103,8 +103,8 @@ const CODE_COLOR: Record<MissionPin["code"], string> = {
 };
 
 // Icona della sede: lo stemma della fazione su un cerchio bianco
-function baseIcon(type: BasePin["org_type"], mine: boolean) {
-  const svg = emblemSvg(type, mine ? 30 : 22);
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null) {
+  const svg = emblemSvg(type, mine ? (logo ? 38 : 30) : (logo ? 30 : 22), logo);
   const s = mine ? 44 : 34;
   return L.divIcon({
     className: "",
@@ -139,7 +139,7 @@ export default function GameMap() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from("organizations")
-      .select("id,name,type,funds,reputation").eq("owner_id", session.user.id).maybeSingle();
+      .select("id,name,type,funds,reputation,logo_url").eq("owner_id", session.user.id).maybeSingle();
     if (data) setOrg(data as Organization);
   }
 
@@ -188,7 +188,7 @@ export default function GameMap() {
       if (!session) { setLoggedIn(false); return; }
       setLoggedIn(true);
       const { data } = await supabase.from("organizations")
-        .select("id,name,type,funds,reputation").eq("owner_id", session.user.id).maybeSingle();
+        .select("id,name,type,funds,reputation,logo_url").eq("owner_id", session.user.id).maybeSingle();
       if (!data) { router.replace("/onboarding"); return; }
       setOrg(data as Organization);
       const { data: prof } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).maybeSingle();
@@ -235,11 +235,15 @@ export default function GameMap() {
                       boxShadow: "0 2px 8px rgba(0,0,0,.2)", display: "flex", alignItems: "center", gap: 10 }}>
           {org ? (
             <>
-              <FactionEmblem type={org.type} size={30} />
+              <button onClick={() => router.push("/associazione")} title="Modifica associazione"
+                      style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex",
+                               alignItems: "center", gap: 10, textAlign: "left" }}>
+              <FactionEmblem type={org.type} size={30} logo={org.logo_url} />
               <div style={{ lineHeight: 1.2 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{org.name}</div>
-                <div style={{ fontSize: 12, color: "#555" }}>{org.funds.toLocaleString("it-IT")} € · ⭐ {org.reputation}</div>
+                <div style={{ fontSize: 12, color: "#555" }}>{org.funds.toLocaleString("it-IT")} € · ⭐ {org.reputation} · ✏️</div>
               </div>
+              </button>
               <button onClick={() => router.push("/garage")}
                       style={{ border: "none", background: "#F97316", color: "#fff", borderRadius: 8,
                                padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🚑 Garage</button>
@@ -287,7 +291,7 @@ export default function GameMap() {
         ))}
 
         {bases.map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id)}>
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url)}>
             <Popup>
               <strong>{b.name}</strong><br />
               {b.org_name} · livello {b.level}{b.is_headquarters ? " · sede centrale" : ""}
