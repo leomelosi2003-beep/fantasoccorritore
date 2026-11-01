@@ -90,6 +90,11 @@ function eventIcon(kind: string, open: boolean) {
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
+// Lampeggianti accesi solo nei codici giallo e rosso, mentre viaggia (non al rientro in sede)
+function sirens(code: string, pos: { moving: boolean; text: string }) {
+  return (code === "giallo" || code === "rosso") && pos.moving && pos.text !== "Rientro in sede";
+}
+
 // Ambulanza di un altro giocatore: più piccola, con lo stemma della sua associazione
 function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null) {
   const pic = img
@@ -389,7 +394,7 @@ export default function GameMap() {
           const ahead = alongRoute(route, now + 4000);
           return (
             <Marker key={`o-${a.id}`} position={[pos.lat, pos.lng]} zIndexOffset={-100}
-                    icon={otherAmbulanceIcon(!pos.moving, a.vehicle_image, ahead.lng > pos.lng, a.org_type, a.logo_url)}>
+                    icon={otherAmbulanceIcon(!sirens(a.code, pos), a.vehicle_image, ahead.lng > pos.lng, a.org_type, a.logo_url)}>
               <Popup>
                 <strong>{a.org_name}</strong> · {a.call_sign}<br />
                 {a.title}<br />
@@ -419,7 +424,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving, a.vehicle_image, facingRight)}>
+            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!sirens(a.code, pos), a.vehicle_image, facingRight)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
