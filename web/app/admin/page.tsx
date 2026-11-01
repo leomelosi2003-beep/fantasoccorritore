@@ -6,7 +6,7 @@ import { supabase, friendlyError } from "@/lib/supabase";
 import VolunteerCard, { ROLE, RARITY, type Card } from "@/components/VolunteerCard";
 
 type Vol = Omit<Card, "id" | "state" | "rest_until" | "expires_at" | "services_completed" | "energy" | "volunteer_id"> & {
-  id: string; source: string; is_pack_eligible: boolean; contract_days: number | null;
+  id: string; source: string; is_pack_eligible: boolean; contract_days: number | null; shop_price: number | null;
   trait_mods: { night_fatigue?: number; rosso_fatigue?: number };
 };
 
@@ -21,7 +21,7 @@ const lbl: CSSProperties = { fontSize: 13, fontWeight: 600, margin: "10px 0 4px"
 const EMPTY = {
   first_name: "", last_name: "", nickname: "", gender: "m", role: "autista" as Card["role"],
   rarity: "epica" as Card["rarity"], stat_guida: 80, stat_soccorso: 80, stat_resilienza: 80,
-  pros: "", cons: "", night_fatigue: 0, rosso_fatigue: 0, contract_days: "", is_pack_eligible: true, avanzato: false,
+  pros: "", cons: "", night_fatigue: 0, rosso_fatigue: 0, contract_days: "", is_pack_eligible: true, avanzato: false, shop_price: "",
 };
 
 // Ritaglia la foto al centro in un quadrato 512×512 e la comprime in JPEG prima di caricarla
@@ -64,6 +64,7 @@ export default function Admin() {
       stat_resilienza: v.stat_resilienza, pros: (v.pros ?? []).join("\n"), cons: (v.cons ?? []).join("\n"),
       night_fatigue: v.trait_mods?.night_fatigue ?? 0, rosso_fatigue: v.trait_mods?.rosso_fatigue ?? 0,
       contract_days: v.contract_days ? String(v.contract_days) : "", is_pack_eligible: v.is_pack_eligible,
+      shop_price: v.shop_price != null ? String(v.shop_price) : "",
       avanzato: !!v.avanzato,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -131,6 +132,7 @@ export default function Admin() {
         cons: f.cons.split("\n").map((s) => s.trim()).filter(Boolean),
         trait_mods: mods, contract_days: f.contract_days ? Number(f.contract_days) : null,
         is_pack_eligible: f.is_pack_eligible, avatar_url, avanzato: f.role === "autista" && f.avanzato,
+        shop_price: f.shop_price.trim() === "" ? null : Math.max(0, Math.round(Number(f.shop_price))),
       };
       const { error } = editing
         ? await supabase.from("volunteers")
@@ -274,6 +276,10 @@ export default function Admin() {
               Esce nei pacchetti dei giocatori
             </label>
 
+            <label style={lbl}>🛒 Prezzo nel negozio (€) — lascia vuoto per non venderla</label>
+            <input style={inp} type="number" min={0} step={500} value={f.shop_price} placeholder="es. 25000"
+                   onChange={(e) => set("shop_price", e.target.value)} />
+
             <button onClick={save} disabled={!valid || busy} style={{ ...btn, width: "100%", marginTop: 12, background: "#F97316", opacity: !valid || busy ? 0.4 : 1 }}>
               {busy ? "Salvataggio…" : editing ? "Salva modifiche" : "Crea carta"}
             </button>
@@ -301,6 +307,7 @@ export default function Admin() {
                                                            background: v.is_pack_eligible ? "#16A34A" : "#9CA3AF" }}>
                   {v.is_pack_eligible ? "Nei pacchetti" : "Fuori dai pacchetti"}
                 </button>
+                {v.shop_price != null && <span style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#B45309", cursor: "default" }}>🛒 {v.shop_price.toLocaleString("it-IT")} €</span>}
                 <button onClick={() => startEdit(v)} title="Modifica"
                         style={{ ...btn, fontSize: 12, padding: "6px 8px", background: editing?.id === v.id ? "#F97316" : "#111" }}>✏️</button>
                 <label style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#1E3A8A" }} title="Cambia foto">

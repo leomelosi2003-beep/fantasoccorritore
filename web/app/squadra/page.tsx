@@ -31,6 +31,7 @@ export default function Squadra() {
   const [avail, setAvail] = useState<Record<string, number>>({});
   const [classTarget, setClassTarget] = useState<"autista" | "soccorritore_avanzato" | null>(null);
   const [classSel, setClassSel] = useState<string[]>([]);
+  const [shop, setShop] = useState<(Card & { shop_price: number; owned: boolean })[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -46,6 +47,10 @@ export default function Squadra() {
     ]);
     setCards((c.data as Card[]) ?? []);
     supabase.rpc("pack_availability").then(({ data }) => setAvail((data as Record<string, number>) ?? {}));
+    supabase.from("shop_cards").select("*").order("shop_price", { ascending: false }).then(({ data }) =>
+      setShop(((data as (Omit<Card, "volunteer_id"> & { id: string; shop_price: number; owned: boolean })[]) ?? []).map((v) => ({
+        ...v, volunteer_id: v.id, state: "attiva", rest_until: null, expires_at: null, services_completed: 0, energy: 100,
+      }) as Card & { shop_price: number; owned: boolean })));
     setPack(p.data as { opened: boolean; next_pack_at: string });
   }, [router]);
 
@@ -92,6 +97,22 @@ export default function Squadra() {
     if (ids.length < 5) setError(`Non c'erano abbastanza carte nuove: ti abbiamo rimborsato ${5 - ids.length} carte.`);
     setBusy(false);
     load();
+  }
+
+  // Negozio carte: carte create dall'admin con un prezzo
+  async function buyCard(c: Card & { shop_price: number }) {
+    if (!window.confirm(`Comprare ${c.first_name} ${c.last_name} per ${c.shop_price.toLocaleString("it-IT")} €?`)) return;
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("buy_card", { p_volunteer: c.volunteer_id });
+    setBusy(false);
+    if (error) {
+      const m = error.message;
+      setError(m.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza fondi."
+        : m.includes("ALREADY_OWNED") ? "Ce l'hai già nella squadra."
+        : m.includes("NOT_FOR_SALE") ? "Questa carta non è più in vendita." : friendlyError(m));
+      return;
+    }
+    await load();
   }
 
   async function openPack() {
@@ -186,6 +207,24 @@ export default function Squadra() {
             );
           })}
         </div>
+
+        {/* Negozio carte */}
+        {shop.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, margin: "4px 0 8px" }}>🛒 Negozio carte</div>
+            <div style={grid}>
+              {shop.map((c) => (
+                <div key={c.volunteer_id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <VolunteerCard c={c} compact />
+                  <button onClick={() => buyCard(c)} disabled={busy || c.owned}
+                          style={{ ...btn, background: c.owned ? "#9CA3AF" : "#B45309", opacity: busy ? 0.6 : 1 }}>
+                    {c.owned ? "✅ Già in squadra" : `Compra · ${c.shop_price.toLocaleString("it-IT")} €`}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12, marginBottom: 12 }}>{error}</div>}
 
