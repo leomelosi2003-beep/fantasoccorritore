@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 type Point = { lat: number; lng: number };
 const MIN_DIST = 500; // metri dalle sedi delle altre associazioni
+const OWN_DIST = 3000; // metri tra due sedi tue
 
 function meters(a: Point, b: Point) {
   const R = 6371000, r = Math.PI / 180;
@@ -22,12 +23,12 @@ function ClickHandler({ onPick }: { onPick: (p: Point) => void }) {
 
 // Mappa per scegliere dove costruire la sede: un click piazza il segnaposto.
 // Le sedi degli altri hanno un cerchio grigio di 500 m dove non si può costruire.
-export default function PickBaseMap({ value, color, onPick }: {
-  value: Point | null; color: string; onPick: (p: Point) => void;
+export default function PickBaseMap({ value, color, onPick, height = 320 }: {
+  value: Point | null; color: string; onPick: (p: Point) => void; height?: number;
 }) {
   const [others, setOthers] = useState<(Point & { org_id: string })[]>([]);
   const [me, setMe] = useState<string | null>(null);
-  const [warn, setWarn] = useState(false);
+  const [warn, setWarn] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -42,27 +43,35 @@ export default function PickBaseMap({ value, color, onPick }: {
   }, []);
 
   const blocked = others.filter((b) => b.org_id !== me);
+  const mine = others.filter((b) => b.org_id === me);
 
   function pick(p: Point) {
-    if (blocked.some((b) => meters(b, p) < MIN_DIST)) {
-      setWarn(true);
-      setTimeout(() => setWarn(false), 2500);
-      return;
-    }
-    setWarn(false);
+    const msg = blocked.some((b) => meters(b, p) < MIN_DIST) ? "Troppo vicino a un'altra associazione: servono almeno 500 m (zone grigie)."
+      : mine.some((b) => meters(b, p) < OWN_DIST) ? "Troppo vicino a una tua sede: servono almeno 3 km (zone blu)."
+      : null;
+    if (msg) { setWarn(msg); setTimeout(() => setWarn((w) => (w === msg ? null : w)), 2500); return; }
+    setWarn(null);
     onPick(p);
   }
 
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={[43.5485, 10.3106]} zoom={12}
-                    style={{ height: 320, width: "100%", borderRadius: 12 }}>
+                    style={{ height, width: "100%", borderRadius: 12 }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ClickHandler onPick={pick} />
         {blocked.map((b, i) => (
           <Circle key={i} center={[b.lat, b.lng]} radius={MIN_DIST}
                   pathOptions={{ color: "#6B7280", weight: 1, fillColor: "#6B7280", fillOpacity: 0.25 }} />
+        ))}
+        {mine.map((b, i) => (
+          <Circle key={`m${i}`} center={[b.lat, b.lng]} radius={OWN_DIST}
+                  pathOptions={{ color: "#2563EB", weight: 1, dashArray: "6 6", fillColor: "#2563EB", fillOpacity: 0.08 }} />
+        ))}
+        {mine.map((b, i) => (
+          <CircleMarker key={`d${i}`} center={[b.lat, b.lng]} radius={7}
+                        pathOptions={{ color: "#fff", weight: 2, fillColor: "#2563EB", fillOpacity: 1 }} />
         ))}
         {value && (
           <CircleMarker center={[value.lat, value.lng]} radius={12}
@@ -72,7 +81,7 @@ export default function PickBaseMap({ value, color, onPick }: {
       {warn && (
         <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, zIndex: 1000, background: "#B91C1C", color: "#fff",
                       borderRadius: 10, padding: "8px 12px", fontSize: 14, fontWeight: 600, textAlign: "center" }}>
-          Troppo vicino a un&apos;altra sede: servono almeno 500 m (zone grigie).
+          {warn}
         </div>
       )}
     </div>

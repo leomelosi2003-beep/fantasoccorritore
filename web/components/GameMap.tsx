@@ -325,6 +325,11 @@ export default function GameMap() {
             <Popup>
               <strong>{b.name}</strong><br />
               {b.org_name} · livello {b.level}{b.is_headquarters ? " · sede centrale" : ""}
+              {b.org_id === org?.id && (
+                <><br /><button onClick={() => router.push("/sedi")}
+                        style={{ marginTop: 6, border: "none", background: "#111", color: "#fff", borderRadius: 8,
+                                 padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>🏠 Compra una nuova sede</button></>
+              )}
             </Popup>
           </Marker>
         ))}

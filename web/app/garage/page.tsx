@@ -166,6 +166,7 @@ export default function Garage() {
             <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Garage · {org.name}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
           </div>
+          <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333" }}>🏠 Sedi</button>
           <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333" }}>🛒 Presidi</button>
           {!shop && <button onClick={openShop} style={{ ...btn, background: "#F97316" }}>+ Nuovo mezzo</button>}
         </div>
