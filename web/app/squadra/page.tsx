@@ -11,15 +11,6 @@ const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
 const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
-// Corsi di formazione disponibili per ogni ruolo
-const COURSES: Record<string, { target: string; label: string; price: number }[]> = {
-  soccorritore_base: [
-    { target: "autista", label: "autista", price: 4000 },
-    { target: "soccorritore_avanzato", label: "soccorritore avanzato", price: 6000 },
-  ],
-  soccorritore_avanzato: [{ target: "caposervizio", label: "caposervizio", price: 8000 }],
-};
-
 const PACKS = [
   { kind: "comune", price: 3000, icon: "📦", leg: "2%", epi: "13%", note: "",
     bg: "linear-gradient(135deg,#4B5563,#1F2937)", glow: "0 2px 8px rgba(0,0,0,.15)" },
@@ -38,6 +29,8 @@ export default function Squadra() {
   const [reveal, setReveal] = useState<Card[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [avail, setAvail] = useState<Record<string, number>>({});
+  const [classTarget, setClassTarget] = useState<"autista" | "soccorritore_avanzato" | null>(null);
+  const [classSel, setClassSel] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -58,20 +51,23 @@ export default function Squadra() {
 
   useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
 
-  // Corsi di formazione: base → autista o avanzato, avanzato → caposervizio
-  async function upgrade(c: Card, target: string, label: string, price: number) {
-    if (!window.confirm(`Mandare ${c.first_name} ${c.last_name} al corso da ${label}?\n\nCosto ${price.toLocaleString("it-IT")} €. Il corso dura 1 ora, poi è ${label} per sempre.`)) return;
+  // Corso di formazione di gruppo: 8.000 € per una classe fino a 10 soccorritori base
+  async function startClass() {
+    if (!classTarget || classSel.length === 0) return;
+    const label = classTarget === "autista" ? "autisti" : "soccorritori avanzati";
+    if (!window.confirm(`Avviare il corso per ${label} con ${classSel.length} ${classSel.length === 1 ? "persona" : "persone"}?\n\nCosto 8.000 € per tutta la classe. Dura 1 ora.`)) return;
     setBusy(true); setError(null);
-    const { error } = await supabase.rpc("training_course", { p_card: c.id, p_target: target });
+    const { error } = await supabase.rpc("training_class", { p_cards: classSel, p_target: classTarget });
     setBusy(false);
     if (error) {
       const m = error.message;
-      setError(m.includes("INSUFFICIENT_FUNDS") ? `Servono ${price.toLocaleString("it-IT")} € per il corso.`
-        : m.includes("CARD_BUSY") ? "È in servizio: aspetta che rientri."
-        : m.includes("CARD_LENT") ? "È in prestito a un alleato: riprendilo prima."
+      setError(m.includes("INSUFFICIENT_FUNDS") ? "Servono 8.000 € per il corso."
+        : m.includes("TOO_MANY") ? "Al massimo 10 persone per corso."
+        : m.includes("NOT_UPGRADABLE") ? "Qualcuno non può fare il corso (in servizio, in prestito o non è un soccorritore base)."
         : friendlyError(m));
       return;
     }
+    setClassSel([]); setClassTarget(null);
     await load();
   }
 
@@ -120,7 +116,7 @@ export default function Squadra() {
   const counts = [
     { ...ROLE.autista, n: active.filter((c) => c.role === "autista" && !c.avanzato).length },
     { label: "Autista avanzato", icon: "🚑", n: active.filter((c) => c.role === "autista" && c.avanzato).length },
-    ...(["soccorritore_base", "soccorritore_avanzato", "caposervizio"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
+    ...(["soccorritore_base", "soccorritore_avanzato"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
   ];
   const nextPack = pack?.next_pack_at ? new Date(pack.next_pack_at) : null;
 
@@ -193,6 +189,47 @@ export default function Squadra() {
 
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12, marginBottom: 12 }}>{error}</div>}
 
+        {/* Corso di formazione */}
+        {(() => {
+          const students = active.filter((c) => c.role === "soccorritore_base" && !c.lent_from && !c.lent_to && c.state !== "in_servizio");
+          return (
+            <div style={{ background: "#fff", borderRadius: 14, padding: 14, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)",
+                          border: "2px solid #DDD6FE" }}>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>📚 Corso di formazione · 8.000 €</div>
+              <div style={{ fontSize: 13, color: "#555", margin: "2px 0 10px" }}>
+                Un corso vale per tutta la classe: fino a 10 soccorritori base insieme. Dura 1 ora.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {([["autista", "🚑 Corso autisti"], ["soccorritore_avanzato", "💉 Corso soccorritori avanzati"]] as const).map(([t, l]) => (
+                  <button key={t} onClick={() => { setClassTarget(classTarget === t ? null : t); }}
+                          style={{ ...btn, fontSize: 14, background: classTarget === t ? "#7C3AED" : "#EDE9FE", color: classTarget === t ? "#fff" : "#5B21B6" }}>{l}</button>
+                ))}
+              </div>
+              {classTarget && (
+                <div style={{ marginTop: 10 }}>
+                  {students.length === 0 && <div style={{ fontSize: 14, color: "#888" }}>Nessun soccorritore base disponibile per il corso.</div>}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {students.map((c) => {
+                      const on = classSel.includes(c.id);
+                      return (
+                        <button key={c.id} onClick={() => setClassSel((cur) => on ? cur.filter((x) => x !== c.id) : cur.length >= 10 ? cur : [...cur, c.id])}
+                                style={{ border: on ? "2px solid #7C3AED" : "1px solid #ddd", background: on ? "#F5F3FF" : "#fff",
+                                         borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontSize: 13 }}>
+                          {on ? "✅" : "⬜"} {c.first_name} {c.last_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={startClass} disabled={busy || classSel.length === 0}
+                          style={{ ...btn, marginTop: 10, background: "#7C3AED", opacity: busy || classSel.length === 0 ? 0.5 : 1 }}>
+                    Avvia corso ({classSel.length}/10) · 8.000 €
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Riepilogo ruoli */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {counts.map((c) => (
@@ -211,12 +248,6 @@ export default function Squadra() {
           <div style={grid}>{active.map((c) => (
             <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <VolunteerCard c={c} />
-              {!c.lent_from && !c.lent_to && COURSES[c.role]?.map((k) => (
-                <button key={k.target} disabled={busy || c.state === "in_servizio"} onClick={() => upgrade(c, k.target, k.label, k.price)}
-                        style={{ ...btn, background: "#7C3AED", fontSize: 13, padding: "8px 10px", opacity: c.state === "in_servizio" ? 0.5 : 1 }}>
-                  📚 Corso {k.label} · {k.price.toLocaleString("it-IT")} €
-                </button>
-              ))}
             </div>
           ))}</div>
         )}

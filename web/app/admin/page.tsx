@@ -213,7 +213,7 @@ export default function Admin() {
                 </select></div>
               <div><label style={lbl}>Ruolo</label>
                 <select style={inp} value={f.role} onChange={(e) => set("role", e.target.value as Card["role"])}>
-                  {Object.entries(ROLE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  {Object.entries(ROLE).filter(([k]) => k !== "caposervizio").map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select></div>
               <div><label style={lbl}>Sesso (avatar)</label>
                 <select style={inp} value={f.gender} onChange={(e) => set("gender", e.target.value)}>
