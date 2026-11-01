@@ -10,7 +10,7 @@ import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
-import ThemeToggle, { isDark } from "@/components/ThemeToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -177,13 +177,7 @@ export default function GameMap() {
   const [moneyPops, setMoneyPops] = useState<{ key: number; amount: number; label: string }[]>([]);
   const [shownFunds, setShownFunds] = useState<number | null>(null);
   const [fundsFlash, setFundsFlash] = useState(false);
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const upd = () => setDark(isDark());
-    upd();
-    window.addEventListener("fs-theme", upd);
-    return () => window.removeEventListener("fs-theme", upd);
-  }, []);
+
   const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -428,11 +422,8 @@ export default function GameMap() {
       )}
 
       <MapContainer center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
-        {dark
-          ? <TileLayer key="dark" attribution="&copy; OpenStreetMap contributors &copy; CARTO"
-                       url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-          : <TileLayer key="light" attribution="&copy; OpenStreetMap contributors"
-                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />}
+        <TileLayer attribution="&copy; OpenStreetMap contributors"
+                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {hospitals.map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
