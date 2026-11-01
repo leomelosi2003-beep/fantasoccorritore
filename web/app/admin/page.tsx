@@ -106,7 +106,7 @@ export default function Admin() {
       const { error } = await supabase.from("volunteers").insert({
         first_name: f.first_name.trim(), last_name: f.last_name.trim(), nickname: f.nickname.trim() || null,
         gender: f.gender, role: f.role, rarity: f.rarity,
-        stat_guida: f.stat_guida, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza,
+        stat_guida: f.role === "autista" ? f.stat_guida : 1, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza,
         pros: f.pros.split("\n").map((s) => s.trim()).filter(Boolean),
         cons: f.cons.split("\n").map((s) => s.trim()).filter(Boolean),
         trait_mods: mods, contract_days: f.contract_days ? Number(f.contract_days) : null,
@@ -188,7 +188,8 @@ export default function Admin() {
                 </select></div>
             </div>
 
-            {(["stat_guida", "stat_soccorso", "stat_resilienza"] as const).map((k) => (
+            {(["stat_guida", "stat_soccorso", "stat_resilienza"] as const)
+              .filter((k) => k !== "stat_guida" || f.role === "autista").map((k) => (
               <div key={k}>
                 <label style={lbl}>{{ stat_guida: "Guida", stat_soccorso: "Soccorso", stat_resilienza: "Resilienza" }[k]}: {f[k]}</label>
                 <input type="range" min={1} max={100} value={f[k]} onChange={(e) => set(k, Number(e.target.value))} style={{ width: "100%" }} />

@@ -70,7 +70,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
       </div>
 
       <div style={{ marginTop: 10, display: "grid", gap: 3 }}>
-        <Stat label="Guida" v={c.stat_guida} />
+        {c.role === "autista" && <Stat label="Guida" v={c.stat_guida} />}
         <Stat label="Soccorso" v={c.stat_soccorso} />
         <Stat label="Resilienza" v={c.stat_resilienza} />
       </div>
