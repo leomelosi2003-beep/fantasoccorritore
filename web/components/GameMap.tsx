@@ -263,6 +263,7 @@ export default function GameMap() {
           <button className="fs-btn" style={{ background: "#1E3A8A" }} onClick={() => router.push("/squadra")}><span>👥</span>Squadra</button>
           <button className="fs-btn" style={{ background: "#15803D" }} onClick={() => router.push("/alleanza")}><span>🤝</span>Alleanza</button>
           <button className="fs-btn" style={{ background: "#111" }} onClick={() => router.push("/negozio")}><span>🛒</span>Presidi</button>
+          <button className="fs-btn" style={{ background: "#B45309" }} onClick={() => router.push("/classifica")}><span>🏆</span>Classifica</button>
           {isAdmin && <button className="fs-btn" style={{ background: "#7C3AED" }} onClick={() => router.push("/admin")}><span>🛠️</span>Admin</button>}
           <button className="fs-btn fs-exit" onClick={logout}><span>🚪</span>Esci</button>
         </nav>
