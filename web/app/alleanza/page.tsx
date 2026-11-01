@@ -223,7 +223,7 @@ export default function AlleanzaPage() {
               <>
                 <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
                   L&apos;ambulanza resta tua: parte dalla tua sede e si consuma, ma quando la usa l&apos;alleato
-                  tu guadagni il <strong>15%</strong> in più (5% per ogni volontario prestato).
+                  tu guadagni il <strong>10%</strong> del premio (5% per ogni volontario prestato).
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                   <select style={{ ...inp, flex: 1, minWidth: 160 }} value={lendTarget} onChange={(e) => setLendTo(e.target.value)}>
