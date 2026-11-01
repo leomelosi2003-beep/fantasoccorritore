@@ -66,6 +66,13 @@ type Assignment = {
   route: RoutePoint[] | null; hospital: string | null; vehicle_image: string | null;
 };
 
+type OtherAmbulance = {
+  id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string; route: RoutePoint[] | null;
+  title: string; code: MissionPin["code"]; call_sign: string; vehicle_image: string | null;
+  org_id: string; org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; hospital: string | null;
+  base_lat: number; base_lng: number; lat: number; lng: number;
+};
+
 type UpcomingEvent = { id: string; title: string; kind: string; starts_at: string; show_at: string | null;
   time_confirmed: boolean; venue: string; slots: number; reward_funds: number; lat: number; lng: number };
 const KIND_ICON: Record<string, string> = { calcio: "⚽", basket: "🏀", concerto: "🎤", teatro: "🎭", altro: "🎪" };
@@ -83,6 +90,22 @@ function eventIcon(kind: string, open: boolean) {
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
+// Ambulanza di un altro giocatore: più piccola, con lo stemma della sua associazione
+function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null) {
+  const pic = img
+    ? `<img src="${img.replace(/\.png$/, "-map.png")}" style="width:48px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});opacity:.92" alt=""/>`
+    : `<div style="font-size:22px">🚑</div>`;
+  return L.divIcon({
+    className: "",
+    html: `<div style="position:relative;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}">
+             ${pic}
+             <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;
+                         background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 2px rgba(0,0,0,.5)">${emblemSvg(type, 14, logo)}</div>
+           </div>`,
+    iconSize: [48, 26], iconAnchor: [24, 13],
+  });
+}
+
 // Ambulanza vista di profilo (immagine del modello), girata verso dove sta andando
 function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolean) {
   if (!img) {
@@ -135,6 +158,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [others, setOthers] = useState<OtherAmbulance[]>([]);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -172,6 +196,9 @@ export default function GameMap() {
       }
       prev = new Map(list.map((a) => [a.id, a.status]));
       setAssignments(list);
+      // ambulanze degli altri giocatori
+      const { data: o } = await supabase.from("live_ambulances").select("*");
+      setOthers((o as OtherAmbulance[]) ?? []);
     }
     loadAssignments();
     const t1 = setInterval(loadAssignments, 20_000);
@@ -181,7 +208,7 @@ export default function GameMap() {
 
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
-    for (const a of assignments) {
+    for (const a of [...assignments, ...others]) {
       if (a.status === "conclusa" || !a.route?.length) continue;
       for (let i = 0; i < a.route.length - 1; i++) {
         const p = a.route[i], q = a.route[i + 1];
@@ -189,7 +216,7 @@ export default function GameMap() {
         fetchLeg(p, q).then(() => setRoadsLoaded((n) => n + 1));
       }
     }
-  }, [assignments]);
+  }, [assignments, others]);
 
   // Sessione: se sei loggato ma senza associazione vai all'onboarding
   useEffect(() => {
@@ -351,6 +378,26 @@ export default function GameMap() {
             </Popup>
           </CircleMarker>
         ))}
+
+        {others.filter((a) => now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
+          const route: RoutePoint[] = a.route?.length ? a.route : [
+            { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
+            { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
+            { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
+          ];
+          const pos = alongRoute(route, now);
+          const ahead = alongRoute(route, now + 4000);
+          return (
+            <Marker key={`o-${a.id}`} position={[pos.lat, pos.lng]} zIndexOffset={-100}
+                    icon={otherAmbulanceIcon(!pos.moving, a.vehicle_image, ahead.lng > pos.lng, a.org_type, a.logo_url)}>
+              <Popup>
+                <strong>{a.org_name}</strong> · {a.call_sign}<br />
+                {a.title}<br />
+                {pos.text}
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {assignments.filter((a) => a.status !== "conclusa" && now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
