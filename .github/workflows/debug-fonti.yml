@@ -1,0 +1,19 @@
+# Temporaneo: scarica le pagine delle fonti eventi per studiarne la struttura
+name: Debug fonti eventi
+on: workflow_dispatch
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          curl -sL -A "$UA" "https://www.corrieredellosport.it/squadra/calcio/livorno/calendario/t1580" -o out/calcio.html || true
+          curl -sL -A "$UA" "https://www.legapallacanestro.com/serie-a2/libertas-livorno-1947" -o out/libertas.html || true
+          curl -sL -A "$UA" "https://www.legapallacanestro.com/serie-b/verodol-cbd-pielle-livorno" -o out/pielle.html || true
+          curl -sL -A "$UA" "https://www.goldoniteatro.it/spettacoli/" -o out/goldoni.html || true
+          curl -sL -A "$UA" "https://www.modiglianiforum.com/tutti-eventi/" -o out/forum.html || true
+          curl -sL -A "$UA" "https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=Livorno" -o out/tsdb.json || true
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: fonti, path: out }
