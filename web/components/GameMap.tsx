@@ -216,7 +216,8 @@ export default function GameMap() {
       const { data } = await supabase.from("my_assignments").select("*");
       const list = (data as Assignment[]) ?? [];
       for (const a of list) {
-        if (prev.get(a.id) && prev.get(a.id) !== "annullata" && prev.get(a.id) !== "conclusa" && a.status === "annullata") {
+        if (prev.get(a.id) && prev.get(a.id) !== "annullata" && prev.get(a.id) !== "conclusa" && a.status === "annullata"
+            && !a.route?.some((p) => p.label === "Viaggio annullato")) {
           showToast(`⚔️ ${a.call_sign}: servizio perso, un'altra ambulanza è arrivata prima. Rientra in sede.`);
         }
         if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
@@ -563,6 +564,17 @@ export default function GameMap() {
                 {pos.text} · {left} min<br />
                 {a.hospital && <>Ospedale: {a.hospital}<br /></>}
                 {back > 0 ? <>Libero tra {back} min</> : <strong style={{ color: "#15803D" }}>✅ Disponibile: puoi già mandarlo su un altro servizio</strong>}
+                {a.status === "in_viaggio" && now < new Date(a.arrives_at).getTime() && (
+                  <><br /><button onClick={async () => {
+                      if (!window.confirm("Annullare il viaggio? L'ambulanza torna libera subito, senza premio.")) return;
+                      const { error } = await supabase.rpc("cancel_assignment", { p_assignment: a.id });
+                      if (error) { showToast("Non si può più annullare: è già sul posto."); return; }
+                      showToast("↩️ Viaggio annullato: scegli un altro servizio sulla mappa.");
+                      supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
+                    }}
+                    style={{ marginTop: 6, border: "none", background: "#374151", color: "#fff", borderRadius: 8,
+                             padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>↩️ Annulla viaggio</button></>
+                )}
               </Popup>
             </Marker>
             </Fragment>

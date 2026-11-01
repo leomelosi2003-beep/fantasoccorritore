@@ -7,7 +7,7 @@ type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
   maintenance_until: string | null; vehicle_image: string | null; base_name: string | null;
 };
-type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string;
+type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; arrives_at: string;
   route_ends_at: string; hospital: string | null; transport?: string | null;
   route: { lat: number; lng: number; t: string; label: string }[] | null };
 type Row = { v: Vehicle; color: string; text: string; timer: string | null; order: number; job?: Job };
@@ -45,6 +45,16 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
     setPicking(jobId); setOptions([]); setErr(null);
     const { data } = await supabase.rpc("hospital_options", { p_assignment: jobId });
     setOptions((data as HospitalOption[]) ?? []);
+  }
+
+  // Annulla il viaggio verso il servizio (solo prima di arrivare sul posto): l'ambulanza è subito libera
+  async function cancelTrip(job: Job) {
+    if (!window.confirm(`Annullare il viaggio verso "${job.title.split(" — ")[0]}"? L'ambulanza torna libera subito, senza premio.`)) return;
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("cancel_assignment", { p_assignment: job.id });
+    setBusy(false);
+    if (error) { setErr(error.message.includes("ALREADY_ON_SCENE") ? "È già arrivata sul posto: non si può più annullare." : "Non riesco ad annullare."); return; }
+    onChanged("↩️ Viaggio annullato: l'ambulanza è libera, scegli un altro servizio sulla mappa.");
   }
 
   async function choose(jobId: string, h: HospitalOption) {
@@ -117,6 +127,13 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
                 </div>
               )}
             </div>
+            {job && job.status === "in_viaggio" && now < new Date(job.arrives_at).getTime() && (
+              <div style={{ padding: "0 10px 6px" }}>
+                <button onClick={() => cancelTrip(job)} disabled={busy}
+                        style={{ border: "1px solid #6B7280", background: "#fff", color: "#374151", borderRadius: 8, padding: "5px 10px",
+                                 fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↩️ Annulla viaggio</button>
+              </div>
+            )}
             {job && canChangeHospital(job, now) && (
               <div style={{ padding: "0 10px 8px" }}>
                 <button onClick={() => openPicker(job.id)}
