@@ -65,7 +65,7 @@ type Assignment = {
   completed_at: string | null; reward_funds: number | null; title: string; code: MissionPin["code"];
   call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
   route: RoutePoint[] | null; hospital: string | null; vehicle_image: string | null;
-  vehicle_id: string; route_ends_at: string;
+  vehicle_id: string; route_ends_at: string; transport: string | null;
 };
 
 type OtherAmbulance = {
@@ -304,7 +304,11 @@ export default function GameMap() {
       </div>
 
       {/* Le mie ambulanze con il conto alla rovescia */}
-      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey} />}
+      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey}
+                          onChanged={(msg) => {
+                            showToast(msg);
+                            supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
+                          }} />}
 
       {/* Menu: in alto a destra sul computer, in basso sul telefono */}
       {org && (

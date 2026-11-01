@@ -7,7 +7,20 @@ type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
   maintenance_until: string | null; vehicle_image: string | null; base_name: string | null;
 };
-type Job = { vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; route_ends_at: string };
+type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string;
+  route_ends_at: string; hospital: string | null; transport?: string | null;
+  route: { lat: number; lng: number; t: string; label: string }[] | null };
+type Row = { v: Vehicle; color: string; text: string; timer: string | null; order: number; job?: Job };
+type HospitalOption = { id: string; name: string; minutes: number; current: boolean; specialized: boolean };
+
+// Si può cambiare ospedale finché l'ambulanza non è arrivata in ospedale
+function canChangeHospital(j: Job, now: number) {
+  if (!j.route?.length || !j.transport || j.transport === "trasferimento" || j.transport === "dimissione") return false;
+  const sceneEnd = Math.max(...j.route.filter((p) => p.label === "Sul posto").map((p) => new Date(p.t).getTime()));
+  const arrive = j.route.map((p) => ({ ...p, ms: new Date(p.t).getTime() }))
+    .find((p) => p.label !== "Sul posto" && p.label !== "Sede" && p.ms > sceneEnd);
+  return !!arrive && now < arrive.ms;
+}
 
 // Conto alla rovescia mm:ss (o h:mm:ss)
 function countdown(ms: number) {
@@ -18,8 +31,33 @@ function countdown(ms: number) {
 }
 
 // Elenco delle mie ambulanze con il tempo che manca per liberarsi
-export default function FleetPanel({ jobs, now, refreshKey }: { jobs: Job[]; now: number; refreshKey: number }) {
+export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
+  jobs: Job[]; now: number; refreshKey: number; onChanged: (msg: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [picking, setPicking] = useState<string | null>(null); // id del servizio
+  const [options, setOptions] = useState<HospitalOption[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function openPicker(jobId: string) {
+    if (picking === jobId) { setPicking(null); return; }
+    setPicking(jobId); setOptions([]); setErr(null);
+    const { data } = await supabase.rpc("hospital_options", { p_assignment: jobId });
+    setOptions((data as HospitalOption[]) ?? []);
+  }
+
+  async function choose(jobId: string, h: HospitalOption) {
+    setBusy(true); setErr(null);
+    const { error } = await supabase.rpc("change_hospital", { p_assignment: jobId, p_hospital: h.id });
+    setBusy(false);
+    if (error) {
+      setErr(error.message.includes("ALREADY_AT_HOSPITAL") ? "È già arrivata in ospedale." : "Non si può cambiare ospedale per questo servizio.");
+      return;
+    }
+    setPicking(null);
+    onChanged(`🏥 Nuova destinazione: ${h.name}`);
+  }
   const [fleet, setFleet] = useState<Vehicle[]>([]);
 
   useEffect(() => {
@@ -36,15 +74,16 @@ export default function FleetPanel({ jobs, now, refreshKey }: { jobs: Job[]; now
     if (!cur || j.assigned_at > cur.assigned_at) lastJob.set(j.vehicle_id, j);
   }
 
-  const rows = fleet.map((v) => {
+  const rows: Row[] = fleet.map((v): Row => {
     const j = lastJob.get(v.id);
     const freeAt = j ? new Date(j.completes_at).getTime() : 0;
     const homeAt = j ? new Date(j.route_ends_at).getTime() : 0;
-    if (v.lent_to) return { v, color: "#B45309", text: `🤝 Prestata a ${v.lent_to}`, timer: null as string | null, order: 3 };
+    if (v.lent_to) return { v, color: "#B45309", text: `🤝 Prestata a ${v.lent_to}`, timer: null, order: 3 };
     if (v.status === "manutenzione" && v.maintenance_until)
       return { v, color: "#6B7280", text: "🔧 In officina", timer: countdown(new Date(v.maintenance_until).getTime() - now), order: 2 };
     if (j && freeAt > now)
-      return { v, color: "#DC2626", text: j.title.split(" — ")[0], timer: countdown(freeAt - now), order: 0 };
+      return { v, color: "#DC2626", text: j.title.split(" — ")[0] + (j.hospital ? ` → ${j.hospital}` : ""),
+               timer: countdown(freeAt - now), order: 0, job: j };
     if (j && homeAt > now)
       return { v, color: "#15803D", text: `✅ Libera · in rientro (${countdown(homeAt - now)})`, timer: null, order: 1 };
     if (v.wear >= 80) return { v, color: "#B45309", text: "⚠️ Da revisionare", timer: null, order: 2 };
@@ -61,8 +100,9 @@ export default function FleetPanel({ jobs, now, refreshKey }: { jobs: Job[]; now
       {open && (
         <div className="fs-fleet-list">
           {rows.length === 0 && <div style={{ padding: 12, color: "#666", fontSize: 14 }}>Nessuna ambulanza: comprala nel Garage.</div>}
-          {rows.map(({ v, color, text, timer }) => (
-            <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderTop: "1px solid #f0f0f0" }}>
+          {rows.map(({ v, color, text, timer, job }) => (
+            <div key={v.id} style={{ borderTop: "1px solid #f0f0f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
               {v.vehicle_image
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={v.vehicle_image.replace(/\.png$/, "-map.png")} alt="" style={{ width: 46, height: "auto", flexShrink: 0 }} />
@@ -76,6 +116,29 @@ export default function FleetPanel({ jobs, now, refreshKey }: { jobs: Job[]; now
                   ⏱ {timer}
                 </div>
               )}
+            </div>
+            {job && canChangeHospital(job, now) && (
+              <div style={{ padding: "0 10px 8px" }}>
+                <button onClick={() => openPicker(job.id)}
+                        style={{ border: "1px solid #DC2626", background: picking === job.id ? "#DC2626" : "#fff",
+                                 color: picking === job.id ? "#fff" : "#DC2626", borderRadius: 8, padding: "5px 10px",
+                                 fontSize: 12, fontWeight: 700, cursor: "pointer" }}>🏥 Cambia ospedale</button>
+                {picking === job.id && (
+                  <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                    {options.length === 0 && <div style={{ fontSize: 12, color: "#888" }}>Caricamento…</div>}
+                    {options.map((h) => (
+                      <button key={h.id} disabled={busy || h.current} onClick={() => choose(job.id, h)}
+                              style={{ textAlign: "left", border: "1px solid #ddd", borderRadius: 8, padding: "6px 8px",
+                                       background: h.current ? "#f3f3f3" : "#fff", cursor: h.current ? "default" : "pointer", fontSize: 13 }}>
+                        <strong>{h.name}</strong> · {h.minutes} min
+                        {h.current ? " · attuale" : !h.specialized ? <span style={{ color: "#B45309" }}> · non specializzato</span> : ""}
+                      </button>
+                    ))}
+                    {err && <div style={{ fontSize: 12, color: "#B91C1C" }}>{err}</div>}
+                  </div>
+                )}
+              </div>
+            )}
             </div>
           ))}
         </div>
