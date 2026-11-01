@@ -12,7 +12,7 @@ type Venue = { id: string; name: string; lat: number; lng: number };
 type Ev = {
   id: string; title: string; kind: Kind; venue_id: string; venue: string; starts_at: string; ends_at: string;
   show_at: string | null; slots: number; required_roles: Record<string, number>; reward_funds: number;
-  time_confirmed: boolean; source_url: string | null;
+  time_confirmed: boolean; source_url: string | null; source_key: string | null; locked: boolean;
 };
 
 const KIND: Record<Kind, { label: string; icon: string; pre: number; dur: number; slots: number; reward: number;
@@ -103,7 +103,7 @@ export default function AdminEventi() {
       requires: ["defib"], source_url: f.source_url.trim() || null,
     };
     const { error } = editing
-      ? await supabase.from("events").update(row).eq("id", editing.id)
+      ? await supabase.from("events").update({ ...row, locked: true }).eq("id", editing.id)
       : await supabase.from("events").insert(row);
     setBusy(false);
     if (error) { setMsg({ ok: false, text: friendlyError(error.message) }); return; }
@@ -258,7 +258,11 @@ export default function AdminEventi() {
                                        border: editing?.id === e.id ? "2px solid #7C3AED" : undefined }}>
                 <div style={{ fontSize: 26 }}>{KIND[e.kind]?.icon}</div>
                 <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>{e.title}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    {e.title}{" "}
+                    {e.source_key && !e.locked && <span title="Caricato in automatico dalla fonte ufficiale" style={{ fontSize: 11, background: "#DBEAFE", color: "#1E40AF", borderRadius: 6, padding: "1px 6px" }}>🔄 automatico</span>}
+                    {e.source_key && e.locked && <span title="Modificato a mano: la fonte non lo aggiorna più" style={{ fontSize: 11, background: "#FEF3C7", color: "#92400E", borderRadius: 6, padding: "1px 6px" }}>✋ modificato</span>}
+                  </div>
                   <div style={{ fontSize: 13, color: "#555" }}>
                     {show.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · ore {localTime(show)}
                     {!e.time_confirmed && <span style={{ color: "#B45309" }}> (indicativo)</span>} · {e.venue}
