@@ -10,6 +10,7 @@ import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
+import ThemeToggle, { isDark } from "@/components/ThemeToggle";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -176,6 +177,13 @@ export default function GameMap() {
   const [moneyPops, setMoneyPops] = useState<{ key: number; amount: number; label: string }[]>([]);
   const [shownFunds, setShownFunds] = useState<number | null>(null);
   const [fundsFlash, setFundsFlash] = useState(false);
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const upd = () => setDark(isDark());
+    upd();
+    window.addEventListener("fs-theme", upd);
+    return () => window.removeEventListener("fs-theme", upd);
+  }, []);
   const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -392,6 +400,9 @@ export default function GameMap() {
         </div>
       ))}
 
+      {/* Modalità scura */}
+      <ThemeToggle className="fs-theme-btn" />
+
       {/* Chat tra giocatori */}
       {org && <ChatPanel orgId={org.id} />}
 
@@ -417,8 +428,11 @@ export default function GameMap() {
       )}
 
       <MapContainer center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
-        <TileLayer attribution="&copy; OpenStreetMap contributors"
-                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {dark
+          ? <TileLayer key="dark" attribution="&copy; OpenStreetMap contributors &copy; CARTO"
+                       url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          : <TileLayer key="light" attribution="&copy; OpenStreetMap contributors"
+                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />}
 
         {hospitals.map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
@@ -586,6 +600,8 @@ export default function GameMap() {
           font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
         .fs-exit { background: #fff !important; color: #333; }
         .fs-toast { bottom: 24px; }
+        .fs-theme-btn { position: absolute; z-index: 1000; top: 62px; right: 10px; width: 42px; height: 42px; border-radius: 50%;
+          border: none; background: #fff; font-size: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
         .fs-chat-btn { position: absolute; z-index: 1000; left: 10px; bottom: 24px; width: 52px; height: 52px; border-radius: 50%;
           border: none; background: #111; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
         .fs-chat-dot { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #DC2626;
@@ -616,6 +632,8 @@ export default function GameMap() {
           .fs-exit { background: #f1f1f1 !important; }
           .fs-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
           .fs-notes { bottom: auto; top: 110px; }
+          .fs-theme-btn { top: 10px; }
+          .fs-top { max-width: calc(100% - 118px); }
           .fs-chat-btn { bottom: calc(80px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
           .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(136px + env(safe-area-inset-bottom)); height: 55vh; }
           .fs-badge { top: 0; right: 4px; }
