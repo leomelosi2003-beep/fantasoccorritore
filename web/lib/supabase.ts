@@ -57,7 +57,6 @@ export function friendlyError(msg: string): string {
     "Invalid login credentials": "Email o password sbagliate.",
     "User already registered": "Esiste già un account con questa email.",
     "Email not confirmed": "Devi prima confermare l'email (controlla la posta).",
-    "TOO_CLOSE_TO_OWN_BASE": "Troppo vicina a un'altra tua sede (minimo 3 km).",
     "TOO_CLOSE_TO_OTHER_BASE": "Troppo vicina alla sede di un'altra associazione: serve almeno 500 m di distanza.",
     "INSUFFICIENT_FUNDS": "Fondi insufficienti.",
   };

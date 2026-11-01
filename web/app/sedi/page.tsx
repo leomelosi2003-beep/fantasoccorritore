@@ -97,8 +97,7 @@ export default function Sedi() {
           <div style={{ fontSize: 14, color: "#555", marginBottom: 10 }}>
             Prezzo: <strong>{euro(cost)}</strong>. Più sedi hai, più costa la prossima.
             Ogni sede ha i suoi posti per le ambulanze e le fa partire più vicino ai servizi.
-            <br />Tocca la mappa: <span style={{ color: "#2563EB" }}>almeno 3 km dalle tue sedi</span>,{" "}
-            <span style={{ color: "#6B7280" }}>almeno 500 m da quelle degli altri</span>.
+            <br />Tocca la mappa (i pallini blu sono le tue sedi): serve stare <span style={{ color: "#6B7280" }}>almeno 500 m dalle sedi degli altri</span> (zone grigie).
           </div>
           <PickBaseMap key={mapKey} value={point} color="#F97316" onPick={setPoint} height={360} />
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder={`Sede ${bases.length + 1}`}

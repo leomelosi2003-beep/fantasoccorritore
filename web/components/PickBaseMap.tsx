@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 
 type Point = { lat: number; lng: number };
 const MIN_DIST = 500; // metri dalle sedi delle altre associazioni
-const OWN_DIST = 3000; // metri tra due sedi tue
 
 function meters(a: Point, b: Point) {
   const R = 6371000, r = Math.PI / 180;
@@ -47,7 +46,6 @@ export default function PickBaseMap({ value, color, onPick, height = 320 }: {
 
   function pick(p: Point) {
     const msg = blocked.some((b) => meters(b, p) < MIN_DIST) ? "Troppo vicino a un'altra associazione: servono almeno 500 m (zone grigie)."
-      : mine.some((b) => meters(b, p) < OWN_DIST) ? "Troppo vicino a una tua sede: servono almeno 3 km (zone blu)."
       : null;
     if (msg) { setWarn(msg); setTimeout(() => setWarn((w) => (w === msg ? null : w)), 2500); return; }
     setWarn(null);
@@ -64,10 +62,6 @@ export default function PickBaseMap({ value, color, onPick, height = 320 }: {
         {blocked.map((b, i) => (
           <Circle key={i} center={[b.lat, b.lng]} radius={MIN_DIST}
                   pathOptions={{ color: "#6B7280", weight: 1, fillColor: "#6B7280", fillOpacity: 0.25 }} />
-        ))}
-        {mine.map((b, i) => (
-          <Circle key={`m${i}`} center={[b.lat, b.lng]} radius={OWN_DIST}
-                  pathOptions={{ color: "#2563EB", weight: 1, dashArray: "6 6", fillColor: "#2563EB", fillOpacity: 0.08 }} />
         ))}
         {mine.map((b, i) => (
           <CircleMarker key={`d${i}`} center={[b.lat, b.lng]} radius={7}
