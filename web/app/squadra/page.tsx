@@ -10,6 +10,15 @@ const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFa
 const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
 const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
+
+const PACKS = [
+  { kind: "comune", price: 3000, icon: "📦", leg: "2%", epi: "13%", note: "",
+    bg: "linear-gradient(135deg,#4B5563,#1F2937)", glow: "0 2px 8px rgba(0,0,0,.15)" },
+  { kind: "epico", price: 12000, icon: "💜", leg: "8%", epi: "42%", note: "almeno 1 epica garantita",
+    bg: "linear-gradient(135deg,#7C3AED,#4C1D95)", glow: "0 0 16px rgba(139,92,246,.5)" },
+  { kind: "leggendario", price: 35000, icon: "👑", leg: "25%", epi: "50%", note: "almeno 1 leggendaria garantita",
+    bg: "linear-gradient(135deg,#F59E0B,#B45309)", glow: "0 0 20px rgba(245,158,11,.6)" },
+];
 const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 };
 
 export default function Squadra() {
@@ -19,6 +28,7 @@ export default function Squadra() {
   const [pack, setPack] = useState<{ opened: boolean; next_pack_at: string } | null>(null);
   const [reveal, setReveal] = useState<Card[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [avail, setAvail] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -33,6 +43,7 @@ export default function Squadra() {
       supabase.rpc("pack_status"),
     ]);
     setCards((c.data as Card[]) ?? []);
+    supabase.rpc("pack_availability").then(({ data }) => setAvail((data as Record<string, number>) ?? {}));
     setPack(p.data as { opened: boolean; next_pack_at: string });
   }, [router]);
 
@@ -53,6 +64,29 @@ export default function Squadra() {
       return;
     }
     await load();
+  }
+
+  // Pacchetti a pagamento
+  async function buyPack(kind: string, price: number) {
+    if (!window.confirm(`Comprare il pacchetto ${kind} per ${price.toLocaleString("it-IT")} €?`)) return;
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("buy_pack", { p_kind: kind });
+    if (error) {
+      setBusy(false);
+      const m = error.message;
+      setError(m.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza fondi."
+        : m.includes("NO_LEGENDARY_LEFT") ? "Non ci sono carte leggendarie da trovare (le hai già tutte o non ne esistono ancora): non hai pagato niente."
+        : m.includes("NO_EPIC_LEFT") ? "Non ci sono carte epiche da trovare (le hai già tutte o non ne esistono ancora): non hai pagato niente."
+        : friendlyError(m));
+      return;
+    }
+    const ids = ((data as { id: string }[]) ?? []).map((x) => x.id);
+    const { data: fresh } = await supabase.from("my_cards").select("*").in("id", ids);
+    const order = new Map(ids.map((id, i) => [id, i]));
+    setReveal(((fresh as Card[]) ?? []).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)));
+    if (ids.length < 5) setError(`Non c'erano abbastanza carte nuove: ti abbiamo rimborsato ${5 - ids.length} carte.`);
+    setBusy(false);
+    load();
   }
 
   async function openPack() {
@@ -114,6 +148,34 @@ export default function Squadra() {
                            opacity: busy || !pack || pack.opened ? 0.4 : 1 }}>
             {busy ? "Apertura…" : pack?.opened ? "Già aperto" : "Apri pacchetto"}
           </button>
+        </div>
+
+        {/* Pacchetti a pagamento */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {PACKS.map((p) => {
+            const none = (p.kind === "leggendario" && !avail.leggendaria) || (p.kind === "epico" && !avail.epica && !avail.leggendaria);
+            return (
+              <div key={p.kind} style={{ background: p.bg, color: "#fff", borderRadius: 16, padding: 14, display: "flex",
+                                         flexDirection: "column", gap: 6, boxShadow: p.glow }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 34 }}>{p.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 17 }}>Pacchetto {p.kind}</div>
+                    <div style={{ fontSize: 13, opacity: 0.9 }}>5 volontari nuovi</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                  🟡 Leggendaria: <strong>{p.leg}</strong><br />
+                  🟣 Epica: <strong>{p.epi}</strong><br />
+                  {p.note && <span style={{ opacity: 0.9 }}>✨ {p.note}</span>}
+                </div>
+                <button onClick={() => buyPack(p.kind, p.price)} disabled={busy || none}
+                        style={{ ...btn, background: "#fff", color: "#111", marginTop: "auto", opacity: busy || none ? 0.5 : 1 }}>
+                  {none ? "Nessuna carta da trovare" : `Compra · ${p.price.toLocaleString("it-IT")} €`}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12, marginBottom: 12 }}>{error}</div>}
