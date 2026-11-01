@@ -20,7 +20,8 @@ insert into hospitals (name, location, capabilities, region, specialty, transfer
 on conflict (name) do nothing;
 update hospitals set transfer_dest = true, specialty = 'trauma center' where name = 'Ospedale di Cisanello (Pisa)';
 
-create or replace view hospitals_map with (security_invoker = true) as
+drop view if exists hospitals_map;
+create view hospitals_map with (security_invoker = true) as
 select id, name, capabilities, region, specialty, transfer_dest,
        st_y(location::geometry) as lat, st_x(location::geometry) as lng from hospitals;
 grant select on hospitals_map to anon, authenticated;
