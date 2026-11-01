@@ -254,7 +254,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                   <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}><RoleBadge c={c} small />{c.lent_from && ` · 🤝 da ${c.lent_from}`}</div>
                 </div>
                 <div style={{ width: 54, textAlign: "right", fontSize: 12 }}>
-                  <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>⚡{Math.round(c.energy)}%</div>
+                  <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>🔋 {c.services_left ?? 15}/15</div>
                 </div>
                 <span style={{ fontSize: 18 }}>{sel ? "✅" : "⬜"}</span>
               </button>

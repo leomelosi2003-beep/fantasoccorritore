@@ -8,7 +8,7 @@ export type Card = {
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
   avanzato?: boolean; lent_to?: string | null; lent_from?: string | null;
-  training_until?: string | null; promoted?: boolean;
+  training_until?: string | null; promoted?: boolean; services_left?: number;
 };
 
 export const ROLE: Record<Card["role"], { label: string; icon: string; color: string; bg: string }> = {
@@ -100,7 +100,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
       {!expired && (
         <div style={{ marginTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
-            <span>Energia</span><strong>{Math.round(c.energy)}%</strong>
+            <span>Energia</span><strong>{c.services_left ?? 15}/15 servizi</strong>
           </div>
           <div style={{ height: 7, background: "#eee", borderRadius: 4 }}>
             <div style={{ width: `${c.energy}%`, height: 7, borderRadius: 4,
