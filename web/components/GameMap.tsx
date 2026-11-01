@@ -328,7 +328,7 @@ export default function GameMap() {
                       color: "#900", border: "1px solid #e99", padding: "10px 14px", borderRadius: 8 }}>{error}</div>
       )}
 
-      <MapContainer center={[43.5485, 10.3106]} zoom={12} className="fs-map" style={{ width: "100%" }}>
+      <MapContainer center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
