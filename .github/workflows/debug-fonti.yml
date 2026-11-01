@@ -1,0 +1,27 @@
+# Temporaneo: scarica pagine candidate per gli eventi
+name: Debug fonti eventi
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out; cd out
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          get() { curl -sL -A "$UA" -H "Accept-Language: it-IT,it;q=0.9" --max-time 30 "$2" -o "$1" -w "$1 %{http_code} %{size_download}\n" || echo "$1 FAIL"; }
+          get ticketone.html "https://www.ticketone.it/city/livorno-460/"
+          get eventbrite.html "https://www.eventbrite.it/d/italy--livorno/all-events/"
+          get livornotoday.html "https://www.livornotoday.it/eventi/"
+          get comune.html "https://www.comune.livorno.it/eventi"
+          get visit.html "https://www.visitlivorno.it/it/eventi"
+          get allevents.html "https://allevents.in/livorno/all"
+          get songkick.html "https://www.songkick.com/metro-areas/28634-italy-livorno"
+          get teatrolavoro.html "https://www.toscanaeventi.net/eventi-livorno"
+          get uncinema.html "https://www.eventiesagre.it/cerca/eventi/sez/mesi/Toscana/prov/Livorno/cit/Livorno"
+          ls -la
+          git init -q -b debug-fonti
+          git -c user.name=bot -c user.email=bot@local add -A
+          git -c user.name=bot -c user.email=bot@local commit -qm fonti2
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" debug-fonti
