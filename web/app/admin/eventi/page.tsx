@@ -112,7 +112,9 @@ export default function AdminEventi() {
   }
 
   async function remove(e: Ev) {
-    if (!confirm(`Eliminare "${e.title}"?`)) return;
+    if (!confirm(e.source_key
+      ? `Eliminare "${e.title}"? È un evento automatico: il sistema se lo ricorderà e non lo ricaricherà più.`
+      : `Eliminare "${e.title}"?`)) return;
     const { error } = await supabase.from("events").delete().eq("id", e.id);
     if (error) setMsg({ ok: false, text: friendlyError(error.message) });
     load();
@@ -260,7 +262,8 @@ export default function AdminEventi() {
                 <div style={{ flex: "1 1 220px", minWidth: 0 }}>
                   <div style={{ fontWeight: 700 }}>
                     {e.title}{" "}
-                    {e.source_key && !e.locked && <span title="Caricato in automatico dalla fonte ufficiale" style={{ fontSize: 11, background: "#DBEAFE", color: "#1E40AF", borderRadius: 6, padding: "1px 6px" }}>🔄 automatico</span>}
+                    {e.source_key?.startsWith("allevents:") && !e.locked && <span title="Scoperto in automatico tra gli eventi di Livorno: controlla che meriti una postazione" style={{ fontSize: 11, background: "#DCFCE7", color: "#166534", borderRadius: 6, padding: "1px 6px" }}>🔍 scoperto</span>}
+                    {e.source_key && !e.source_key.startsWith("allevents:") && !e.locked && <span title="Caricato in automatico dalla fonte ufficiale" style={{ fontSize: 11, background: "#DBEAFE", color: "#1E40AF", borderRadius: 6, padding: "1px 6px" }}>🔄 automatico</span>}
                     {e.source_key && e.locked && <span title="Modificato a mano: la fonte non lo aggiorna più" style={{ fontSize: 11, background: "#FEF3C7", color: "#92400E", borderRadius: 6, padding: "1px 6px" }}>✋ modificato</span>}
                   </div>
                   <div style={{ fontSize: 13, color: "#555" }}>

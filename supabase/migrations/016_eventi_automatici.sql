@@ -198,5 +198,163 @@ select cron.unschedule(jobname) from cron.job where jobname in ('sync-events-req
 select cron.schedule('sync-events-request', '0 */6 * * *', $$select sync_events_request()$$);
 select cron.schedule('sync-events-parse', '*/5 * * * *', $$select sync_events_parse()$$);
 
+
+-- =====================================================================
+--  SCOPERTA DI EVENTI NUOVI (fonte aggregata con coordinate)
+--  Riconosce anche eventi mai visti e luoghi nuovi: il luogo viene creato
+--  sulla mappa dalle coordinate. Gli eventi piccoli (yoga, gite, corsi)
+--  vengono scartati. Se l'admin elimina un evento automatico, non torna più.
+-- =====================================================================
+insert into event_sources (source, url, label) values
+  ('allevents', 'https://allevents.in/livorno/all', 'Eventi a Livorno')
+on conflict (source) do update set url = excluded.url;
+
+create table if not exists event_blocked_organizers (name text primary key);
+insert into event_blocked_organizers (name) values ('Paradisi Da Sogno') on conflict do nothing;
+alter table event_blocked_organizers enable row level security;
+drop policy if exists "admin organizers" on event_blocked_organizers;
+create policy "admin organizers" on event_blocked_organizers for all to authenticated using (is_admin()) with check (is_admin());
+grant select, insert, delete on event_blocked_organizers to authenticated;
+
+create table if not exists event_ignored (source_key text primary key, ignored_at timestamptz not null default now());
+
+create or replace function remember_deleted_event() returns trigger
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if old.source_key is not null and coalesce(current_setting('app.sync', true), '') <> 'on' then
+    insert into event_ignored (source_key) values (old.source_key) on conflict do nothing;
+  end if;
+  return old;
+end $$;
+drop trigger if exists events_remember_deleted on events;
+create trigger events_remember_deleted before delete on events
+  for each row execute function remember_deleted_event();
+
+-- Trova un luogo vicino (150 m) o lo crea dalle coordinate
+create or replace function venue_for(p_name text, p_lat double precision, p_lng double precision) returns uuid
+language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid; pt geography := st_setsrid(st_makepoint(p_lng, p_lat), 4326)::geography; nm text;
+begin
+  select id into v_id from venues where st_dwithin(location, pt, 150) order by st_distance(location, pt) limit 1;
+  if v_id is not null then return v_id; end if;
+  nm := left(btrim(regexp_replace(coalesce(nullif(p_name, ''), 'Luogo evento'), ',.*$', '')), 60);
+  insert into venues (name, location) values (nm, pt) on conflict (name) do nothing returning id into v_id;
+  if v_id is null then
+    insert into venues (name, location) values (nm || ' (' || round(p_lat::numeric, 3) || ')', pt)
+    on conflict (name) do nothing returning id into v_id;
+  end if;
+  return v_id;
+end $$;
+
+-- Versione con luogo già risolto, durata e numero di ambulanze personalizzabili
+create or replace function upsert_synced_event_v(p_key text, p_title text, p_kind text, p_venue_id uuid,
+    p_show timestamptz, p_confirmed boolean, p_url text, p_dur int default null, p_slots int default null)
+returns void language plpgsql security definer set search_path = public, extensions as $$
+declare d record;
+begin
+  if p_venue_id is null or p_show is null then return; end if;
+  if p_show < now() or p_show > now() + interval '60 days' then return; end if;
+  if exists (select 1 from event_ignored where source_key = p_key) then return; end if;
+  select * into d from event_defaults(p_kind);
+  insert into events (source_key, title, kind, venue_id, show_at, starts_at, ends_at, slots,
+                      required_roles, requires, reward_funds, time_confirmed, source_url, updated_at)
+  values (p_key, left(p_title, 120), p_kind, p_venue_id, p_show,
+          p_show - make_interval(mins => d.pre),
+          p_show + make_interval(mins => coalesce(p_dur, d.dur) + d.post),
+          coalesce(p_slots, d.slots), d.roles, '{defib}', d.reward * coalesce(p_slots, d.slots) / d.slots,
+          p_confirmed, p_url, now())
+  on conflict (source_key) do update
+    set title = excluded.title, venue_id = excluded.venue_id, show_at = excluded.show_at,
+        starts_at = excluded.starts_at, ends_at = excluded.ends_at,
+        time_confirmed = excluded.time_confirmed, source_url = excluded.source_url, updated_at = now()
+    where events.locked = false;
+end $$;
+
+-- La versione per nome luogo ora passa da quella nuova (e rispetta gli eventi eliminati)
+create or replace function upsert_synced_event(p_key text, p_title text, p_kind text, p_venue text,
+                                               p_show timestamptz, p_confirmed boolean, p_url text)
+returns void language sql security definer set search_path = public, extensions as $$
+  select upsert_synced_event_v(p_key, p_title, p_kind, (select id from venues where name = p_venue),
+                               p_show, p_confirmed, p_url)
+$$;
+
+-- Lettura della fonte aggregata: aggiunta come ramo in più di sync_events_parse
+create or replace function parse_allevents(html text) returns text[]
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  r text[]; best text := ''; arr jsonb; e jsonb; cats text[]; kind text; show timestamptz; dur int;
+  lat double precision; lng double precision; v_id uuid; keys text[] := '{}'; k text; slots int;
+begin
+  for r in select regexp_matches(html, '_this\.events_data = (\[.*?\]);', 'g') loop
+    if length(r[1]) > length(best) then best := r[1]; end if;
+  end loop;
+  if length(best) < 10 then return keys; end if;
+  arr := best::jsonb;
+  for e in select * from jsonb_array_elements(arr) loop
+    cats := array(select jsonb_array_elements_text(coalesce(e->'custom_params'->'merged_lookup', '[]'::jsonb)));
+    -- scarta le attività piccole (yoga, gite, corsi, conferenze, serate di ballo)...
+    -- ...tranne i grandi eventi all'aperto, che hanno sempre bisogno di una postazione
+    continue when not (cats && array['marathons','running','music-festivals','fireworks'])
+              and cats && array['travelling','yoga','meditation','mindfulness','workshops','education','exercise',
+                                'fitness','health-wellness','dog','animals','conferences','books','classes','kids',
+                                'dance','tango','salsa'];
+    -- organizzatori esclusi (es. agenzie di viaggio che partono da Livorno)
+    continue when exists (select 1 from event_blocked_organizers b
+                          where lower(b.name) = lower(coalesce(e->'organizer'->>'name', '')));
+    kind := case
+      when cats && array['concerts','live-music','music-festivals'] then 'concerto'
+      when cats && array['theatre','performing-arts','opera','comedy'] then 'teatro'
+      when cats && array['sports','running','marathons','cycling','football','basketball'] then 'altro'
+      when cats && array['festivals','parties','christmas-markets-and-fairs','fairs','food-festivals','fireworks'] then 'altro'
+      else null end;
+    continue when kind is null;
+    lat := nullif(e->'venue'->>'latitude', '')::double precision;
+    lng := nullif(e->'venue'->>'longitude', '')::double precision;
+    continue when lat is null or lng is null;
+    -- solo Livorno e dintorni (circa 15 km dal centro)
+    continue when st_distance(st_setsrid(st_makepoint(lng, lat), 4326)::geography,
+                              st_setsrid(st_makepoint(10.3106, 43.5485), 4326)::geography) > 15000;
+    show := to_timestamp((e->>'start_time')::bigint);
+    dur := ((e->>'end_time')::bigint - (e->>'start_time')::bigint) / 60;
+    if dur < 30 or dur > 720 then dur := null; end if;
+    -- doppione di un evento già preso da una fonte ufficiale (stesso giorno, a meno di 400 m)
+    continue when exists (
+      select 1 from events x join venues v on v.id = x.venue_id
+      where (x.source_key is null or x.source_key not like 'allevents:%')
+        and (x.show_at at time zone 'Europe/Rome')::date = (show at time zone 'Europe/Rome')::date
+        and st_dwithin(v.location, st_setsrid(st_makepoint(lng, lat), 4326)::geography, 400));
+    slots := case when cats && array['marathons','running'] then 3
+                  when cats && array['festivals','fireworks','music-festivals'] then 2 end;
+    v_id := venue_for(coalesce(nullif(e->>'location', ''), e->'venue'->>'street'), lat, lng);
+    k := 'allevents:' || (e->>'event_id');
+    perform upsert_synced_event_v(k, html_text(e->>'eventname'), kind, v_id, show, false,
+                                  split_part(e->>'event_url', '?', 1), dur, slots);
+    keys := keys || k;
+  end loop;
+  return keys;
+end $$;
+
+-- sync_events_parse con il ramo "allevents" e la cancellazione silenziosa (non conta come "eliminato dall'admin")
+do $do$
+declare src text;
+begin
+  src := pg_get_functiondef('sync_events_parse()'::regprocedure);
+  if position('parse_allevents' in src) = 0 then
+    src := replace(src,
+      'elsif f.source = ''forum'' then',
+      'elsif f.source = ''allevents'' then
+        keys := parse_allevents(html); cnt := cardinality(keys);
+
+      elsif f.source = ''forum'' then');
+    src := replace(src,
+      '      if cnt > 0 then
+        delete from events e',
+      '      if cnt > 0 then
+        perform set_config(''app.sync'', ''on'', true);
+        delete from events e');
+    execute src;
+  end if;
+end $do$;
+
 -- primo caricamento subito
 select sync_events_request();
