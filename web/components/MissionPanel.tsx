@@ -83,7 +83,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    (async () => {
+    // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
+    const loadAll = async () => {
       const [v, e, c] = await Promise.all([
         supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
@@ -92,9 +93,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       setVehicles((v.data as Vehicle[]) ?? []);
       setEquip((e.data as Equip[]) ?? []);
       setCards(((c.data as Card[]) ?? []).filter((x) => x.state !== "scaduta"));
-    })();
+    };
+    loadAll();
+    const r = setInterval(loadAll, 10_000);
     const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); clearInterval(r); };
   }, []);
 
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
