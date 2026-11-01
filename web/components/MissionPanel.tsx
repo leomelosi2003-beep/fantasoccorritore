@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
-import { ROLE, roleLabel, type Card } from "@/components/VolunteerCard";
+import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null };
@@ -197,7 +197,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {/* Requisiti */}
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
           <strong>Equipaggio:</strong>{" "}
-          {Object.entries(required).map(([r, n]) => `${n}× ${ROLE[r as Card["role"]]?.label ?? r}`).join(" · ")}
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, verticalAlign: "middle" }}>
+            {Object.entries(required).map(([r, n]) => (
+              <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <strong>{n}×</strong><RoleBadge c={{ role: r as Card["role"] }} small />
+              </span>
+            ))}
+          </span>
           {(required.soccorritore_avanzato ?? 0) >= 2 && <><br /><span style={{ color: "#555" }}>L&apos;autista avanzato vale come uno dei soccorritori avanzati.</span></>}
           {mission.requires.length > 0 && <><br /><strong>Presidi:</strong> {mission.requires.map((r) => REQ[r] ?? r).join(", ")}</>}
         </div>
@@ -245,7 +251,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                   : avatarSvg(c.volunteer_id, c.gender, c.rarity, 40) }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.first_name} {c.last_name}</div>
-                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {roleLabel(c)}{c.lent_from && ` · 🤝 da ${c.lent_from}`}</div>
+                  <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}><RoleBadge c={c} small />{c.lent_from && ` · 🤝 da ${c.lent_from}`}</div>
                 </div>
                 <div style={{ width: 54, textAlign: "right", fontSize: 12 }}>
                   <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>⚡{Math.round(c.energy)}%</div>

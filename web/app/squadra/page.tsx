@@ -108,7 +108,11 @@ export default function Squadra() {
   if (!org) return <main style={shell} />;
 
   const active = cards.filter((c) => c.state !== "scaduta");
-  const counts = Object.entries(ROLE).map(([k, v]) => ({ ...v, n: active.filter((c) => c.role === k).length }));
+  const counts = [
+    { ...ROLE.autista, n: active.filter((c) => c.role === "autista" && !c.avanzato).length },
+    { label: "Autista avanzato", icon: "🚑", n: active.filter((c) => c.role === "autista" && c.avanzato).length },
+    ...(["soccorritore_base", "soccorritore_avanzato", "caposervizio"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
+  ];
   const nextPack = pack?.next_pack_at ? new Date(pack.next_pack_at) : null;
 
   return (

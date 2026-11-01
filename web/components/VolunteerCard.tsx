@@ -11,12 +11,24 @@ export type Card = {
   training_until?: string | null; promoted?: boolean;
 };
 
-export const ROLE: Record<Card["role"], { label: string; icon: string }> = {
-  autista: { label: "Autista", icon: "🚑" },
-  soccorritore_base: { label: "Soccorritore", icon: "🩹" },
-  soccorritore_avanzato: { label: "Soccorritore avanzato", icon: "💉" },
-  caposervizio: { label: "Caposervizio", icon: "⭐" },
+export const ROLE: Record<Card["role"], { label: string; icon: string; color: string; bg: string }> = {
+  autista: { label: "Autista", icon: "🚑", color: "#374151", bg: "#E5E7EB" },
+  soccorritore_base: { label: "Soccorritore base", icon: "🩹", color: "#166534", bg: "#DCFCE7" },
+  soccorritore_avanzato: { label: "Soccorritore avanzato", icon: "💉", color: "#1E40AF", bg: "#DBEAFE" },
+  caposervizio: { label: "Caposervizio", icon: "⭐", color: "#92400E", bg: "#FEF3C7" },
 };
+const AUTISTA_AV = { label: "Autista avanzato", icon: "🚑", color: "#1E40AF", bg: "#DBEAFE" };
+
+// Etichetta colorata del ruolo: verde = base, blu = avanzato, oro = caposervizio
+export function RoleBadge({ c, small }: { c: Pick<Card, "role" | "avanzato">; small?: boolean }) {
+  const r = c.role === "autista" && c.avanzato ? AUTISTA_AV : ROLE[c.role];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: r.bg, color: r.color, fontWeight: 700,
+                   fontSize: small ? 11 : 12, padding: small ? "1px 6px" : "2px 8px", borderRadius: 999, whiteSpace: "nowrap" }}>
+      {r.icon} {r.label}
+    </span>
+  );
+}
 // Etichetta del ruolo: un autista può essere anche avanzato
 export function roleLabel(c: Pick<Card, "role" | "avanzato">) {
   return c.role === "autista" && c.avanzato ? "Autista avanzato" : ROLE[c.role].label;
@@ -65,7 +77,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.15 }}>{c.first_name} {c.last_name}</div>
           {c.nickname && <div style={{ fontSize: 12, color: "#666", fontStyle: "italic" }}>“{c.nickname}”</div>}
-          <div style={{ fontSize: 12, marginTop: 2 }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
+          <div style={{ marginTop: 4 }}><RoleBadge c={c} /></div>
           {c.promoted && <div style={{ fontSize: 11, color: "#7C3AED", fontWeight: 700 }}>🎓 Promosso con il corso</div>}
           {c.lent_to && <div style={{ fontSize: 11, color: "#B45309", fontWeight: 700 }}>🤝 Prestato a {c.lent_to}</div>}
           {c.lent_from && <div style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>🤝 In prestito da {c.lent_from}</div>}
