@@ -165,8 +165,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     for (const rank of slots) {
       // preferisci il grado esatto, poi uno superiore
       const exact = pool.findIndex((c) => c.role !== "autista" && RANK[c.role] === rank);
-      if (exact >= 0) chosen.push(pool.splice(exact, 1)[0]);
-      else take((c) => c.role !== "autista" && RANK[c.role] > rank);
+      if (exact >= 0) { chosen.push(pool.splice(exact, 1)[0]); continue; }
+      const before = chosen.length;
+      take((c) => c.role !== "autista" && RANK[c.role] > rank);
+      // mancano soccorritori: un altro autista avanzato fa da soccorritore
+      if (chosen.length === before && rank <= 2) take((c) => c.role === "autista" && !!c.avanzato);
     }
     setCrew(chosen.map((c) => c.id));
   }
