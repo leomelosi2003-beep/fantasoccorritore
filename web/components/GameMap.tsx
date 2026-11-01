@@ -8,7 +8,11 @@ import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 
-const REQ: Record<string, string> = { ecg: "cardiomonitor (ECG)", spinale: "tavola spinale", defib: "defibrillatore" };
+const REQ: Record<string, string> = {
+  ecg: "cardiomonitor (ECG)", defib: "defibrillatore", spinale: "tavola spinale adulti",
+  spinale_ped: "tavola spinale pediatrica", collare: "collari cervicali", ked: "KED",
+  cucchiaio: "barella a cucchiaio", steccobende: "steccobende",
+};
 
 const CODE_COLOR: Record<MissionPin["code"], string> = {
   nessuno: "#3B82F6", verde: "#16A34A", giallo: "#EAB308", rosso: "#DC2626",

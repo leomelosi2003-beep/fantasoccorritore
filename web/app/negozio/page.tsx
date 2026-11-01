@@ -6,16 +6,15 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 
-type Slot = "monitor" | "barella" | "massaggiatore" | "spinale" | "borsoni";
-type Equip = { code: string; slot: Slot; name: string; cost: number; provides: string[];
+type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   description: string | null; image_url: string | null; sort: number };
 type Vehicle = { id: string; call_sign: string; status: string; equipment: string[] };
 
-const CATEGORIES: { slot: Slot; title: string }[] = [
+const CATEGORIES: { slot: string; title: string }[] = [
   { slot: "monitor", title: "Defibrillatori e cardiomonitor" },
   { slot: "barella", title: "Barelle" },
   { slot: "massaggiatore", title: "Massaggiatori automatici" },
-  { slot: "spinale", title: "Immobilizzazione" },
+  { slot: "immobilizzazione", title: "Immobilizzazione" },
   { slot: "borsoni", title: "Borsoni e zaini" },
 ];
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
@@ -74,7 +73,7 @@ export default function Negozio() {
   if (!org) return <main style={shell} />;
 
   const replaced = selected && vehicleId
-    ? equip.find((e) => e.slot === selected.slot && vehicles.find((v) => v.id === vehicleId)?.equipment.includes(e.code))
+    ? equip.find((e) => e.slot === selected.slot && e.code !== selected.code && vehicles.find((v) => v.id === vehicleId)?.equipment.includes(e.code))
     : undefined;
 
   return (
@@ -103,7 +102,7 @@ export default function Negozio() {
         )}
 
         {CATEGORIES.map(({ slot, title }) => {
-          const items = equip.filter((e) => e.slot === slot);
+          const items = equip.filter((e) => e.category === slot);
           if (!items.length) return null;
           return (
             <section key={slot} style={{ marginBottom: 20 }}>

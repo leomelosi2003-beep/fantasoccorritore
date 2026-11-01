@@ -11,9 +11,8 @@ type Model = { id: string; name: string; base_cost: number; speed_factor: number
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
-type Equip = { code: string; slot: Slot; name: string; cost: number; provides: string[];
+type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   effects: { reward_mult?: number; on?: string; fatigue_mult?: number }; description: string | null; image_url: string | null; sort: number; starter: boolean };
-type Slot = "monitor" | "barella" | "massaggiatore" | "spinale" | "borsoni";
 type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean };
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
@@ -28,14 +27,19 @@ const CERT: Record<Cert, { label: string; color: string }> = {
 const STATUS: Record<Vehicle["status"], string> = {
   disponibile: "Disponibile", in_servizio: "In servizio", manutenzione: "In manutenzione", fuori_servizio: "Fuori servizio",
 };
-const SLOTS: { slot: Slot; title: string; required: boolean }[] = [
-  { slot: "monitor", title: "Defibrillatore / cardiomonitor", required: true },
-  { slot: "barella", title: "Barella", required: true },
-  { slot: "massaggiatore", title: "Massaggiatore automatico", required: false },
-  { slot: "spinale", title: "Tavola spinale", required: false },
-  { slot: "borsoni", title: "Borsoni emergenza", required: false },
+// Gruppi di presidi: scelta singola per slot, oppure multipla (immobilizzazione)
+const GROUPS: { key: string; title: string; required: boolean; multi: boolean }[] = [
+  { key: "monitor", title: "Defibrillatore / cardiomonitor", required: true, multi: false },
+  { key: "barella", title: "Barella", required: true, multi: false },
+  { key: "borsoni", title: "Borsoni emergenza", required: false, multi: false },
+  { key: "massaggiatore", title: "Massaggiatore automatico", required: false, multi: false },
+  { key: "immobilizzazione", title: "Immobilizzazione", required: false, multi: true },
 ];
-const CAN: Record<string, string> = { defib: "Codici rossi", ecg: "Servizi ECG", spinale: "Traumi", emergenza: "Emergenze 118" };
+const CAN: Record<string, string> = {
+  emergenza: "Emergenze 118", defib: "Codici rossi", ecg: "Servizi ECG",
+  spinale: "Incidenti stradali", ked: "Incastrati", spinale_ped: "Traumi pediatrici",
+  cucchiaio: "Cadute dall'alto", steccobende: "Fratture",
+};
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
@@ -69,7 +73,7 @@ export default function Garage() {
   const [bases, setBases] = useState<Base[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [equip, setEquip] = useState<Equip[]>([]);
-  const [picked, setPicked] = useState<Partial<Record<Slot, string>>>({});
+  const [picked, setPicked] = useState<Partial<Record<string, string>>>({});
   const [shop, setShop] = useState(false);
   const [modelId, setModelId] = useState<string | null>(null);
   const [builderId, setBuilderId] = useState<string | null>(null);
@@ -122,7 +126,7 @@ export default function Garage() {
   function openShop() {
     setShop(true); setMsg(null); setModelId(null); setBuilderId(null);
     setPicked(vehicles.length === 0
-      ? { monitor: "dae", barella: "barella_std", borsoni: "borsoni", spinale: "spinale" }
+      ? { monitor: "dae", barella: "barella_std", borsoni: "borsoni", spinale: "spinale", collari: "collari" }
       : { monitor: "dae", barella: "barella_std", borsoni: "borsoni" });
     setCallSign(`Alfa ${vehicles.length + 1}`);
   }
@@ -224,38 +228,46 @@ export default function Garage() {
             <h3 style={{ marginBottom: 8 }}>3. Presidi</h3>
             {firstVehicle && (
               <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
-                🎁 <strong>Primo mezzo:</strong> DAE, barella standard, borsoni e tavola spinale sono inclusi gratis.
+                🎁 <strong>Primo mezzo:</strong> DAE, barella standard, borsoni, tavola spinale e collari sono inclusi gratis.
                 Se vuoi qualcosa di meglio, gli upgrade si pagano.
               </div>
             )}
-            {SLOTS.map(({ slot, title, required }) => {
-              const opts = equip.filter((e) => e.slot === slot);
+            {GROUPS.map(({ key, title, required, multi }) => {
+              const opts = equip.filter((e) => (multi ? e.category === key : e.slot === key));
+              if (!opts.length) return null;
+              const card = (e: Equip, on: boolean, onClick: () => void) => (
+                <button key={e.code} onClick={onClick}
+                        style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
+                                 border: on ? "3px solid #111" : "1px solid #e5e5e0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <EquipmentIcon code={e.code} url={e.image_url} size={48} />
+                    {multi && <span style={{ fontSize: 20 }}>{on ? "✅" : "⬜"}</span>}
+                  </div>
+                  <div style={{ fontWeight: 700 }}>{e.name}</div>
+                  <div style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>{e.description}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: priceOf(e) === 0 ? "#166534" : undefined }}>
+                    {priceOf(e) === 0 ? "Incluso" : euro(e.cost)}
+                  </div>
+                </button>
+              );
               return (
-                <div key={slot} style={{ marginBottom: 12 }}>
+                <div key={key} style={{ marginBottom: 12 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
-                    {title} {required ? <span style={{ color: "#DC2626" }}>*</span> : <span style={{ color: "#888", fontWeight: 400 }}>(facoltativo)</span>}
+                    {title} {required ? <span style={{ color: "#DC2626" }}>*</span>
+                      : <span style={{ color: "#888", fontWeight: 400 }}>{multi ? "(scegli quelli che vuoi)" : "(facoltativo)"}</span>}
                   </div>
                   <div style={grid}>
-                    {!required && (
-                      <button onClick={() => setPicked((p) => ({ ...p, [slot]: undefined }))}
+                    {!required && !multi && (
+                      <button onClick={() => setPicked((p) => ({ ...p, [key]: undefined }))}
                               style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
-                                       border: !picked[slot] ? "3px solid #111" : "1px solid #e5e5e0" }}>
+                                       border: !picked[key] ? "3px solid #111" : "1px solid #e5e5e0" }}>
                         <div style={{ fontWeight: 700 }}>Nessuno</div>
                         <div style={{ fontSize: 13, color: "#666" }}>0 €</div>
                       </button>
                     )}
-                    {opts.map((e) => (
-                      <button key={e.code} onClick={() => setPicked((p) => ({ ...p, [slot]: e.code }))}
-                              style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
-                                       border: picked[slot] === e.code ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                        <EquipmentIcon code={e.code} url={e.image_url} size={48} />
-                        <div style={{ fontWeight: 700 }}>{e.name}</div>
-                        <div style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>{e.description}</div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: priceOf(e) === 0 ? "#166534" : undefined }}>
-                          {priceOf(e) === 0 ? "Incluso" : euro(e.cost)}
-                        </div>
-                      </button>
-                    ))}
+                    {opts.map((e) => multi
+                      ? card(e, !!picked[e.slot], () => setPicked((p) => ({ ...p, [e.slot]: p[e.slot] ? undefined : e.code })))
+                      : card(e, picked[key] === e.code, () => setPicked((p) => ({ ...p, [key]: e.code }))))}
                   </div>
                 </div>
               );

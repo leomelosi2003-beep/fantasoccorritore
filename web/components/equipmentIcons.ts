@@ -63,6 +63,60 @@ export const EQUIPMENT_ICONS: Record<string, string> = {
     <rect x="8" y="35" width="48" height="5" fill="#111827"/>
     <rect x="28" y="23" width="8" height="7" rx="1" fill="#9CA3AF"/><rect x="28" y="34" width="8" height="7" rx="1" fill="#9CA3AF"/>`,
 
+  spinale_ped: `
+    <rect x="18" y="12" width="28" height="44" rx="11" fill="#38BDF8"/>
+    <rect x="22" y="15" width="5" height="9" rx="2.5" fill="#fff" opacity=".9"/>
+    <rect x="37" y="15" width="5" height="9" rx="2.5" fill="#fff" opacity=".9"/>
+    <rect x="22" y="44" width="5" height="9" rx="2.5" fill="#fff" opacity=".9"/>
+    <rect x="37" y="44" width="5" height="9" rx="2.5" fill="#fff" opacity=".9"/>
+    <rect x="16" y="29" width="32" height="4" fill="#1E3A8A"/><rect x="16" y="37" width="32" height="4" fill="#1E3A8A"/>
+    <path d="M50 10 l1.6 3.4 3.7 .5 -2.7 2.6 .7 3.7 -3.3 -1.8 -3.3 1.8 .7 -3.7 -2.7 -2.6 3.7 -.5 z" fill="#FACC15"/>
+    <circle cx="10" cy="48" r="5" fill="#F472B6"/><circle cx="10" cy="48" r="2" fill="#fff"/>`,
+
+  collari: `
+    <path d="M10 26 C10 18 54 18 54 26 V40 C54 48 10 48 10 40 Z" fill="#F97316"/>
+    <path d="M14 27 C14 22 50 22 50 27" fill="none" stroke="#FDBA74" stroke-width="3"/>
+    <ellipse cx="32" cy="30" rx="10" ry="5" fill="#fff"/>
+    <rect x="28" y="36" width="8" height="10" rx="2" fill="#111827"/>
+    <circle cx="32" cy="41" r="1.8" fill="#9CA3AF"/>
+    <rect x="12" y="50" width="12" height="6" rx="2" fill="#16A34A"/><rect x="26" y="50" width="12" height="6" rx="2" fill="#2563EB"/>
+    <rect x="40" y="50" width="12" height="6" rx="2" fill="#DC2626"/>`,
+
+  ked: `
+    <path d="M18 6 H46 L50 14 V58 H14 V14 Z" fill="#16A34A"/>
+    <rect x="24" y="6" width="16" height="12" rx="3" fill="#15803D"/>
+    <path d="M14 22 H50 M14 30 H50 M14 38 H50" stroke="#14532D" stroke-width="1.5" opacity=".6"/>
+    <rect x="10" y="24" width="44" height="5" rx="1" fill="#DC2626"/>
+    <rect x="10" y="34" width="44" height="5" rx="1" fill="#FACC15"/>
+    <rect x="10" y="44" width="44" height="5" rx="1" fill="#2563EB"/>
+    <path d="M18 58 C18 50 22 46 26 46 M46 58 C46 50 42 46 38 46" fill="none" stroke="#111827" stroke-width="3"/>`,
+
+  cucchiaio: `
+    <path d="M10 8 H27 V56 H10 C8 56 7 54 8 52 L12 32 L8 12 C7 10 8 8 10 8 Z" fill="#9CA3AF"/>
+    <path d="M54 8 H37 V56 H54 C56 56 57 54 56 52 L52 32 L56 12 C57 10 56 8 54 8 Z" fill="#9CA3AF"/>
+    <rect x="14" y="14" width="9" height="36" rx="3" fill="#6B7280"/>
+    <rect x="41" y="14" width="9" height="36" rx="3" fill="#6B7280"/>
+    <rect x="27" y="10" width="10" height="5" rx="1.5" fill="#DC2626"/><rect x="27" y="49" width="10" height="5" rx="1.5" fill="#DC2626"/>
+    <path d="M27 32 H37" stroke="#DC2626" stroke-width="2" stroke-dasharray="2 2"/>`,
+
+  materasso: `
+    <rect x="6" y="12" width="52" height="40" rx="14" fill="#2563EB"/>
+    <path d="M14 22 C18 26 22 18 26 22 S34 26 38 22 S46 18 50 22 M14 32 C18 36 22 28 26 32 S34 36 38 32 S46 28 50 32 M14 42 C18 46 22 38 26 42 S34 46 38 42 S46 38 50 42"
+          fill="none" stroke="#93C5FD" stroke-width="2"/>
+    <rect x="50" y="4" width="8" height="10" rx="2" fill="#111827"/>
+    <path d="M54 14 V18" stroke="#111827" stroke-width="3"/>
+    <rect x="2" y="26" width="6" height="12" rx="2" fill="#FACC15"/>`,
+
+  steccobende: `
+    <rect x="8" y="10" width="20" height="46" rx="8" fill="#F59E0B"/>
+    <rect x="36" y="16" width="20" height="40" rx="8" fill="#22C55E"/>
+    <circle cx="14" cy="18" r="1.6" fill="#78350F"/><circle cx="22" cy="24" r="1.6" fill="#78350F"/>
+    <circle cx="14" cy="32" r="1.6" fill="#78350F"/><circle cx="22" cy="40" r="1.6" fill="#78350F"/>
+    <circle cx="14" cy="48" r="1.6" fill="#78350F"/>
+    <circle cx="42" cy="24" r="1.6" fill="#14532D"/><circle cx="50" cy="32" r="1.6" fill="#14532D"/>
+    <circle cx="42" cy="40" r="1.6" fill="#14532D"/><circle cx="50" cy="48" r="1.6" fill="#14532D"/>
+    <rect x="6" y="28" width="24" height="4" fill="#111827"/><rect x="34" y="34" width="24" height="4" fill="#111827"/>`,
+
   borsoni: `
     <path d="M22 14 C22 6 42 6 42 14" fill="none" stroke="#7C2D12" stroke-width="4"/>
     <rect x="8" y="14" width="48" height="42" rx="9" fill="#EA580C"/>
