@@ -64,12 +64,14 @@ type Assignment = {
   completed_at: string | null; reward_funds: number | null; title: string; code: MissionPin["code"];
   call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
   route: RoutePoint[] | null; hospital: string | null; vehicle_image: string | null;
+  vehicle_id: string; route_ends_at: string;
 };
 
 type OtherAmbulance = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string; route: RoutePoint[] | null;
   title: string; code: MissionPin["code"]; call_sign: string; vehicle_image: string | null;
   org_id: string; org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; hospital: string | null;
+  vehicle_id: string; route_ends_at: string;
   base_lat: number; base_lng: number; lat: number; lng: number;
 };
 
@@ -90,6 +92,16 @@ function eventIcon(kind: string, open: boolean) {
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
+// Per ogni mezzo, solo il servizio più recente, finché il percorso (rientro compreso) non è finito
+function onTheRoad<T extends { vehicle_id: string; assigned_at: string; route_ends_at: string }>(list: T[], now: number) {
+  const latest = new Map<string, T>();
+  for (const a of list) {
+    const cur = latest.get(a.vehicle_id);
+    if (!cur || a.assigned_at > cur.assigned_at) latest.set(a.vehicle_id, a);
+  }
+  return Array.from(latest.values()).filter((a) => now < new Date(a.route_ends_at).getTime() + 10_000);
+}
+
 // Lampeggianti accesi solo nei codici giallo e rosso, mentre viaggia (non al rientro in sede)
 function sirens(code: string, pos: { moving: boolean; text: string }) {
   return (code === "giallo" || code === "rosso") && pos.moving && pos.text !== "Rientro in sede";
@@ -195,7 +207,7 @@ export default function GameMap() {
       const list = (data as Assignment[]) ?? [];
       for (const a of list) {
         if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
-          showToast(`✅ ${a.call_sign} rientrato: ${a.title.split(" — ")[0]} · +${(a.reward_funds ?? 0).toLocaleString("it-IT")} €`);
+          showToast(`✅ ${a.call_sign} di nuovo disponibile: ${a.title.split(" — ")[0]} · +${(a.reward_funds ?? 0).toLocaleString("it-IT")} €`);
           refreshOrg();
         }
       }
@@ -389,7 +401,7 @@ export default function GameMap() {
           </CircleMarker>
         ))}
 
-        {others.filter((a) => now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
+        {onTheRoad(others, now).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -409,7 +421,7 @@ export default function GameMap() {
           );
         })}
 
-        {assignments.filter((a) => a.status !== "conclusa" && now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
+        {onTheRoad(assignments, now).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -434,7 +446,7 @@ export default function GameMap() {
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
                 {a.hospital && <>Ospedale: {a.hospital}<br /></>}
-                Libero tra {back} min
+                {back > 0 ? <>Libero tra {back} min</> : <strong style={{ color: "#15803D" }}>✅ Disponibile: puoi già mandarlo su un altro servizio</strong>}
               </Popup>
             </Marker>
             </Fragment>
