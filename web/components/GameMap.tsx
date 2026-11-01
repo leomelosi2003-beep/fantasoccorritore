@@ -171,6 +171,8 @@ export default function GameMap() {
   const [missions, setMissions] = useState<MissionPin[]>([]);
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
+  const [notes, setNotes] = useState<{ id: string; text: string }[]>([]);
+  const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +227,28 @@ export default function GameMap() {
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, []);
+
+  // Richieste e proposte per me (inviti in alleanza, offerte di acquisto): controllo ogni 20 secondi
+  useEffect(() => {
+    if (!org) return;
+    const myId = org.id;
+    async function loadNotes() {
+      const [inv, off] = await Promise.all([
+        supabase.from("alliance_invites").select("id,alliance_id,alliances(name)").eq("org_id", myId),
+        supabase.from("acquisition_offers").select("id,price,buyer:organizations!acquisition_offers_buyer_org_fkey(name)")
+          .eq("seller_org", myId).eq("status", "in_attesa"),
+      ]);
+      const list: { id: string; text: string }[] = [];
+      for (const i of (inv.data as unknown as { id: string; alliances: { name: string } | null }[]) ?? [])
+        list.push({ id: i.id, text: `🤝 Sei invitato nell'alleanza «${i.alliances?.name ?? "?"}»` });
+      for (const o of (off.data as unknown as { id: string; price: number; buyer: { name: string } | null }[]) ?? [])
+        list.push({ id: o.id, text: `💼 ${o.buyer?.name ?? "Un'associazione"} vuole comprarti per ${o.price.toLocaleString("it-IT")} €` });
+      setNotes(list);
+    }
+    loadNotes();
+    const t = setInterval(loadNotes, 20_000);
+    return () => clearInterval(t);
+  }, [org]);
 
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
@@ -310,12 +334,32 @@ export default function GameMap() {
                             supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
                           }} />}
 
+      {/* Richieste e proposte: ben visibili sulla mappa */}
+      {notes.filter((n) => !hiddenNotes.includes(n.id)).length > 0 && (
+        <div className="fs-notes">
+          {notes.filter((n) => !hiddenNotes.includes(n.id)).map((n) => (
+            <div key={n.id} className="fs-note">
+              <span style={{ fontSize: 22 }}>📬</span>
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14 }}>{n.text}</div>
+              <button onClick={() => router.push("/alleanza")}
+                      style={{ border: "none", background: "#fff", color: "#B45309", fontWeight: 800, borderRadius: 8,
+                               padding: "7px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>Rispondi</button>
+              <button onClick={() => setHiddenNotes((h) => [...h, n.id])} aria-label="Nascondi"
+                      style={{ border: "none", background: "transparent", color: "#fff", fontSize: 18, cursor: "pointer", padding: 2 }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Menu: in alto a destra sul computer, in basso sul telefono */}
       {org && (
         <nav className="fs-nav">
           <button className="fs-btn" style={{ background: "#F97316" }} onClick={() => router.push("/garage")}><span>🚑</span>Garage</button>
           <button className="fs-btn" style={{ background: "#1E3A8A" }} onClick={() => router.push("/squadra")}><span>👥</span>Squadra</button>
-          <button className="fs-btn" style={{ background: "#15803D" }} onClick={() => router.push("/alleanza")}><span>🤝</span>Alleanza</button>
+          <button className="fs-btn" style={{ background: "#15803D", position: "relative" }} onClick={() => router.push("/alleanza")}>
+            <span>🤝</span>Alleanza
+            {notes.length > 0 && <b className="fs-badge">{notes.length}</b>}
+          </button>
           <button className="fs-btn" style={{ background: "#111" }} onClick={() => router.push("/negozio")}><span>🛒</span>Presidi</button>
           <button className="fs-btn" style={{ background: "#B45309" }} onClick={() => router.push("/classifica")}><span>🏆</span>Classifica</button>
           {isAdmin && <button className="fs-btn" style={{ background: "#7C3AED" }} onClick={() => router.push("/admin")}><span>🛠️</span>Admin</button>}
@@ -479,6 +523,16 @@ export default function GameMap() {
           font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
         .fs-exit { background: #fff !important; color: #333; }
         .fs-toast { bottom: 24px; }
+        .fs-badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; background: #DC2626;
+          color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px;
+          border: 2px solid #fff; animation: note-pulse 1.4s infinite; }
+        .fs-notes { position: absolute; z-index: 1050; bottom: 80px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 20px));
+          display: grid; gap: 8px; }
+        .fs-note { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg,#F59E0B,#B45309); color: #fff;
+          border-radius: 14px; padding: 10px 12px; box-shadow: 0 6px 20px rgba(0,0,0,.35); animation: note-in .4s ease-out, note-glow 2s infinite; }
+        @keyframes note-in { from { transform: translateY(-12px); opacity: 0 } to { transform: none; opacity: 1 } }
+        @keyframes note-glow { 0%,100% { box-shadow: 0 6px 20px rgba(0,0,0,.35) } 50% { box-shadow: 0 6px 26px rgba(245,158,11,.9) } }
+        @keyframes note-pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.18) } }
         .fs-fleet { position: absolute; top: 66px; left: 56px; z-index: 1000; width: min(330px, calc(100% - 66px)); }
         .fs-fleet-btn { background: #fff; border: none; border-radius: 12px; padding: 7px 12px; font-size: 13px; font-weight: 600;
           box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; font-family: inherit; color: #111; }
@@ -492,6 +546,8 @@ export default function GameMap() {
           .fs-btn span { font-size: 20px; line-height: 1; }
           .fs-exit { background: #f1f1f1 !important; }
           .fs-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+          .fs-notes { bottom: auto; top: 110px; }
+          .fs-badge { top: 0; right: 4px; }
           .leaflet-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
           .fs-pill { padding: 5px 10px 5px 6px; }
         }
