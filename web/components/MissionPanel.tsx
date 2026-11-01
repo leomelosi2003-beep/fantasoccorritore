@@ -8,7 +8,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null };
 
-const MAX_KM = 15; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
+const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
   const R = 6371, r = Math.PI / 180;
   const x = Math.sin((bLat - aLat) * r / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin((bLng - aLng) * r / 2) ** 2;
@@ -63,7 +63,7 @@ function claimError(m: string) {
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
-  if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 15 km.";
+  if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   return m;
