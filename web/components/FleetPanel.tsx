@@ -10,6 +10,8 @@ type Vehicle = {
 type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; arrives_at: string;
   route_ends_at: string; hospital: string | null; transport?: string | null;
   route: { lat: number; lng: number; t: string; label: string }[] | null };
+type LentInfo = { vehicle_id: string; borrower: string; ends_at: string; earned: number; services: number;
+  last_amount: number | null; last_at: string | null; job_title: string | null; job_completes_at: string | null; job_reward: number | null };
 type Row = { v: Vehicle; color: string; text: string; timer: string | null; order: number; job?: Job };
 type HospitalOption = { id: string; name: string; minutes: number; current: boolean; specialized: boolean };
 
@@ -69,12 +71,22 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
     onChanged(`🏥 Nuova destinazione: ${h.name}`);
   }
   const [fleet, setFleet] = useState<Vehicle[]>([]);
+  const [lent, setLent] = useState<Record<string, LentInfo>>({});
 
   useEffect(() => {
     supabase.from("my_fleet")
       .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name")
       .order("call_sign")
       .then(({ data }) => setFleet((data as Vehicle[]) ?? []));
+  }, [refreshKey]);
+
+  // guadagni delle ambulanze prestate: aggiornati ogni 10 secondi
+  useEffect(() => {
+    const load = () => supabase.from("my_lent_vehicles").select("*").then(({ data }) =>
+      setLent(Object.fromEntries(((data as LentInfo[]) ?? []).map((x) => [x.vehicle_id, x]))));
+    load();
+    const t = setInterval(load, 10_000);
+    return () => clearInterval(t);
   }, [refreshKey]);
 
   // ultimo servizio di ogni mezzo
@@ -120,6 +132,23 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 11, color: "#15803D" }}> · da {v.lent_from}</span>}</div>
                 <div style={{ fontSize: 12, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</div>
+                {lent[v.id] && (() => {
+                  const L = lent[v.id];
+                  const fresh = L.last_at && now - new Date(L.last_at).getTime() < 60_000;
+                  return (
+                    <div style={{ marginTop: 4, background: "#effaf1", borderRadius: 8, padding: "5px 8px", fontSize: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                        <span>💶 Guadagnato: <strong style={{ color: "#15803D" }}>{L.earned.toLocaleString("it-IT")} €</strong> · {L.services} servizi</span>
+                        {fresh && L.last_amount && <strong style={{ color: "#15803D" }}>+{L.last_amount.toLocaleString("it-IT")} € ✨</strong>}
+                      </div>
+                      {L.job_title && L.job_completes_at && new Date(L.job_completes_at).getTime() > now ? (
+                        <div style={{ color: "#DC2626", fontWeight: 700 }}>
+                          🚨 {L.job_title.split(" — ")[0]} · +{Math.round((L.job_reward ?? 0) * 0.1).toLocaleString("it-IT")} € tra {countdown(new Date(L.job_completes_at).getTime() - now)}
+                        </div>
+                      ) : <div style={{ color: "#666" }}>In attesa di un servizio · rientra alle {new Date(L.ends_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>}
+                    </div>
+                  );
+                })()}
               </div>
               {timer && (
                 <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 800, fontSize: 17, color, textAlign: "right" }}>
