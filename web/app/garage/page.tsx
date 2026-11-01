@@ -145,6 +145,17 @@ export default function Garage() {
     load();
   }
 
+  // Cambia il nome dell'ambulanza (deve essere unico tra tutti i giocatori)
+  async function rename(v: Vehicle) {
+    const name = window.prompt("Nuovo nome dell'ambulanza (2-20 caratteri):", v.call_sign);
+    if (name === null || name.trim() === v.call_sign) return;
+    setMsg(null);
+    const { error } = await supabase.rpc("rename_vehicle", { p_vehicle: v.id, p_name: name });
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    setMsg({ ok: true, text: `Ora si chiama ${name.trim().replace(/\s+/g, " ")}.` });
+    load();
+  }
+
   async function maintain(v: Vehicle) {
     setMsg(null);
     const { error } = await supabase.rpc("start_maintenance", { p_vehicle_id: v.id });
@@ -322,7 +333,11 @@ export default function Garage() {
                 <div key={v.id} style={box}>
                   <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={m?.image_url} stripe={stripe} height={80} /></div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                    <strong style={{ fontSize: 17 }}>{v.call_sign}</strong>
+                    <strong style={{ fontSize: 17 }}>
+                      {v.call_sign}{" "}
+                      <button onClick={() => rename(v)} title="Cambia nome"
+                              style={{ border: "none", background: "#f1f1f1", borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 13 }}>✏️</button>
+                    </strong>
                     <Pill cert={v.certification} />
                   </div>
                   <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name} · {byId.base[v.base_id]?.name}</div>
@@ -365,7 +380,9 @@ function garageError(m: string) {
   if (m.includes("BASE_FULL")) return "Il garage della sede è pieno: potenzia la sede o costruiscine un'altra.";
   if (m.includes("NEED_ONE_MONITOR")) return "Scegli un defibrillatore o un cardiomonitor.";
   if (m.includes("NEED_ONE_STRETCHER")) return "Scegli una barella.";
-  if (m.includes("BAD_CALL_SIGN")) return "La sigla deve avere tra 2 e 20 caratteri.";
+  if (m.includes("BAD_CALL_SIGN")) return "Il nome deve avere tra 2 e 20 caratteri.";
+  if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))
+    return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
   if (m.includes("buy_vehicle") || m.includes("function")) return "Il garage non è ancora attivo nel database.";
   return friendlyError(m);
