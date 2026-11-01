@@ -34,7 +34,7 @@ on conflict (source) do update set url = excluded.url, label = excluded.label;
 create or replace function event_defaults(p_kind text)
 returns table (pre int, dur int, post int, slots int, reward int, roles jsonb)
 language sql immutable as $$
-  select * from (values
+  select pre, dur, post, slots, reward, roles from (values
     ('calcio',   60, 110, 20, 2, 6000, '{"autista":1,"soccorritore_base":1,"soccorritore_avanzato":1}'::jsonb),
     ('basket',   45, 120, 15, 1, 3500, '{"autista":1,"soccorritore_base":1}'::jsonb),
     ('concerto', 90, 120, 30, 2, 5000, '{"autista":1,"soccorritore_base":1,"soccorritore_avanzato":1}'::jsonb),
