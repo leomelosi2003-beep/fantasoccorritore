@@ -53,6 +53,24 @@ export default function Admin() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [editing, setEditing] = useState<Vol | null>(null);
+
+  // Carica una carta esistente nel modulo per modificarla
+  function startEdit(v: Vol) {
+    setEditing(v); setMsg(null); setPhoto(null); setPreview(v.avatar_url);
+    setF({
+      first_name: v.first_name, last_name: v.last_name, nickname: v.nickname ?? "", gender: v.gender ?? "m",
+      role: v.role, rarity: v.rarity, stat_guida: v.stat_guida, stat_soccorso: v.stat_soccorso,
+      stat_resilienza: v.stat_resilienza, pros: (v.pros ?? []).join("\n"), cons: (v.cons ?? []).join("\n"),
+      night_fatigue: v.trait_mods?.night_fatigue ?? 0, rosso_fatigue: v.trait_mods?.rosso_fatigue ?? 0,
+      contract_days: v.contract_days ? String(v.contract_days) : "", is_pack_eligible: v.is_pack_eligible,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditing(null); setF(EMPTY); setPhoto(null); setPreview(null);
+  }
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("volunteers").select("*").order("created_at", { ascending: false });
@@ -98,23 +116,28 @@ export default function Admin() {
   async function save() {
     setBusy(true); setMsg(null);
     try {
-      const avatar_url = photo ? await uploadPhoto(photo) : null;
+      // foto: nuova se caricata, altrimenti quella attuale (o nessuna se è stata rimossa)
+      const avatar_url = photo ? await uploadPhoto(photo) : editing ? preview : null;
       const { data: { session } } = await supabase.auth.getSession();
       const mods: Record<string, number> = {};
       if (f.night_fatigue) mods.night_fatigue = f.night_fatigue;
       if (f.rosso_fatigue) mods.rosso_fatigue = f.rosso_fatigue;
-      const { error } = await supabase.from("volunteers").insert({
+      const fields = {
         first_name: f.first_name.trim(), last_name: f.last_name.trim(), nickname: f.nickname.trim() || null,
         gender: f.gender, role: f.role, rarity: f.rarity,
         stat_guida: f.role === "autista" ? f.stat_guida : 1, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza,
         pros: f.pros.split("\n").map((s) => s.trim()).filter(Boolean),
         cons: f.cons.split("\n").map((s) => s.trim()).filter(Boolean),
         trait_mods: mods, contract_days: f.contract_days ? Number(f.contract_days) : null,
-        is_pack_eligible: f.is_pack_eligible, avatar_url, source: "admin", created_by: session?.user.id,
-      });
+        is_pack_eligible: f.is_pack_eligible, avatar_url,
+      };
+      const { error } = editing
+        ? await supabase.from("volunteers")
+            .update({ ...fields, source: f.rarity !== "comune" ? "admin" : editing.source }).eq("id", editing.id)
+        : await supabase.from("volunteers").insert({ ...fields, source: "admin", created_by: session?.user.id });
       if (error) throw error;
-      setMsg({ ok: true, text: `${f.first_name} ${f.last_name} è nel catalogo!` });
-      setF(EMPTY); setPhoto(null); setPreview(null);
+      setMsg({ ok: true, text: editing ? `Modifiche a ${f.first_name} ${f.last_name} salvate.` : `${f.first_name} ${f.last_name} è nel catalogo!` });
+      setEditing(null); setF(EMPTY); setPhoto(null); setPreview(null);
       load();
     } catch (e) {
       const m = (e as Error).message;
@@ -142,7 +165,7 @@ export default function Admin() {
 
   const previewCard: Card = {
     id: "preview", state: "attiva", rest_until: null, expires_at: null, services_completed: 0, energy: 100,
-    volunteer_id: (f.first_name + f.last_name) || "preview", first_name: f.first_name || "Nome", last_name: f.last_name || "Cognome",
+    volunteer_id: editing?.id ?? ((f.first_name + f.last_name) || "preview"), first_name: f.first_name || "Nome", last_name: f.last_name || "Cognome",
     nickname: f.nickname || null, role: f.role, rarity: f.rarity, gender: f.gender, avatar_url: preview,
     stat_guida: f.stat_guida, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza,
     pros: f.pros.split("\n").filter((s) => s.trim()), cons: f.cons.split("\n").filter((s) => s.trim()),
@@ -165,7 +188,15 @@ export default function Admin() {
         {/* Nuova carta */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
           <div style={box}>
-            <h2 style={{ marginTop: 0 }}>Nuova carta</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <h2 style={{ margin: 0 }}>{editing ? `✏️ Modifica: ${editing.first_name} ${editing.last_name}` : "Nuova carta"}</h2>
+              {editing && <button onClick={cancelEdit} style={{ ...btn, background: "#eee", color: "#111", fontSize: 13, padding: "6px 10px" }}>Annulla</button>}
+            </div>
+            {editing && (
+              <div style={{ fontSize: 13, background: "#FFF7ED", color: "#9A3412", borderRadius: 8, padding: 8, marginTop: 8 }}>
+                Le modifiche valgono anche per i giocatori che hanno già questa carta in squadra.
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div><label style={lbl}>Nome</label><input style={inp} value={f.first_name} onChange={(e) => set("first_name", e.target.value)} /></div>
               <div><label style={lbl}>Cognome</label><input style={inp} value={f.last_name} onChange={(e) => set("last_name", e.target.value)} /></div>
@@ -239,7 +270,7 @@ export default function Admin() {
             </label>
 
             <button onClick={save} disabled={!valid || busy} style={{ ...btn, width: "100%", marginTop: 12, background: "#F97316", opacity: !valid || busy ? 0.4 : 1 }}>
-              {busy ? "Salvataggio…" : "Crea carta"}
+              {busy ? "Salvataggio…" : editing ? "Salva modifiche" : "Crea carta"}
             </button>
           </div>
 
@@ -265,6 +296,8 @@ export default function Admin() {
                                                            background: v.is_pack_eligible ? "#16A34A" : "#9CA3AF" }}>
                   {v.is_pack_eligible ? "Nei pacchetti" : "Fuori dai pacchetti"}
                 </button>
+                <button onClick={() => startEdit(v)} title="Modifica"
+                        style={{ ...btn, fontSize: 12, padding: "6px 8px", background: editing?.id === v.id ? "#F97316" : "#111" }}>✏️</button>
                 <label style={{ ...btn, fontSize: 12, padding: "6px 8px", background: "#1E3A8A" }} title="Cambia foto">
                   📷
                   <input type="file" accept="image/*" style={{ display: "none" }}
