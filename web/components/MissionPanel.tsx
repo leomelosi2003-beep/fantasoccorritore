@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
-import { ROLE, type Card } from "@/components/VolunteerCard";
+import { ROLE, roleLabel, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[] };
 type Equip = { code: string; provides: string[] };
@@ -32,7 +32,9 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
   const missing: string[] = [];
   const autisti = crew.filter((c) => c.role === "autista").length;
   if (autisti < (required.autista ?? 0)) missing.push("autista");
-  const ranks = crew.filter((c) => c.role !== "autista").map((c) => RANK[c.role]);
+  // l'autista avanzato conta anche come soccorritore avanzato
+  const ranks = crew.filter((c) => c.role !== "autista" || c.avanzato).map((c) => c.role === "autista" ? 2 : RANK[c.role]);
+  if (crew.length > 0 && crew.length < 2) missing.push("almeno 2 persone");
   for (const k of [3, 2, 1]) {
     const need = Object.entries(required).filter(([r]) => r !== "autista" && RANK[r] >= k).reduce((t, [, n]) => t + n, 0);
     const have = ranks.filter((x) => x >= k).length;
@@ -53,6 +55,7 @@ function claimError(m: string) {
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
+  if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   return m;
 }
@@ -135,9 +138,15 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const i = pool.findIndex(pred);
       if (i >= 0) chosen.push(pool.splice(i, 1)[0]);
     };
-    for (let i = 0; i < (required.autista ?? 0); i++) take((c) => c.role === "autista");
+    const needAdv = (required.soccorritore_avanzato ?? 0) > 0;
+    for (let i = 0; i < (required.autista ?? 0); i++) {
+      if (needAdv) take((c) => c.role === "autista" && !!c.avanzato);
+      if (chosen.length <= i) take((c) => c.role === "autista");
+    }
     const slots = Object.entries(required).filter(([r]) => r !== "autista")
       .flatMap(([r, n]) => Array(n).fill(RANK[r])).sort((a, b) => b - a);
+    // ogni autista avanzato copre un posto da avanzato
+    for (const c of chosen) if (c.avanzato) { const j = slots.lastIndexOf(2); if (j >= 0) slots.splice(j, 1); }
     for (const rank of slots) {
       // preferisci il grado esatto, poi uno superiore
       const exact = pool.findIndex((c) => c.role !== "autista" && RANK[c.role] === rank);
@@ -189,6 +198,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
           <strong>Equipaggio:</strong>{" "}
           {Object.entries(required).map(([r, n]) => `${n}× ${ROLE[r as Card["role"]]?.label ?? r}`).join(" · ")}
+          {(required.soccorritore_avanzato ?? 0) >= 2 && <><br /><span style={{ color: "#555" }}>L&apos;autista avanzato vale come uno dei soccorritori avanzati.</span></>}
           {mission.requires.length > 0 && <><br /><strong>Presidi:</strong> {mission.requires.map((r) => REQ[r] ?? r).join(", ")}</>}
         </div>
 
@@ -218,7 +228,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         </div>
         {missing.length > 0 && crew.length > 0 && (
           <div style={{ fontSize: 12, color: "#B91C1C", marginBottom: 6 }}>
-            Manca: {missing.map((r) => ROLE[r as Card["role"]].label).join(", ")}
+            Manca: {missing.map((r) => ROLE[r as Card["role"]]?.label ?? r).join(", ")}
           </div>
         )}
         {available.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Nessun volontario pronto. Apri il pacchetto nella Squadra o aspetta che finiscano il riposo.</div>}
@@ -235,7 +245,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                   : avatarSvg(c.volunteer_id, c.gender, c.rarity, 40) }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.first_name} {c.last_name}</div>
-                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {ROLE[c.role].label}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
                 </div>
                 <div style={{ width: 54, textAlign: "right", fontSize: 12 }}>
                   <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>⚡{Math.round(c.energy)}%</div>

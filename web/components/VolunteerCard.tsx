@@ -7,6 +7,7 @@ export type Card = {
   role: "autista" | "soccorritore_base" | "soccorritore_avanzato" | "caposervizio";
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
+  avanzato?: boolean;
 };
 
 export const ROLE: Record<Card["role"], { label: string; icon: string }> = {
@@ -15,6 +16,10 @@ export const ROLE: Record<Card["role"], { label: string; icon: string }> = {
   soccorritore_avanzato: { label: "Soccorritore avanzato", icon: "💉" },
   caposervizio: { label: "Caposervizio", icon: "⭐" },
 };
+// Etichetta del ruolo: un autista può essere anche avanzato
+export function roleLabel(c: Pick<Card, "role" | "avanzato">) {
+  return c.role === "autista" && c.avanzato ? "Autista avanzato" : ROLE[c.role].label;
+}
 export const RARITY: Record<Card["rarity"], { label: string; border: string; glow: string; text: string }> = {
   comune: { label: "Comune", border: "#9CA3AF", glow: "none", text: "#4B5563" },
   epica: { label: "Epica", border: "#8B5CF6", glow: "0 0 14px rgba(139,92,246,.45)", text: "#6D28D9" },
@@ -65,7 +70,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.15 }}>{c.first_name} {c.last_name}</div>
           {c.nickname && <div style={{ fontSize: 12, color: "#666", fontStyle: "italic" }}>“{c.nickname}”</div>}
-          <div style={{ fontSize: 12, marginTop: 2 }}>{ROLE[c.role].icon} {ROLE[c.role].label}</div>
+          <div style={{ fontSize: 12, marginTop: 2 }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
         </div>
       </div>
 

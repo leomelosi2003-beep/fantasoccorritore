@@ -21,7 +21,7 @@ const lbl: CSSProperties = { fontSize: 13, fontWeight: 600, margin: "10px 0 4px"
 const EMPTY = {
   first_name: "", last_name: "", nickname: "", gender: "m", role: "autista" as Card["role"],
   rarity: "epica" as Card["rarity"], stat_guida: 80, stat_soccorso: 80, stat_resilienza: 80,
-  pros: "", cons: "", night_fatigue: 0, rosso_fatigue: 0, contract_days: "", is_pack_eligible: true,
+  pros: "", cons: "", night_fatigue: 0, rosso_fatigue: 0, contract_days: "", is_pack_eligible: true, avanzato: false,
 };
 
 // Ritaglia la foto al centro in un quadrato 512×512 e la comprime in JPEG prima di caricarla
@@ -64,6 +64,7 @@ export default function Admin() {
       stat_resilienza: v.stat_resilienza, pros: (v.pros ?? []).join("\n"), cons: (v.cons ?? []).join("\n"),
       night_fatigue: v.trait_mods?.night_fatigue ?? 0, rosso_fatigue: v.trait_mods?.rosso_fatigue ?? 0,
       contract_days: v.contract_days ? String(v.contract_days) : "", is_pack_eligible: v.is_pack_eligible,
+      avanzato: !!v.avanzato,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -129,7 +130,7 @@ export default function Admin() {
         pros: f.pros.split("\n").map((s) => s.trim()).filter(Boolean),
         cons: f.cons.split("\n").map((s) => s.trim()).filter(Boolean),
         trait_mods: mods, contract_days: f.contract_days ? Number(f.contract_days) : null,
-        is_pack_eligible: f.is_pack_eligible, avatar_url,
+        is_pack_eligible: f.is_pack_eligible, avatar_url, avanzato: f.role === "autista" && f.avanzato,
       };
       const { error } = editing
         ? await supabase.from("volunteers")
@@ -167,7 +168,7 @@ export default function Admin() {
     id: "preview", state: "attiva", rest_until: null, expires_at: null, services_completed: 0, energy: 100,
     volunteer_id: editing?.id ?? ((f.first_name + f.last_name) || "preview"), first_name: f.first_name || "Nome", last_name: f.last_name || "Cognome",
     nickname: f.nickname || null, role: f.role, rarity: f.rarity, gender: f.gender, avatar_url: preview,
-    stat_guida: f.stat_guida, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza,
+    stat_guida: f.stat_guida, stat_soccorso: f.stat_soccorso, stat_resilienza: f.stat_resilienza, avanzato: f.avanzato,
     pros: f.pros.split("\n").filter((s) => s.trim()), cons: f.cons.split("\n").filter((s) => s.trim()),
   };
   const shown = list.filter((v) => (filter === "rare" ? v.rarity !== "comune" : v.rarity === "comune"));
@@ -219,6 +220,13 @@ export default function Admin() {
                   <option value="m">M</option><option value="f">F</option>
                 </select></div>
             </div>
+
+            {f.role === "autista" && (
+              <label style={{ ...lbl, display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+                <input type="checkbox" checked={f.avanzato} onChange={(e) => set("avanzato", e.target.checked)} />
+                Autista avanzato (vale anche come soccorritore avanzato)
+              </label>
+            )}
 
             {(["stat_guida", "stat_soccorso", "stat_resilienza"] as const)
               .filter((k) => k !== "stat_guida" || f.role === "autista").map((k) => (
