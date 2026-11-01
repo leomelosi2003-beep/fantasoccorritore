@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
+import FleetPanel from "@/components/FleetPanel";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -176,6 +177,7 @@ export default function GameMap() {
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
+  const [fleetKey, setFleetKey] = useState(0);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -213,6 +215,7 @@ export default function GameMap() {
       }
       prev = new Map(list.map((a) => [a.id, a.status]));
       setAssignments(list);
+      setFleetKey((k) => k + 1);
       // ambulanze degli altri giocatori
       const { data: o } = await supabase.from("live_ambulances").select("*");
       setOthers((o as OtherAmbulance[]) ?? []);
@@ -299,6 +302,9 @@ export default function GameMap() {
           <button className="fs-pill" onClick={() => router.push("/login")} style={{ fontWeight: 700 }}>Accedi / Registrati</button>
         ) : null}
       </div>
+
+      {/* Le mie ambulanze con il conto alla rovescia */}
+      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey} />}
 
       {/* Menu: in alto a destra sul computer, in basso sul telefono */}
       {org && (
@@ -469,6 +475,11 @@ export default function GameMap() {
           font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
         .fs-exit { background: #fff !important; color: #333; }
         .fs-toast { bottom: 24px; }
+        .fs-fleet { position: absolute; top: 66px; left: 56px; z-index: 1000; width: min(330px, calc(100% - 66px)); }
+        .fs-fleet-btn { background: #fff; border: none; border-radius: 12px; padding: 7px 12px; font-size: 13px; font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; font-family: inherit; color: #111; }
+        .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+          max-height: 50vh; overflow-y: auto; }
         @media (max-width: 760px) {
           .fs-nav { top: auto; bottom: 0; left: 0; right: 0; gap: 0; background: #fff; box-shadow: 0 -2px 10px rgba(0,0,0,.2);
             padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); justify-content: space-around; }
