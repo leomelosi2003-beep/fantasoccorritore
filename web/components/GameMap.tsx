@@ -7,6 +7,23 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
+import MissionPanel from "@/components/MissionPanel";
+
+type Assignment = {
+  id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string;
+  completed_at: string | null; reward_funds: number | null; title: string; code: MissionPin["code"];
+  call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
+};
+
+// Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
+function ambulanceIcon(onScene: boolean) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="font-size:26px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+           ${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}">🚑</div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15],
+  });
+}
 
 const REQ: Record<string, string> = {
   ecg: "cardiomonitor (ECG)", defib: "defibrillatore", spinale: "tavola spinale adulti",
@@ -39,6 +56,44 @@ export default function GameMap() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<MissionPin | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  async function refreshOrg() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase.from("organizations")
+      .select("id,name,type,funds,reputation").eq("owner_id", session.user.id).maybeSingle();
+    if (data) setOrg(data as Organization);
+  }
+
+  function showToast(text: string) {
+    setToast(text);
+    setTimeout(() => setToast((t) => (t === text ? null : t)), 6000);
+  }
+
+  // Le mie missioni: animazione dell'ambulanza e avviso a fine servizio
+  useEffect(() => {
+    let prev = new Map<string, string>();
+    async function loadAssignments() {
+      const { data } = await supabase.from("my_assignments").select("*");
+      const list = (data as Assignment[]) ?? [];
+      for (const a of list) {
+        if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
+          showToast(`✅ ${a.call_sign} rientrato: ${a.title.split(" — ")[0]} · +${(a.reward_funds ?? 0).toLocaleString("it-IT")} €`);
+          refreshOrg();
+        }
+      }
+      prev = new Map(list.map((a) => [a.id, a.status]));
+      setAssignments(list);
+    }
+    loadAssignments();
+    const t1 = setInterval(loadAssignments, 20_000);
+    const t2 = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearInterval(t1); clearInterval(t2); };
+  }, []);
 
   // Sessione: se sei loggato ma senza associazione vai all'onboarding
   useEffect(() => {
@@ -148,10 +203,49 @@ export default function GameMap() {
               Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
               {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
               Scade: {new Date(m.expires_at).toLocaleTimeString("it-IT")}
+              {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                   background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
+                </div>
+              )}
             </Popup>
           </CircleMarker>
         ))}
+
+        {assignments.filter((a) => a.status !== "conclusa" && now < new Date(a.completes_at).getTime() + 60_000).map((a) => {
+          const t0 = new Date(a.assigned_at).getTime(), t1 = new Date(a.arrives_at).getTime();
+          const p = Math.min(1, Math.max(0, (now - t0) / Math.max(1, t1 - t0)));
+          const lat = a.base_lat + (a.lat - a.base_lat) * p, lng = a.base_lng + (a.lng - a.base_lng) * p;
+          const onScene = p >= 1;
+          const left = Math.max(0, Math.round(((onScene ? new Date(a.completes_at).getTime() : t1) - now) / 60000));
+          return (
+            <Marker key={a.id} position={[lat, lng]} icon={ambulanceIcon(onScene)}>
+              <Popup>
+                <strong>{a.call_sign}</strong><br />
+                {a.title}<br />
+                {onScene ? `Sul posto · libero tra ${left} min` : `In viaggio · arrivo tra ${left} min`}
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
+
+      <style>{`@keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }`}</style>
+
+      {selected && (
+        <MissionPanel mission={selected} onClose={() => setSelected(null)}
+                      onClaimed={(text) => { setSelected(null); showToast(text); setTimeout(() => {
+                        supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
+                      }, 300); }} />
+      )}
+
+      {toast && (
+        <div style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 1200,
+                      background: "#111", color: "#fff", padding: "12px 18px", borderRadius: 12, fontWeight: 600,
+                      boxShadow: "0 6px 24px rgba(0,0,0,.35)", maxWidth: "90vw", textAlign: "center" }}>{toast}</div>
+      )}
     </div>
   );
 }

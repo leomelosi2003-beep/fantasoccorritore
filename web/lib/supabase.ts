@@ -18,6 +18,8 @@ export type MissionPin = {
   expires_at: string;
   status: string;
   requires: string[];
+  required_roles: Record<string, number>;
+  min_certification: string;
   lat: number;
   lng: number;
 };

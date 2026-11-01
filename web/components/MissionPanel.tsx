@@ -1,0 +1,263 @@
+"use client";
+
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { supabase, type MissionPin } from "@/lib/supabase";
+import { avatarSvg } from "@/components/avatar";
+import { ROLE, type Card } from "@/components/VolunteerCard";
+
+type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[] };
+type Equip = { code: string; provides: string[] };
+
+const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
+const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, caposervizio: 3, autista: 0 };
+const REQ: Record<string, string> = {
+  ecg: "cardiomonitor", defib: "defibrillatore", spinale: "tavola spinale adulti", spinale_ped: "spinale pediatrica",
+  collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
+};
+const CODE: Record<string, { label: string; color: string }> = {
+  nessuno: { label: "Ordinario", color: "#3B82F6" }, verde: { label: "Codice verde", color: "#16A34A" },
+  giallo: { label: "Codice giallo", color: "#CA8A04" }, rosso: { label: "Codice rosso", color: "#DC2626" },
+};
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+  fontWeight: 600, cursor: "pointer", fontSize: 15 };
+
+function ready(c: Card) {
+  if (c.state === "scaduta" || c.state === "in_servizio") return false;
+  if (c.rest_until && new Date(c.rest_until) > new Date()) return false;
+  return true;
+}
+
+// Controlla i ruoli richiesti con la gerarchia (caposervizio > avanzato > base)
+function roleCheck(required: Record<string, number>, crew: Card[]) {
+  const missing: string[] = [];
+  const autisti = crew.filter((c) => c.role === "autista").length;
+  if (autisti < (required.autista ?? 0)) missing.push("autista");
+  const ranks = crew.filter((c) => c.role !== "autista").map((c) => RANK[c.role]);
+  for (const k of [3, 2, 1]) {
+    const need = Object.entries(required).filter(([r]) => r !== "autista" && RANK[r] >= k).reduce((t, [, n]) => t + n, 0);
+    const have = ranks.filter((x) => x >= k).length;
+    if (have < need) missing.push(k === 3 ? "caposervizio" : k === 2 ? "soccorritore_avanzato" : "soccorritore_base");
+  }
+  return Array.from(new Set(missing));
+}
+
+function claimError(m: string) {
+  if (m.includes("MISSION_FULL_OR_CLOSED")) return "Troppo tardi: il servizio è stato preso da qualcun altro o è scaduto.";
+  if (m.includes("ALREADY_ON_MISSION")) return "Hai già un mezzo su questo servizio.";
+  if (m.includes("CARD_TOO_TIRED")) return "Qualcuno dell'equipaggio è troppo stanco per questo servizio.";
+  if (m.includes("CARD_RESTING")) return "Qualcuno dell'equipaggio è ancora a riposo.";
+  if (m.includes("CARD_BUSY")) return "Qualcuno dell'equipaggio è già in servizio.";
+  if (m.includes("CARD_EXPIRED")) return "Qualcuno dell'equipaggio ha il contratto scaduto.";
+  if (m.includes("MISSING_ROLE")) return "Mancano dei ruoli nell'equipaggio.";
+  if (m.includes("MISSING_EQUIPMENT")) return "Il mezzo non ha i presidi richiesti.";
+  if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
+  if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
+  if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
+  if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
+  return m;
+}
+
+export default function MissionPanel({ mission, onClose, onClaimed }: {
+  mission: MissionPin; onClose: () => void; onClaimed: (text: string) => void;
+}) {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [equip, setEquip] = useState<Equip[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [vehicleId, setVehicleId] = useState<string | null>(null);
+  const [crew, setCrew] = useState<string[]>([]);
+  const [eta, setEta] = useState<{ km: number; minutes: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: o } = await supabase.from("organizations").select("id").eq("owner_id", session?.user.id ?? "").maybeSingle();
+      const [v, e, c] = await Promise.all([
+        supabase.from("vehicles").select("id,call_sign,status,wear,certification,equipment").eq("org_id", o?.id ?? "").order("created_at"),
+        supabase.from("equipment").select("code,provides"),
+        supabase.from("my_cards").select("*"),
+      ]);
+      setVehicles((v.data as Vehicle[]) ?? []);
+      setEquip((e.data as Equip[]) ?? []);
+      setCards(((c.data as Card[]) ?? []).filter((x) => x.state !== "scaduta"));
+    })();
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
+  function vehicleProblem(v: Vehicle): string | null {
+    if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
+    if (v.wear >= 80) return "da revisionare";
+    if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
+      return "solo trasporti";
+    const p = provides(v.equipment);
+    const miss = mission.requires.filter((r) => !p.has(r));
+    if (miss.length) return "manca: " + miss.map((r) => REQ[r] ?? r).join(", ");
+    return null;
+  }
+
+  useEffect(() => {
+    if (!vehicleId) { setEta(null); return; }
+    supabase.rpc("travel_estimate", { p_mission_id: mission.id, p_vehicle_id: vehicleId })
+      .then(({ data }) => setEta(data as { km: number; minutes: number }));
+  }, [vehicleId, mission.id]);
+
+  // scegli automaticamente il primo mezzo idoneo
+  useEffect(() => {
+    if (!vehicleId && vehicles.length) {
+      const ok = vehicles.find((v) => !vehicleProblem(v));
+      if (ok) setVehicleId(ok.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, equip]);
+
+  const required = mission.required_roles ?? {};
+  const crewCards = cards.filter((c) => crew.includes(c.id));
+  const missing = roleCheck(required, crewCards);
+  const secondsLeft = Math.max(0, Math.floor((new Date(mission.expires_at).getTime() - now) / 1000));
+  const full = mission.slots_taken >= mission.slots_total;
+
+  const available = useMemo(() => cards.filter(ready).sort((a, b) => b.energy - a.energy), [cards]);
+  const unavailable = cards.filter((c) => !ready(c));
+
+  function toggle(id: string) {
+    setCrew((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= 4 ? cur : [...cur, id]);
+  }
+
+  // Equipaggio automatico: per ogni posto richiesto, il volontario pronto più riposato del grado giusto
+  function autoCrew() {
+    const pool = [...available];
+    const chosen: Card[] = [];
+    const take = (pred: (c: Card) => boolean) => {
+      const i = pool.findIndex(pred);
+      if (i >= 0) chosen.push(pool.splice(i, 1)[0]);
+    };
+    for (let i = 0; i < (required.autista ?? 0); i++) take((c) => c.role === "autista");
+    const slots = Object.entries(required).filter(([r]) => r !== "autista")
+      .flatMap(([r, n]) => Array(n).fill(RANK[r])).sort((a, b) => b - a);
+    for (const rank of slots) {
+      // preferisci il grado esatto, poi uno superiore
+      const exact = pool.findIndex((c) => c.role !== "autista" && RANK[c.role] === rank);
+      if (exact >= 0) chosen.push(pool.splice(exact, 1)[0]);
+      else take((c) => c.role !== "autista" && RANK[c.role] > rank);
+    }
+    setCrew(chosen.map((c) => c.id));
+  }
+
+  async function claim() {
+    if (!vehicleId) return;
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("claim_mission",
+      { p_mission_id: mission.id, p_vehicle_id: vehicleId, p_card_ids: crew });
+    setBusy(false);
+    if (error) { setError(claimError(error.message)); return; }
+    const v = vehicles.find((x) => x.id === vehicleId);
+    const arr = new Date((data as { arrives_at: string }).arrives_at);
+    onClaimed(`🚑 ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
+  }
+
+  const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && secondsLeft > 0 && !full;
+  const code = CODE[mission.code];
+
+  return (
+    <div style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
+                  background: "#fff", boxShadow: "-6px 0 24px rgba(0,0,0,.25)", display: "flex", flexDirection: "column",
+                  fontFamily: "system-ui, sans-serif" }}>
+      {/* Testata */}
+      <div style={{ background: code.color, color: "#fff", padding: "14px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 8 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.9, textTransform: "uppercase" }}>{code.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>{mission.title}</div>
+          </div>
+          <button onClick={onClose} style={{ ...btn, background: "rgba(0,0,0,.25)", padding: "4px 10px" }}>✕</button>
+        </div>
+        <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 14, flexWrap: "wrap" }}>
+          <span>💶 {mission.reward_funds.toLocaleString("it-IT")} €</span>
+          <span>🚑 {mission.slots_taken}/{mission.slots_total} mezzi</span>
+          <span>⏱️ {secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}` : "scaduto"}</span>
+        </div>
+      </div>
+
+      <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
+        {/* Requisiti */}
+        <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
+          <strong>Equipaggio:</strong>{" "}
+          {Object.entries(required).map(([r, n]) => `${n}× ${ROLE[r as Card["role"]]?.label ?? r}`).join(" · ")}
+          {mission.requires.length > 0 && <><br /><strong>Presidi:</strong> {mission.requires.map((r) => REQ[r] ?? r).join(", ")}</>}
+        </div>
+
+        {/* Mezzo */}
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>1. Mezzo</div>
+        {vehicles.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Non hai mezzi: comprane uno nel garage.</div>}
+        <div style={{ display: "grid", gap: 6 }}>
+          {vehicles.map((v) => {
+            const prob = vehicleProblem(v);
+            const sel = vehicleId === v.id;
+            return (
+              <button key={v.id} disabled={!!prob} onClick={() => setVehicleId(v.id)}
+                      style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
+                               background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
+                               border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
+                <strong>{v.call_sign}</strong>
+                <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : "idoneo")}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Equipaggio */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 6px" }}>
+          <div style={{ fontWeight: 700 }}>2. Equipaggio <span style={{ fontWeight: 400, color: "#888" }}>({crew.length}/4)</span></div>
+          <button onClick={autoCrew} style={{ ...btn, fontSize: 12, padding: "6px 10px", background: "#1E3A8A" }}>⚡ Automatico</button>
+        </div>
+        {missing.length > 0 && crew.length > 0 && (
+          <div style={{ fontSize: 12, color: "#B91C1C", marginBottom: 6 }}>
+            Manca: {missing.map((r) => ROLE[r as Card["role"]].label).join(", ")}
+          </div>
+        )}
+        {available.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Nessun volontario pronto. Apri il pacchetto nella Squadra o aspetta che finiscano il riposo.</div>}
+        <div style={{ display: "grid", gap: 6 }}>
+          {available.map((c) => {
+            const sel = crew.includes(c.id);
+            return (
+              <button key={c.id} onClick={() => toggle(c.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, cursor: "pointer",
+                               textAlign: "left", background: sel ? "#EFF6FF" : "#fff",
+                               border: sel ? "2px solid #2563EB" : "1px solid #ddd" }}>
+                <span style={{ lineHeight: 0 }} dangerouslySetInnerHTML={{ __html: c.avatar_url
+                  ? `<img src="${c.avatar_url}" width="40" height="40" style="border-radius:8px;object-fit:cover"/>`
+                  : avatarSvg(c.volunteer_id, c.gender, c.rarity, 40) }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.first_name} {c.last_name}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {ROLE[c.role].label}</div>
+                </div>
+                <div style={{ width: 54, textAlign: "right", fontSize: 12 }}>
+                  <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>⚡{Math.round(c.energy)}%</div>
+                </div>
+                <span style={{ fontSize: 18 }}>{sel ? "✅" : "⬜"}</span>
+              </button>
+            );
+          })}
+        </div>
+        {unavailable.length > 0 && (
+          <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
+            Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
+          </div>
+        )}
+      </div>
+
+      {/* Partenza */}
+      <div style={{ padding: 16, borderTop: "1px solid #eee" }}>
+        {error && <div style={{ color: "#B91C1C", fontSize: 14, marginBottom: 8 }}>{error}</div>}
+        <button onClick={claim} disabled={!canGo}
+                style={{ ...btn, width: "100%", padding: 14, fontSize: 17, background: code.color, opacity: canGo ? 1 : 0.4 }}>
+          {busy ? "Invio…" : full ? "Servizio già coperto" : secondsLeft <= 0 ? "Servizio scaduto" : "🚨 Parti!"}
+        </button>
+      </div>
+    </div>
+  );
+}
