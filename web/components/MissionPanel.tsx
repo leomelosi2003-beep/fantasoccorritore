@@ -5,7 +5,8 @@ import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
 import { ROLE, roleLabel, type Card } from "@/components/VolunteerCard";
 
-type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[] };
+type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
+  lent_to: string | null; lent_from: string | null };
 type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
@@ -22,7 +23,7 @@ const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "no
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
 function ready(c: Card) {
-  if (c.state === "scaduta" || c.state === "in_servizio") return false;
+  if (c.state === "scaduta" || c.state === "in_servizio" || c.lent_to) return false;
   if (c.rest_until && new Date(c.rest_until) > new Date()) return false;
   return true;
 }
@@ -75,10 +76,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data: o } = await supabase.from("organizations").select("id").eq("owner_id", session?.user.id ?? "").maybeSingle();
       const [v, e, c] = await Promise.all([
-        supabase.from("vehicles").select("id,call_sign,status,wear,certification,equipment").eq("org_id", o?.id ?? "").order("created_at"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -92,6 +91,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
   function vehicleProblem(v: Vehicle): string | null {
+    if (v.lent_to) return `prestata a ${v.lent_to}`;
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
@@ -214,7 +214,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
-                <strong>{v.call_sign}</strong>
+                <strong>{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
                 <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : "idoneo")}</span>
               </button>
             );
@@ -245,7 +245,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                   : avatarSvg(c.volunteer_id, c.gender, c.rarity, 40) }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.first_name} {c.last_name}</div>
-                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{ROLE[c.role].icon} {roleLabel(c)}{c.lent_from && ` · 🤝 da ${c.lent_from}`}</div>
                 </div>
                 <div style={{ width: 54, textAlign: "right", fontSize: 12 }}>
                   <div style={{ fontWeight: 700, color: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#CA8A04" : "#DC2626" }}>⚡{Math.round(c.energy)}%</div>
@@ -257,7 +257,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         </div>
         {unavailable.length > 0 && (
           <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
-            Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
+            Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.lent_to ? "prestato" : c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
           </div>
         )}
       </div>

@@ -7,7 +7,7 @@ export type Card = {
   role: "autista" | "soccorritore_base" | "soccorritore_avanzato" | "caposervizio";
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
-  avanzato?: boolean;
+  avanzato?: boolean; lent_to?: string | null; lent_from?: string | null;
 };
 
 export const ROLE: Record<Card["role"], { label: string; icon: string }> = {
@@ -71,6 +71,8 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
           <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.15 }}>{c.first_name} {c.last_name}</div>
           {c.nickname && <div style={{ fontSize: 12, color: "#666", fontStyle: "italic" }}>“{c.nickname}”</div>}
           <div style={{ fontSize: 12, marginTop: 2 }}>{ROLE[c.role].icon} {roleLabel(c)}</div>
+          {c.lent_to && <div style={{ fontSize: 11, color: "#B45309", fontWeight: 700 }}>🤝 Prestato a {c.lent_to}</div>}
+          {c.lent_from && <div style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>🤝 In prestito da {c.lent_from}</div>}
         </div>
       </div>
 

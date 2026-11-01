@@ -190,6 +190,9 @@ export default function GameMap() {
       const { data } = await supabase.from("organizations")
         .select("id,name,type,funds,reputation,logo_url").eq("owner_id", session.user.id).maybeSingle();
       if (!data) { router.replace("/onboarding"); return; }
+      // associazione venduta: deve scegliere una nuova sede
+      const { count } = await supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", data.id);
+      if (count === 0) { router.replace("/nuova-sede"); return; }
       setOrg(data as Organization);
       const { data: prof } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).maybeSingle();
       setIsAdmin(!!prof?.is_admin);
@@ -255,6 +258,9 @@ export default function GameMap() {
                         style={{ border: "none", background: "#7C3AED", color: "#fff", borderRadius: 8,
                                  padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛠️ Admin</button>
               )}
+              <button onClick={() => router.push("/alleanza")}
+                      style={{ border: "none", background: "#15803D", color: "#fff", borderRadius: 8,
+                               padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🤝 Alleanza</button>
               <button onClick={() => router.push("/negozio")}
                       style={{ border: "none", background: "#111", color: "#fff", borderRadius: 8,
                                padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>🛒 Presidi</button>
