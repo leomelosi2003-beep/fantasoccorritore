@@ -156,6 +156,22 @@ export default function Garage() {
     load();
   }
 
+  // Sposta l'ambulanza in un'altra delle tue sedi
+  async function move(v: Vehicle, baseId: string) {
+    if (baseId === v.base_id) return;
+    setMsg(null);
+    const { error } = await supabase.rpc("move_vehicle", { p_vehicle: v.id, p_base: baseId });
+    if (error) {
+      const m = error.message;
+      setMsg({ ok: false, text: m.includes("VEHICLE_BUSY") ? "È in servizio: spostala quando si libera."
+        : m.includes("VEHICLE_LENT") ? "È in prestito a un alleato: riprendila prima."
+        : garageError(m) });
+      return;
+    }
+    setMsg({ ok: true, text: `${v.call_sign} ora è a ${byId.base[baseId]?.name}.` });
+    load();
+  }
+
   async function maintain(v: Vehicle) {
     setMsg(null);
     const { error } = await supabase.rpc("start_maintenance", { p_vehicle_id: v.id });
@@ -340,7 +356,15 @@ export default function Garage() {
                     </strong>
                     <Pill cert={v.certification} />
                   </div>
-                  <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name} · {byId.base[v.base_id]?.name}</div>
+                  <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name}</div>
+                  <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    🏠 {bases.length > 1 ? (
+                      <select value={v.base_id} onChange={(e) => move(v, e.target.value)}
+                              style={{ fontSize: 13, padding: "3px 6px", borderRadius: 8, border: "1px solid #ccc", background: "#fff" }}>
+                        {bases.map((bs) => <option key={bs.id} value={bs.id}>{bs.name}</option>)}
+                      </select>
+                    ) : byId.base[v.base_id]?.name}
+                  </div>
                   {v.equipment?.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "6px 0" }}>
                       {v.equipment.map((c) => (
