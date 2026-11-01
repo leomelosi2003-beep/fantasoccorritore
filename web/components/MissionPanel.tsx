@@ -6,7 +6,14 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null };
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null };
+
+const MAX_KM = 15; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
+function km(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371, r = Math.PI / 180;
+  const x = Math.sin((bLat - aLat) * r / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin((bLng - aLng) * r / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
 type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
@@ -56,6 +63,7 @@ function claimError(m: string) {
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
+  if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 15 km.";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   return m;
@@ -77,7 +85,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   useEffect(() => {
     (async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -92,6 +100,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
+    if (v.base_lat != null && v.base_lng != null) {
+      const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
+      if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
+    }
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
