@@ -63,7 +63,7 @@ type Assignment = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string;
   completed_at: string | null; reward_funds: number | null; title: string; code: MissionPin["code"];
   call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
-  route: RoutePoint[] | null; hospital: string | null;
+  route: RoutePoint[] | null; hospital: string | null; vehicle_image: string | null;
 };
 
 type UpcomingEvent = { id: string; title: string; kind: string; starts_at: string; show_at: string | null;
@@ -83,12 +83,22 @@ function eventIcon(kind: string, open: boolean) {
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
-function ambulanceIcon(onScene: boolean) {
+// Ambulanza vista di profilo (immagine del modello), girata verso dove sta andando
+function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolean) {
+  if (!img) {
+    return L.divIcon({
+      className: "",
+      html: `<div style="font-size:26px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+             ${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}">🚑</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15],
+    });
+  }
+  const small = img.replace(/\.png$/, "-map.png");
   return L.divIcon({
     className: "",
-    html: `<div style="font-size:26px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
-           ${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}">🚑</div>`,
-    iconSize: [30, 30], iconAnchor: [15, 15],
+    html: `<img src="${small}" style="width:60px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});
+           filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}" alt=""/>`,
+    iconSize: [60, 30], iconAnchor: [30, 15],
   });
 }
 
@@ -367,6 +377,8 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
+          const ahead = alongRoute(route, now + 4000);
+          const facingRight = ahead.lng > pos.lng;
           const path = remainingPath(route, pos.leg, pos.f);
           const left = Math.max(0, Math.round((pos.until - now) / 60000));
           const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
@@ -378,7 +390,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving)}>
+            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!pos.moving, a.vehicle_image, facingRight)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
