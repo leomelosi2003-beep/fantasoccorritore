@@ -42,3 +42,13 @@ end $do$;
 
 select position('speed_level' in pg_get_functiondef('claim_mission(uuid,uuid,uuid[])'::regprocedure)) > 0 servizio_ok,
        position('speed_level' in pg_get_functiondef('travel_estimate(uuid,uuid)'::regprocedure)) > 0 stima_ok;
+
+-- anche il tetto dei 10 minuti si accorcia con il livello (così il potenziamento si sente sempre)
+do $do$
+declare src text;
+begin
+  src := pg_get_functiondef('claim_mission(uuid,uuid,uuid[])'::regprocedure);
+  src := replace(src, 'v_free - t0 > interval ''10 minutes'' then', 'v_free - t0 > interval ''10 minutes'' * (1 - 0.12 * veh.speed_level) then');
+  src := replace(src, 'extract(epoch from interval ''1 minute'' * (8 + random() * 2))', 'extract(epoch from interval ''1 minute'' * (8 + random() * 2) * (1 - 0.12 * veh.speed_level))');
+  execute src;
+end $do$;
