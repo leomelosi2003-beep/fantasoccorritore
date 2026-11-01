@@ -93,7 +93,7 @@ create or replace function sync_events_parse() returns text
 language plpgsql security definer set search_path = public, extensions as $$
 declare
   f record; html text; st int; r text[]; keys text[]; k text; cnt int; report text := '';
-  show timestamptz; season int; title text; venue text; js jsonb; pos int; tm text[];
+  v_show timestamptz; season int; title text; venue text; js jsonb; pos int; tm text[];
 begin
   for f in
     select distinct on (ef.source) ef.*, resp.status_code, resp.content
@@ -127,12 +127,12 @@ begin
           venue := case when r[8] ilike '%modigliani%' then 'Modigliani Forum'
                         when r[8] ilike '%palamacchia%' then 'PalaMacchia' end;
           if venue is not null then
-            show := make_timestamptz(r[3]::int, r[2]::int, r[1]::int, r[4]::int, r[5]::int, 0, 'Europe/Rome');
+            v_show := make_timestamptz(r[3]::int, r[2]::int, r[1]::int, r[4]::int, r[5]::int, 0, 'Europe/Rome');
             season := case when r[2]::int >= 8 then r[3]::int else r[3]::int - 1 end;
             k := 'basket:' || lower(html_text(r[6])) || '|' || lower(html_text(r[7])) || '|' || season;
             title := case when f.source = 'libertas' then 'Libertas Livorno – ' else 'Pielle Livorno – ' end
                      || html_text(r[7]) || case when f.source = 'libertas' then ' (A2)' else ' (Serie B)' end;
-            perform upsert_synced_event(k, title, 'basket', venue, show, true, f.url);
+            perform upsert_synced_event(k, title, 'basket', venue, v_show, true, f.url);
             keys := keys || k; cnt := cnt + 1;
           end if;
         end loop;
@@ -144,12 +144,12 @@ begin
           venue := case when r[6] ilike '%goldoni%' then 'Teatro Goldoni'
                         when r[6] ilike '%duomo%' then 'Duomo di Livorno' end;
           if venue is not null then
-            show := make_timestamptz(r[3]::int, r[2]::int, r[1]::int, 21, 0, 0, 'Europe/Rome');
+            v_show := make_timestamptz(r[3]::int, r[2]::int, r[1]::int, 21, 0, 0, 'Europe/Rome');
             title := html_text(r[5]);
             if title = upper(title) then title := initcap(title); end if;
             k := 'goldoni:' || r[4] || '|' || r[3] || r[2] || r[1];
             perform upsert_synced_event(k, title, case when venue = 'Duomo di Livorno' then 'concerto' else 'teatro' end,
-                                        venue, show, false, r[4]);
+                                        venue, v_show, false, r[4]);
             keys := keys || k; cnt := cnt + 1;
           end if;
         end loop;
@@ -161,12 +161,12 @@ begin
             -- ora di inizio dalla scheda dell'evento nella pagina
             pos := strpos(html, 'href="' || (js->>'url') || '"');
             tm := case when pos > 0 then regexp_match(substr(html, pos, 4000), 'mec-start-time">(\d{1,2}):(\d{2})') end;
-            show := make_timestamptz(substr(js->>'startDate', 1, 4)::int, substr(js->>'startDate', 6, 2)::int,
+            v_show := make_timestamptz(substr(js->>'startDate', 1, 4)::int, substr(js->>'startDate', 6, 2)::int,
                                      substr(js->>'startDate', 9, 2)::int,
                                      coalesce(tm[1]::int, 21), coalesce(tm[2]::int, 0), 0, 'Europe/Rome');
             k := 'forum:' || (js->>'url');
             perform upsert_synced_event(k, html_text(js->>'name') || ' – Modigliani Forum', 'concerto',
-                                        'Modigliani Forum', show, tm is not null, js->>'url');
+                                        'Modigliani Forum', v_show, tm is not null, js->>'url');
             keys := keys || k; cnt := cnt + 1;
           end if;
         end loop;
@@ -282,7 +282,7 @@ $$;
 create or replace function parse_allevents(html text) returns text[]
 language plpgsql security definer set search_path = public, extensions as $$
 declare
-  r text[]; best text := ''; arr jsonb; e jsonb; cats text[]; kind text; show timestamptz; dur int;
+  r text[]; best text := ''; arr jsonb; e jsonb; cats text[]; kind text; v_show timestamptz; dur int;
   lat double precision; lng double precision; v_id uuid; keys text[] := '{}'; k text; slots int;
 begin
   for r in select regexp_matches(html, '_this\.events_data = (\[.*?\]);', 'g') loop
@@ -314,20 +314,20 @@ begin
     -- solo Livorno e dintorni (circa 15 km dal centro)
     continue when st_distance(st_setsrid(st_makepoint(lng, lat), 4326)::geography,
                               st_setsrid(st_makepoint(10.3106, 43.5485), 4326)::geography) > 15000;
-    show := to_timestamp((e->>'start_time')::bigint);
+    v_show := to_timestamp((e->>'start_time')::bigint);
     dur := ((e->>'end_time')::bigint - (e->>'start_time')::bigint) / 60;
     if dur < 30 or dur > 720 then dur := null; end if;
     -- doppione di un evento già preso da una fonte ufficiale (stesso giorno, a meno di 400 m)
     continue when exists (
       select 1 from events x join venues v on v.id = x.venue_id
       where (x.source_key is null or x.source_key not like 'allevents:%')
-        and (x.show_at at time zone 'Europe/Rome')::date = (show at time zone 'Europe/Rome')::date
+        and (x.show_at at time zone 'Europe/Rome')::date = (v_show at time zone 'Europe/Rome')::date
         and st_dwithin(v.location, st_setsrid(st_makepoint(lng, lat), 4326)::geography, 400));
     slots := case when cats && array['marathons','running'] then 3
                   when cats && array['festivals','fireworks','music-festivals'] then 2 end;
     v_id := venue_for(coalesce(nullif(e->>'location', ''), e->'venue'->>'street'), lat, lng);
     k := 'allevents:' || (e->>'event_id');
-    perform upsert_synced_event_v(k, html_text(e->>'eventname'), kind, v_id, show, false,
+    perform upsert_synced_event_v(k, html_text(e->>'eventname'), kind, v_id, v_show, false,
                                   split_part(e->>'event_url', '?', 1), dur, slots);
     keys := keys || k;
   end loop;
