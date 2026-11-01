@@ -24,6 +24,7 @@ function alongRoute(route: RoutePoint[], now: number) {
       const still = a.lat === b.lat && a.lng === b.lng;
       const text = still
         ? (a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
+        : a.label === b.label ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
         : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
         : a.label === "Sede" ? `In viaggio verso ${b.label}`
         : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;

@@ -45,6 +45,8 @@ let queue: Promise<void> = Promise.resolve();
 export function fetchLeg(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<void> {
   const k = legKey(a, b);
   if (mem.has(k)) return Promise.resolve();
+  // tratti cortissimi (dentro l'ospedale): linea dritta
+  if (meters([a.lat, a.lng], [b.lat, b.lng]) < 250) { mem.set(k, makeLeg([[a.lat, a.lng], [b.lat, b.lng]])); return Promise.resolve(); }
   const stored = loadStore()[k];
   if (stored) { mem.set(k, makeLeg(stored)); return Promise.resolve(); }
   mem.set(k, "loading");
