@@ -20,6 +20,11 @@ export type MissionPin = {
   requires: string[];
   required_roles: Record<string, number>;
   min_certification: string;
+  category?: string;
+  description?: string | null;
+  venue?: string | null;
+  event_id?: string | null;
+  event_ends_at?: string | null;
   lat: number;
   lng: number;
 };

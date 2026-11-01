@@ -15,6 +15,22 @@ type Assignment = {
   call_sign: string; base_lat: number; base_lng: number; lat: number; lng: number;
 };
 
+type UpcomingEvent = { id: string; title: string; kind: string; starts_at: string; show_at: string | null;
+  time_confirmed: boolean; venue: string; slots: number; reward_funds: number; lat: number; lng: number };
+const KIND_ICON: Record<string, string> = { calcio: "⚽", basket: "🏀", concerto: "🎤", teatro: "🎭", altro: "🎪" };
+
+// Icona dei grandi eventi: emoji del tipo su cerchio (viola se prenotabile, grigio se apre più tardi)
+function eventIcon(kind: string, open: boolean) {
+  const s = open ? 40 : 32;
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+           font-size:${open ? 22 : 17}px;background:${open ? "#7C3AED" : "#fff"};border:3px solid ${open ? "#fff" : "#7C3AED"};
+           box-shadow:0 2px 6px rgba(0,0,0,.4);${open ? "animation:ev-pulse 1.4s infinite" : "opacity:.85"}">${KIND_ICON[kind] ?? "🎪"}</div>`,
+    iconSize: [s, s], iconAnchor: [s / 2, s / 2],
+  });
+}
+
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
 function ambulanceIcon(onScene: boolean) {
   return L.divIcon({
@@ -60,6 +76,7 @@ export default function GameMap() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
 
   async function refreshOrg() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -112,10 +129,14 @@ export default function GameMap() {
 
   useEffect(() => {
     async function load() {
-      const [m, b] = await Promise.all([
+      const in24h = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+      const [m, b, ev] = await Promise.all([
         supabase.from("missions_map").select("*"),
         supabase.from("bases_map").select("*"),
+        supabase.from("events_map").select("id,title,kind,starts_at,show_at,time_confirmed,venue,slots,reward_funds,lat,lng")
+          .gt("starts_at", new Date().toISOString()).lt("starts_at", in24h).order("starts_at"),
       ]);
+      if (!ev.error) setUpcoming((ev.data as UpcomingEvent[]) ?? []);
       if (m.error) { setError(`Errore Supabase: ${m.error.message}`); return; }
       setError(null);
       setMissions((m.data as MissionPin[]) ?? []);
@@ -195,7 +216,42 @@ export default function GameMap() {
           </Marker>
         ))}
 
-        {missions.map((m) => (
+        {upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
+          const show = new Date(e.show_at ?? e.starts_at);
+          const opensAt = new Date(new Date(e.starts_at).getTime() - 2 * 3600 * 1000);
+          return (
+            <Marker key={`ev-${e.id}`} position={[e.lat, e.lng]} icon={eventIcon(e.kind, false)}>
+              <Popup>
+                <strong>{KIND_ICON[e.kind]} {e.title}</strong><br />
+                {e.venue} · inizio {show.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                {!e.time_confirmed && " (orario indicativo)"}<br />
+                {e.slots} {e.slots > 1 ? "ambulanze" : "ambulanza"} · {e.reward_funds.toLocaleString("it-IT")} € ciascuna<br />
+                <em>Prenotazioni dalle {opensAt.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</em>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {missions.filter((m) => m.category === "grande_evento").map((m) => (
+          <Marker key={m.id} position={[m.lat, m.lng]}
+                  icon={eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
+            <Popup>
+              <strong>🏟️ {m.title}</strong><br />
+              {m.venue} · {m.description}<br />
+              Ambulanze: {m.slots_taken}/{m.slots_total} · {m.reward_funds.toLocaleString("it-IT")} € ciascuna<br />
+              Prenotabile fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+              {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                   background: "#7C3AED", color: "#fff", fontWeight: 700 }}>🏟️ Prenota la postazione</button>
+                </div>
+              )}
+            </Popup>
+          </Marker>
+        ))}
+
+        {missions.filter((m) => m.category !== "grande_evento").map((m) => (
           <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={10}
                         pathOptions={{ color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
             <Popup>
@@ -232,7 +288,8 @@ export default function GameMap() {
         })}
       </MapContainer>
 
-      <style>{`@keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }`}</style>
+      <style>{`@keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
+        @keyframes ev-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,.6) } 50% { box-shadow: 0 0 0 10px rgba(124,58,237,0) } }`}</style>
 
       {selected && (
         <MissionPanel mission={selected} onClose={() => setSelected(null)}

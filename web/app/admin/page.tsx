@@ -179,6 +179,7 @@ export default function Admin() {
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
           <div style={{ fontWeight: 700, fontSize: 18 }}>🛠️ Pannello admin · Carte volontari</div>
+          <button onClick={() => router.push("/admin/eventi")} style={{ ...btn, background: "#7C3AED", padding: "8px 12px", marginLeft: "auto" }}>🏟️ Grandi eventi</button>
         </div>
       </div>
 
