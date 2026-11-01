@@ -115,6 +115,19 @@ export default function Squadra() {
     await load();
   }
 
+  // Ricarica l'energia (servizi fatti / riposo) pagando poco: 100 € per servizio fatto, 1.500 € se è a riposo
+  async function refill(list: Card[]) {
+    const ids = list.filter((c) => (c.refill_cost ?? 0) > 0).map((c) => c.id);
+    const cost = list.reduce((t, c) => t + (c.refill_cost ?? 0), 0);
+    if (!ids.length) return;
+    if (!window.confirm(`Ricaricare l'energia di ${ids.length} ${ids.length === 1 ? "volontario" : "volontari"} per ${cost.toLocaleString("it-IT")} €?`)) return;
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("refill_energy", { p_cards: ids });
+    setBusy(false);
+    if (error) { setError(error.message.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza fondi." : friendlyError(error.message)); return; }
+    await load();
+  }
+
   async function openPack() {
     setBusy(true); setError(null);
     const { data, error } = await supabase.rpc("open_weekly_pack");
@@ -269,6 +282,25 @@ export default function Squadra() {
           );
         })()}
 
+        {/* Ricarica energia di tutti */}
+        {(() => {
+          const tired = active.filter((c) => (c.refill_cost ?? 0) > 0 && !c.lent_from && !c.lent_to);
+          const cost = tired.reduce((t, c) => t + (c.refill_cost ?? 0), 0);
+          return tired.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#fff", borderRadius: 14,
+                          padding: 12, marginBottom: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
+              <span style={{ fontSize: 26 }}>⚡</span>
+              <div style={{ flex: "1 1 200px", fontSize: 14 }}>
+                <strong>{tired.length} {tired.length === 1 ? "volontario stanco" : "volontari stanchi"}</strong><br />
+                <span style={{ color: "#666" }}>100 € per ogni servizio fatto, 1.500 € per chi è a riposo</span>
+              </div>
+              <button disabled={busy} onClick={() => refill(tired)} style={{ ...btn, background: "#16A34A" }}>
+                ⚡ Ricarica tutti · {cost.toLocaleString("it-IT")} €
+              </button>
+            </div>
+          );
+        })()}
+
         {/* Riepilogo ruoli */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {counts.map((c) => (
@@ -287,6 +319,12 @@ export default function Squadra() {
           <div style={grid}>{active.map((c) => (
             <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <VolunteerCard c={c} />
+              {(c.refill_cost ?? 0) > 0 && !c.lent_from && !c.lent_to && (
+                <button disabled={busy} onClick={() => refill([c])}
+                        style={{ ...btn, background: "#16A34A", fontSize: 13, padding: "8px 10px" }}>
+                  ⚡ Ricarica energia · {(c.refill_cost ?? 0).toLocaleString("it-IT")} €
+                </button>
+              )}
             </div>
           ))}</div>
         )}

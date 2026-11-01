@@ -8,7 +8,7 @@ export type Card = {
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
   avanzato?: boolean; lent_to?: string | null; lent_from?: string | null;
-  training_until?: string | null; promoted?: boolean; services_left?: number;
+  training_until?: string | null; promoted?: boolean; services_left?: number; refill_cost?: number;
 };
 
 export const ROLE: Record<Card["role"], { label: string; icon: string; color: string; bg: string }> = {
