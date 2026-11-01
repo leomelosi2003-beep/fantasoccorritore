@@ -9,6 +9,7 @@ import { supabase, type MissionPin, type BasePin, type Organization } from "@/li
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
+import ChatPanel from "@/components/ChatPanel";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -351,6 +352,9 @@ export default function GameMap() {
         </div>
       )}
 
+      {/* Chat tra giocatori */}
+      {org && <ChatPanel orgId={org.id} />}
+
       {/* Menu: in alto a destra sul computer, in basso sul telefono */}
       {org && (
         <nav className="fs-nav">
@@ -523,6 +527,12 @@ export default function GameMap() {
           font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
         .fs-exit { background: #fff !important; color: #333; }
         .fs-toast { bottom: 24px; }
+        .fs-chat-btn { position: absolute; z-index: 1000; left: 10px; bottom: 24px; width: 52px; height: 52px; border-radius: 50%;
+          border: none; background: #111; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+        .fs-chat-dot { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #DC2626;
+          border: 2px solid #fff; animation: note-pulse 1.4s infinite; }
+        .fs-chat { position: absolute; z-index: 1060; left: 10px; bottom: 86px; width: min(360px, calc(100% - 20px)); height: min(460px, 65vh);
+          background: #fff; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.35); display: flex; flex-direction: column; overflow: hidden; }
         .fs-badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; background: #DC2626;
           color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px;
           border: 2px solid #fff; animation: note-pulse 1.4s infinite; }
@@ -547,6 +557,8 @@ export default function GameMap() {
           .fs-exit { background: #f1f1f1 !important; }
           .fs-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
           .fs-notes { bottom: auto; top: 110px; }
+          .fs-chat-btn { bottom: calc(80px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
+          .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(136px + env(safe-area-inset-bottom)); height: 55vh; }
           .fs-badge { top: 0; right: 4px; }
           .leaflet-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
           .fs-pill { padding: 5px 10px 5px 6px; }
