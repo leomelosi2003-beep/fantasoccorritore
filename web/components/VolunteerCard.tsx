@@ -37,14 +37,6 @@ function stateLabel(c: Card) {
   return { text: "Pronto", color: "#16A34A" };
 }
 
-function daysLeft(iso: string | null) {
-  if (!iso) return null;
-  const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "scaduto";
-  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
-  return d > 0 ? `${d} g ${h} h` : `${h} h`;
-}
-
 function Stat({ label, v }: { label: string; v: number }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
@@ -107,7 +99,6 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11 }}>
         <span style={{ color: st.color, fontWeight: 700 }}>● {st.text}</span>
-        {!expired && c.expires_at && <span style={{ color: "#666" }}>Contratto: {daysLeft(c.expires_at)}</span>}
       </div>
     </div>
   );

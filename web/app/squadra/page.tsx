@@ -20,7 +20,6 @@ export default function Squadra() {
   const [reveal, setReveal] = useState<Card[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showExpired, setShowExpired] = useState(false);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -75,7 +74,6 @@ export default function Squadra() {
   if (!org) return <main style={shell} />;
 
   const active = cards.filter((c) => c.state !== "scaduta");
-  const expired = cards.filter((c) => c.state === "scaduta");
   const counts = Object.entries(ROLE).map(([k, v]) => ({ ...v, n: active.filter((c) => c.role === k).length }));
   const nextPack = pack?.next_pack_at ? new Date(pack.next_pack_at) : null;
 
@@ -148,14 +146,6 @@ export default function Squadra() {
           ))}</div>
         )}
 
-        {expired.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <button onClick={() => setShowExpired(!showExpired)} style={{ ...btn, background: "#e5e5e0", color: "#111" }}>
-              {showExpired ? "Nascondi" : "Mostra"} contratti scaduti ({expired.length})
-            </button>
-            {showExpired && <div style={{ ...grid, marginTop: 12 }}>{expired.map((c) => <VolunteerCard key={c.id} c={c} compact />)}</div>}
-          </div>
-        )}
       </div>
 
       {/* Rivelazione del pacchetto */}

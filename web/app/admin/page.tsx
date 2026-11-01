@@ -248,10 +248,6 @@ export default function Admin() {
             <input type="range" min={-0.4} max={0.4} step={0.05} value={f.rosso_fatigue}
                    onChange={(e) => set("rosso_fatigue", Number(e.target.value))} style={{ width: "100%" }} />
 
-            <label style={lbl}>Durata contratto (giorni)</label>
-            <input style={inp} type="number" min={1} value={f.contract_days} onChange={(e) => set("contract_days", e.target.value)}
-                   placeholder={f.rarity === "comune" ? "7" : f.rarity === "epica" ? "21" : "42"} />
-
             <label style={lbl}>Foto del soccorritore</label>
             <label onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                    onDragLeave={() => setDragOver(false)}
