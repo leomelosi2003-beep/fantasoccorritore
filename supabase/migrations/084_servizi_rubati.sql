@@ -1,0 +1,3 @@
+-- Servizi rubati: tabella mission_steals (vincitore partito dopo ma arrivato prima), riempita da resolve_races + storico.
+-- resolve_races: chi perde la corsa con la modalità automatica riparte subito (auto_dispatch_org).
+-- auto_dispatch() ora chiama auto_dispatch_org(null). rpc steals_board() per la classifica. (vedi SQL applicato)

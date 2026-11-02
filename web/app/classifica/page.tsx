@@ -8,7 +8,7 @@ import FactionEmblem from "@/components/FactionEmblem";
 type Row = {
   org_id: string; name: string; type: Organization["type"]; logo_url: string | null; alliance: string | null;
   earnings_7d: number | null; services_7d: number | null; wealth: number | null; growth_pct: number | null; reputation: number | null;
-  hidden?: boolean;
+  hidden?: boolean; stolen_7d?: number; stolen_total?: number; lost_7d?: number;
 };
 
 const TABS = [
@@ -16,6 +16,7 @@ const TABS = [
   { key: "growth_pct", label: "📈 Crescita", hint: "Quanto è cresciuto il patrimonio negli ultimi 7 giorni" },
   { key: "wealth", label: "🏦 Patrimonio", hint: "Soldi in cassa + valore di ambulanze, sedi e volontari" },
   { key: "reputation", label: "⭐ Reputazione", hint: "Reputazione totale guadagnata" },
+  { key: "stolen_7d", label: "🥷 Rubati", hint: "Servizi soffiati agli altri giocatori arrivando prima di loro, negli ultimi 7 giorni" },
 ] as const;
 type Key = (typeof TABS)[number]["key"];
 
@@ -25,10 +26,11 @@ const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFa
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
 
 function value(r: Row, k: Key) {
-  if (r.hidden && k !== "growth_pct") return "🔒";
+  if (r.hidden && k !== "growth_pct" && k !== "stolen_7d") return "🔒";
   if (k === "earnings_7d") return euro(r.earnings_7d ?? 0);
   if (k === "wealth") return euro(r.wealth ?? 0);
   if (k === "reputation") return `⭐ ${r.reputation ?? 0}`;
+  if (k === "stolen_7d") return `🥷 ${r.stolen_7d ?? 0}`;
   if (r.growth_pct === null) return "—";
   return `${r.growth_pct > 0 ? "+" : ""}${r.growth_pct.toLocaleString("it-IT")}%`;
 }
@@ -46,9 +48,10 @@ export default function Classifica() {
       if (!session) { router.replace("/"); return; }
       const { data: o } = await supabase.from("organizations").select("id").eq("owner_id", session.user.id).maybeSingle();
       setMe(o?.id ?? null);
-      const { data, error } = await supabase.rpc("leaderboard_v2");
+      const [{ data, error }, st] = await Promise.all([supabase.rpc("leaderboard_v2"), supabase.rpc("steals_board")]);
       if (error) { setError("Classifica non disponibile al momento."); return; }
-      setRows((data as Row[]) ?? []);
+      const steals = new Map(((st.data as { org_id: string; stolen_7d: number; stolen_total: number; lost_7d: number }[]) ?? []).map((x) => [x.org_id, x]));
+      setRows(((data as Row[]) ?? []).map((r) => ({ ...r, ...(steals.get(r.org_id) ?? {}), org_id: r.org_id })));
     })();
   }, [router]);
 
@@ -95,7 +98,8 @@ export default function Classifica() {
                   {r.name}{r.org_id === me && <span style={{ color: "#B45309" }}> (tu)</span>}
                 </div>
                 <div style={{ fontSize: 12, color: "#777" }}>
-                  {r.hidden ? "statistiche nascoste" : `${r.services_7d ?? 0} servizi in 7 giorni`}{r.alliance && <> · 🤝 {r.alliance}</>}
+                  {tab === "stolen_7d" ? `${r.stolen_total ?? 0} in totale · ${r.lost_7d ?? 0} subiti in 7 giorni`
+                    : r.hidden ? "statistiche nascoste" : `${r.services_7d ?? 0} servizi in 7 giorni`}{r.alliance && <> · 🤝 {r.alliance}</>}
                 </div>
               </div>
               <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap",
