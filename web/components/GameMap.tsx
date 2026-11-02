@@ -627,7 +627,7 @@ export default function GameMap() {
               ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
               ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
               ["🛒", "Presidi", "#374151", "/negozio"],
-              ["🏷️", "Ambulanze usate", "#B45309", "/usate"],
+              ["🏷️", "Usato e aste", "#B45309", "/usate"],
               ["🏠", "Sedi", "#9333EA", "/sedi"],
               ["📊", "Entrate e uscite", "#166534", "/finanze"],
               ["🏆", "Classifica", "#B45309", "/classifica"],

@@ -4,6 +4,13 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, livery } from "@/lib/supabase";
 
+type BaseAuction = {
+  id: string; base_name: string; level: number; capacity: number; lat: number; lng: number; seller: string; seller_type: string; mine: boolean;
+  start_price: number; market_value: number; ends_at: string; status: "aperta" | "venduta" | "al_mercato" | "annullata";
+  top_bid: number | null; top_bidder: string | null; bids: number; my_bid: number | null; final_price: number | null; winner: string | null;
+  near: string | null;
+};
+
 type Auction = {
   id: string; call_sign: string; model_name: string | null; image_url: string | null; seller: string; seller_type: string; mine: boolean;
   start_price: number; market_value: number; ends_at: string; status: "aperta" | "venduta" | "al_mercato" | "annullata";
@@ -23,13 +30,15 @@ function left(t: string, now: number) {
   const m = Math.floor(s / 60);
   return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m}:${String(s % 60).padStart(2, "0")}`;
 }
-const minNext = (a: Auction) => (a.top_bid ? a.top_bid + Math.max(100, Math.round(a.top_bid * 0.02)) : a.start_price);
+const minNext = (a: { top_bid: number | null; start_price: number }) => (a.top_bid ? a.top_bid + Math.max(100, Math.round(a.top_bid * 0.02)) : a.start_price);
 
 function bidError(m: string) {
   if (m.includes("BID_TOO_LOW")) return `Offerta troppo bassa: serve almeno ${Number(m.split("BID_TOO_LOW:")[1] ?? 0).toLocaleString("it-IT")} €.`;
   if (m.includes("INSUFFICIENT_FUNDS")) return "Non hai abbastanza soldi per questa offerta.";
   if (m.includes("AUCTION_CLOSED")) return "L'asta è già chiusa.";
   if (m.includes("OWN_AUCTION")) return "Non puoi fare offerte sulla tua ambulanza.";
+  if (m.includes("BASE_NOT_EMPTY")) return "Prima sposta tutte le ambulanze da questa sede.";
+  if (m.includes("IS_HQ")) return "La sede principale non si può vendere.";
   if (m.includes("HAS_BIDS")) return "Ci sono già offerte: l'asta non si può più ritirare.";
   return "Operazione non riuscita, riprova.";
 }
@@ -41,10 +50,13 @@ export default function Usate() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [tab, setTab] = useState<"mezzi" | "sedi">("mezzi");
+  const [bases, setBases] = useState<BaseAuction[] | null>(null);
 
   async function load() {
-    const { data } = await supabase.rpc("auctions_list");
-    setList((data as Auction[]) ?? []);
+    const [a, b] = await Promise.all([supabase.rpc("auctions_list"), supabase.rpc("base_auctions_list")]);
+    setList((a.data as Auction[]) ?? []);
+    setBases((b.data as BaseAuction[]) ?? []);
   }
   useEffect(() => {
     (async () => {
@@ -58,25 +70,25 @@ export default function Usate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function bid(a: Auction) {
+  async function bid(a: { id: string; top_bid: number | null; start_price: number }, name: string, kind: "mezzi" | "sedi" = "mezzi") {
     const amount = parseInt((offer[a.id] ?? String(minNext(a))).replace(/[^0-9]/g, ""), 10);
     if (!amount) return;
-    if (!window.confirm(`Offrire ${euro(amount)} per ${a.call_sign}? I soldi restano bloccati finché qualcuno non offre di più (allora ti tornano indietro).`)) return;
+    if (!window.confirm(`Offrire ${euro(amount)} per ${name}? I soldi restano bloccati finché qualcuno non offre di più (allora ti tornano indietro).`)) return;
     setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("place_bid", { p_auction: a.id, p_amount: amount });
+    const { error } = await supabase.rpc(kind === "sedi" ? "place_base_bid" : "place_bid", { p_auction: a.id, p_amount: amount });
     setBusy(false);
     if (error) { setMsg({ ok: false, text: bidError(error.message) }); load(); return; }
-    setMsg({ ok: true, text: `💶 Offerta di ${euro(amount)} per ${a.call_sign}: sei in testa!` });
+    setMsg({ ok: true, text: `💶 Offerta di ${euro(amount)} per ${name}: sei in testa!` });
     setOffer((o) => ({ ...o, [a.id]: "" }));
     load();
   }
 
-  async function cancel(a: Auction) {
-    if (!window.confirm(`Ritirare ${a.call_sign} dall'asta? Torna nel tuo garage.`)) return;
+  async function cancel(a: { id: string }, name: string, kind: "mezzi" | "sedi" = "mezzi") {
+    if (!window.confirm(`Ritirare ${name} dall'asta?`)) return;
     setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("cancel_auction", { p_auction: a.id });
+    const { error } = await supabase.rpc(kind === "sedi" ? "cancel_base_auction" : "cancel_auction", { p_auction: a.id });
     setBusy(false);
-    setMsg(error ? { ok: false, text: bidError(error.message) } : { ok: true, text: `${a.call_sign} è tornata nel tuo garage.` });
+    setMsg(error ? { ok: false, text: bidError(error.message) } : { ok: true, text: `${name} ritirata dall'asta.` });
     load();
   }
 
@@ -88,12 +100,27 @@ export default function Usate() {
       <div style={{ background: "linear-gradient(135deg,#B45309,#78350F)", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ ...btn, background: "rgba(0,0,0,.25)", fontWeight: 600 }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18, flex: 1 }}>🏷️ Ambulanze usate</div>
+          <div style={{ fontWeight: 800, fontSize: 18, flex: 1 }}>🏷️ Usato e aste</div>
           <button onClick={() => router.push("/garage")} style={{ ...btn, background: "rgba(0,0,0,.25)" }}>🚑 Garage</button>
         </div>
       </div>
 
       <div style={wrap}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {([["mezzi", "🚑 Ambulanze usate", (list ?? []).filter((a) => a.status === "aperta").length],
+             ["sedi", "🏠 Sedi in vendita", (bases ?? []).filter((a) => a.status === "aperta").length]] as const).map(([k, l, n]) => (
+            <button key={k} onClick={() => { setTab(k); setMsg(null); }}
+                    style={{ ...btn, background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+              {l}{n > 0 && <span style={{ marginLeft: 6, background: "#B45309", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 12 }}>{n}</span>}
+            </button>
+          ))}
+        </div>
+        {msg && <div style={{ ...card, marginBottom: 12, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
+
+        {tab === "sedi" ? (
+          <BaseTab bases={bases} now={now} busy={busy} offer={offer} setOffer={setOffer}
+                   onBid={(a) => bid(a, a.base_name, "sedi")} onCancel={(a) => cancel(a, a.base_name, "sedi")} />
+        ) : (<>
         <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
           Ambulanze messe all&apos;asta dalle altre associazioni. Fai un&apos;offerta: i soldi restano bloccati e, se qualcuno offre di più,
           ti tornano indietro. Allo scadere vince l&apos;offerta più alta e l&apos;ambulanza arriva nella tua sede con più posti liberi,
@@ -101,7 +128,6 @@ export default function Usate() {
           Per vendere una tua ambulanza: Garage → <strong>🏷️ Vendi all&apos;asta</strong>.
         </div>
 
-        {msg && <div style={{ ...card, marginBottom: 12, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
         {list === null && <div style={{ color: "#888", textAlign: "center", padding: 20 }}>Caricamento…</div>}
         {list !== null && open.length === 0 && <div style={{ ...card, color: "#666", textAlign: "center" }}>Nessuna ambulanza all&apos;asta in questo momento.</div>}
 
@@ -135,13 +161,13 @@ export default function Usate() {
                 </div>
 
                 {a.mine ? (
-                  a.bids === 0 && <button disabled={busy} onClick={() => cancel(a)} style={{ ...btn, width: "100%", marginTop: 10, background: "#6B7280" }}>Ritira dall&apos;asta</button>
+                  a.bids === 0 && <button disabled={busy} onClick={() => cancel(a, a.call_sign)} style={{ ...btn, width: "100%", marginTop: 10, background: "#6B7280" }}>Ritira dall&apos;asta</button>
                 ) : (
                   <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                     <input inputMode="numeric" placeholder={String(minNext(a))} value={offer[a.id] ?? ""}
                            onChange={(e) => setOffer((o) => ({ ...o, [a.id]: e.target.value }))}
                            style={{ flex: 1, minWidth: 0, padding: 9, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }} />
-                    <button disabled={busy} onClick={() => bid(a)} style={{ ...btn, background: "#15803D", whiteSpace: "nowrap" }}>
+                    <button disabled={busy} onClick={() => bid(a, a.call_sign)} style={{ ...btn, background: "#15803D", whiteSpace: "nowrap" }}>
                       Offri {(offer[a.id] ? "" : euro(minNext(a)))}
                     </button>
                   </div>
@@ -164,7 +190,77 @@ export default function Usate() {
             ))}
           </div>
         )}
+        </>)}
       </div>
     </main>
+  );
+}
+
+function BaseTab({ bases, now, busy, offer, setOffer, onBid, onCancel }: {
+  bases: BaseAuction[] | null; now: number; busy: boolean; offer: Record<string, string>;
+  setOffer: (f: (o: Record<string, string>) => Record<string, string>) => void;
+  onBid: (a: BaseAuction) => void; onCancel: (a: BaseAuction) => void;
+}) {
+  const open = (bases ?? []).filter((a) => a.status === "aperta");
+  const closed = (bases ?? []).filter((a) => a.status !== "aperta");
+  return (
+    <>
+      <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+        Sedi messe all&apos;asta dalle altre associazioni: con il livello e i posti per le ambulanze che hanno. Vince l&apos;offerta più alta
+        e la sede diventa tua, già ampliata. Se nessuno offre, la ritira l&apos;agenzia al 60% del valore.
+        Per vendere una tua sede (vuota, non la principale): ☰ → Sedi → <strong>🏷️ Vendi all&apos;asta</strong>.
+      </div>
+      {bases === null && <div style={{ color: "#888", textAlign: "center", padding: 20 }}>Caricamento…</div>}
+      {bases !== null && open.length === 0 && <div style={{ ...card, color: "#666", textAlign: "center" }}>Nessuna sede in vendita in questo momento.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+        {open.map((a) => {
+          const lead = a.my_bid != null && a.top_bid === a.my_bid;
+          const urgent = new Date(a.ends_at).getTime() - now < 120_000;
+          return (
+            <div key={a.id} style={{ ...card, border: a.mine ? "2px solid #B45309" : lead ? "2px solid #15803D" : undefined }}>
+              <div style={{ fontSize: 30 }}>🏠</div>
+              <div style={{ fontWeight: 800, fontSize: 16 }}>{a.base_name}</div>
+              <div style={{ fontSize: 12, color: "#666" }}>📍 vicino a {a.near ?? "?"} · di <strong>{a.mine ? "te" : a.seller}</strong></div>
+              <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>Livello {a.level} · 🚑 {a.capacity} posti · valore {euro(a.market_value)}</div>
+              <a href={`https://www.openstreetmap.org/?mlat=${a.lat}&mlon=${a.lng}#map=15/${a.lat}/${a.lng}`} target="_blank" rel="noreferrer"
+                 style={{ fontSize: 12, color: "#2563EB" }}>Vedi dove si trova ↗</a>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{a.top_bid ? `Offerta più alta (${a.bids} offerte)` : "Prezzo di partenza"}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#B45309" }}>{euro(a.top_bid ?? a.start_price)}</div>
+                  {a.top_bidder && <div style={{ fontSize: 12, color: lead ? "#15803D" : "#666", fontWeight: lead ? 800 : 400 }}>{lead ? "✅ Sei in testa" : `di ${a.top_bidder}`}</div>}
+                </div>
+                <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 800, color: urgent ? "#DC2626" : "#111" }}>⏱ {left(a.ends_at, now)}</div>
+              </div>
+              {a.mine ? (
+                a.bids === 0 && <button disabled={busy} onClick={() => onCancel(a)} style={{ ...btn, width: "100%", marginTop: 10, background: "#6B7280" }}>Ritira dall&apos;asta</button>
+              ) : (
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  <input inputMode="numeric" placeholder={String(minNext(a))} value={offer[a.id] ?? ""}
+                         onChange={(e) => setOffer((o) => ({ ...o, [a.id]: e.target.value }))}
+                         style={{ flex: 1, minWidth: 0, padding: 9, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }} />
+                  <button disabled={busy} onClick={() => onBid(a)} style={{ ...btn, background: "#15803D", whiteSpace: "nowrap" }}>
+                    Offri {(offer[a.id] ? "" : euro(minNext(a)))}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {closed.length > 0 && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>Concluse nelle ultime 24 ore</div>
+          {closed.map((a) => (
+            <div key={a.id} style={{ fontSize: 13, padding: "6px 0", borderTop: "1px solid #f0f0f0" }}>
+              <strong>{a.base_name}</strong> ·{" "}
+              {a.status === "venduta" ? <>venduta a <strong>{a.winner}</strong> per {euro(a.final_price ?? 0)}</>
+                : a.status === "al_mercato" ? <>nessuna offerta: ritirata dall&apos;agenzia per {euro(a.final_price ?? 0)}</>
+                : "ritirata o annullata"}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

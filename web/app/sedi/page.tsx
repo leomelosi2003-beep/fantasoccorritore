@@ -82,6 +82,27 @@ export default function Sedi() {
     load();
   }
 
+  async function sellBase(b: Base) {
+    if ((parked[b.id] ?? 0) > 0) { setMsg({ ok: false, text: `Prima sposta le ambulanze da ${b.name} (dal Garage).` }); return; }
+    const { data: mv } = await supabase.rpc("base_market_value", { p_base: b.id });
+    const market = Number(mv ?? 8000);
+    const txt = window.prompt(`Vendi ${b.name} all'asta (30 minuti).\nValore: ${euro(market)}. Se nessuno offre, la ritira l'agenzia a ${euro(Math.round(market * 0.6))}.\n\nPrezzo di partenza (€):`,
+      String(Math.round(market * 0.8)));
+    if (txt === null) return;
+    const price = parseInt(txt.replace(/[^0-9]/g, ""), 10);
+    if (!price) return;
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("create_base_auction", { p_base: b.id, p_start_price: price, p_minutes: 30 });
+    setBusy(false);
+    if (error) {
+      setMsg({ ok: false, text: error.message.includes("BASE_NOT_EMPTY") ? "Prima sposta tutte le ambulanze da questa sede."
+        : error.message.includes("IS_HQ") ? "La sede principale non si può vendere."
+        : error.message.includes("duplicate") ? "Questa sede è già all'asta." : friendlyError(error.message) });
+      return;
+    }
+    setMsg({ ok: true, text: `🏷️ ${b.name} è all'asta per 30 minuti in "Usato e aste".` });
+  }
+
   if (!org) return <main style={shell} />;
 
   return (
@@ -117,6 +138,10 @@ export default function Sedi() {
                   ⬆️ +1 posto · {euro(UPGRADE[b.level])}
                 </button>
               ) : <span style={{ fontSize: 12, fontWeight: 700, color: "#B45309" }}>⭐ Livello massimo</span>}
+              {!b.is_headquarters && (
+                <button disabled={busy} onClick={() => sellBase(b)} title="Metti la sede all'asta"
+                        style={{ ...btn, fontSize: 13, padding: "8px 10px", background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>🏷️</button>
+              )}
             </div>
           ))}
         </div>
