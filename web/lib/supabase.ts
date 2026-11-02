@@ -37,6 +37,8 @@ export type BasePin = {
   name: string;
   level: number;
   is_headquarters: boolean;
+  online?: boolean;
+  last_seen_at?: string | null;
   org_name: string;
   org_type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
   logo_url?: string | null;

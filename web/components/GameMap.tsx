@@ -185,15 +185,27 @@ const CODE_COLOR: Record<MissionPin["code"], string> = {
   nessuno: "#3B82F6", verde: "#16A34A", giallo: "#EAB308", rosso: "#DC2626",
 };
 
+// "5 min fa", "2 ore fa", "3 giorni fa"
+function lastSeen(t: string) {
+  const m = Math.max(1, Math.round((Date.now() - new Date(t).getTime()) / 60000));
+  if (m < 60) return `${m} min fa`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ${h === 1 ? "ora" : "ore"} fa`;
+  const d = Math.round(h / 24);
+  return `${d} ${d === 1 ? "giorno" : "giorni"} fa`;
+}
+
 // Icona della sede: lo stemma della fazione su un cerchio bianco
-function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null) {
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false) {
   const svg = emblemSvg(type, mine ? (logo ? 38 : 30) : (logo ? 30 : 22), logo);
   const s = mine ? 44 : 34;
   return L.divIcon({
     className: "",
-    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:#fff;display:flex;
+    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:50%;background:#fff;display:flex;
            align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);
-           border:${mine ? "3px solid #111" : "1px solid #999"}">${svg}</div>`,
+           border:${mine ? "3px solid #111" : "1px solid #999"}">${svg}${online
+           ? `<span title="Online" style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;
+              background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
   });
 }
@@ -481,7 +493,7 @@ export default function GameMap() {
         ))}
 
         {bases.map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url)}>
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online)}>
             <Popup>
               <div style={{ minWidth: 210 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -489,6 +501,9 @@ export default function GameMap() {
                   <div style={{ lineHeight: 1.2 }}>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>{b.org_name}</div>
                     <div style={{ fontSize: 12, color: "#666" }}>⭐ {b.reputation ?? 0} reputazione</div>
+                    <div style={{ fontSize: 12, color: b.online ? "#15803D" : "#888", fontWeight: 700 }}>
+                      {b.online ? "🟢 Online" : b.last_seen_at ? `⚪ Visto ${lastSeen(b.last_seen_at)}` : "⚪ Offline"}
+                    </div>
                   </div>
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.6 }}>
