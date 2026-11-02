@@ -70,6 +70,11 @@ type Assignment = {
   vehicle_id: string; route_ends_at: string; transport: string | null;
 };
 
+type BaseCar = { call_sign: string; image_url: string | null; state: "sede" | "servizio" | "rientro" | "officina"; electric: boolean | null };
+const CAR_STATE: Record<BaseCar["state"], [string, string]> = {
+  sede: ["✅ in sede", "#15803D"], servizio: ["🚨 in servizio", "#DC2626"], rientro: ["↩️ in rientro", "#B45309"], officina: ["🔧 officina", "#6B7280"],
+};
+
 type Responder = { org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; call_sign: string;
   status: string; arrives_at: string; mine: boolean; support: boolean };
 
@@ -266,6 +271,13 @@ export default function GameMap() {
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const reloadRef = useRef<() => void>(() => {});
+  // ambulanze di una sede: caricate quando apro il popup della sede
+  const [baseCars, setBaseCars] = useState<Record<string, BaseCar[] | null>>({});
+  async function loadBaseCars(id: string) {
+    setBaseCars((r) => ({ ...r, [id]: r[id] ?? null }));
+    const { data } = await supabase.rpc("base_vehicles", { p_base: id });
+    setBaseCars((r) => ({ ...r, [id]: (data as BaseCar[]) ?? [] }));
+  }
   // chi sta andando su un servizio: caricato solo quando apro il popup del servizio
   const [responders, setResponders] = useState<Record<string, Responder[] | null>>({});
   async function loadResponders(id: string) {
@@ -658,7 +670,8 @@ export default function GameMap() {
         ))}
 
         {bases.map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online)}>
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online)}
+                  eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
               <div style={{ minWidth: 210 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -689,6 +702,29 @@ export default function GameMap() {
                   🤝 Alleanza: <strong>{b.alliance ?? "nessuna"}</strong><br />
                   🚑 Ambulanze qui: <strong>{b.vehicles_here ?? 0}</strong>{b.vehicle_capacity ? ` / ${b.vehicle_capacity} posti` : ""}<br />
                   📍 In tutto: <strong>{b.org_bases ?? 1}</strong> {b.org_bases === 1 ? "sede" : "sedi"} · <strong>{b.org_vehicles ?? 0}</strong> ambulanze · livello {b.level}
+                </div>
+                <div style={{ marginTop: 6, background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12, maxHeight: 180, overflowY: "auto" }}>
+                  {(() => {
+                    const cars = baseCars[b.id];
+                    if (!cars) return <span style={{ color: "#888" }}>Caricamento ambulanze…</span>;
+                    if (cars.length === 0) return <span style={{ color: "#888" }}>Nessuna ambulanza in questa sede</span>;
+                    const home = cars.filter((c) => c.state === "sede").length;
+                    return (
+                      <>
+                        <div style={{ fontWeight: 800, marginBottom: 3 }}>🚑 In sede ora: {home} su {cars.length}</div>
+                        {cars.map((c, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                            {c.image_url
+                              // eslint-disable-next-line @next/next/no-img-element
+                              ? <img src={c.image_url.replace(/\.png$/, "-map.png")} alt="" style={{ width: 34, height: "auto" }} />
+                              : <span>🚑</span>}
+                            <strong style={{ flex: 1 }}>{c.call_sign}{c.electric && " ⚡"}</strong>
+                            <span style={{ color: CAR_STATE[c.state][1], fontWeight: 700, whiteSpace: "nowrap" }}>{CAR_STATE[c.state][0]}</span>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
                 {b.org_id === org?.id && (
                   <button onClick={() => router.push("/sedi")}
@@ -774,14 +810,6 @@ export default function GameMap() {
                   <button onClick={() => setSelected(m)}
                           style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
                                    background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
-                </div>
-              )}
-              {org && m.slots_taken >= m.slots_total && (m.my_vehicles ?? 0) > 0 && (m.my_vehicles ?? 0) < 5 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 12, marginBottom: 4 }}>🚑 Hai {m.my_vehicles} {m.my_vehicles === 1 ? "mezzo" : "mezzi"} qui. Puoi mandarne un altro: restano solo i primi {m.slots_total} che arrivano.</div>
-                  <button onClick={() => setSelected(m)}
-                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
-                                   background: "#2563EB", color: "#fff", fontWeight: 800 }}>➕ Manda un altro mezzo</button>
                 </div>
               )}
               {org && m.contestable && !(m.my_vehicles ?? 0) && (

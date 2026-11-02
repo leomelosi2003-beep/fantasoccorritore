@@ -159,7 +159,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const missing = roleCheck(required, crewCards);
   const secondsLeft = Math.max(0, Math.floor((new Date(mission.expires_at).getTime() - now) / 1000));
   // corsa al servizio: posti pieni ma nessuno ancora arrivato → si può partire lo stesso, vince chi arriva prima
-  const support = mission.slots_taken >= mission.slots_total && (mission.my_vehicles ?? 0) > 0;
+  const support = false; // mezzi di supporto tolti: chi arriva primo si aggiudica il posto
   const contest = !!mission.contestable && !support;
   const full = mission.slots_taken >= mission.slots_total && !contest && !support;
 

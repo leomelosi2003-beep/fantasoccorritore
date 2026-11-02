@@ -1,0 +1,3 @@
+-- Niente più mezzi di supporto: servizio pieno + mio mezzo già sopra -> ALREADY_ON_MISSION (claim_mission, claim_mission_as).
+-- auto_dispatch_org: il secondo mezzo sul rosso solo se c'è ancora un posto libero.
+-- rpc base_vehicles(p_base) per il popup della sede. (vedi SQL applicato)
