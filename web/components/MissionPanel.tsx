@@ -6,7 +6,7 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null };
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -54,6 +54,7 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
 function claimError(m: string) {
   if (m.includes("MISSION_FULL_OR_CLOSED")) return "Troppo tardi: il servizio è stato preso da qualcun altro o è scaduto.";
   if (m.includes("ALREADY_ON_MISSION")) return "Hai già un mezzo su questo servizio.";
+  if (m.includes("TRANSFER_ONLY")) return "Questo mezzo a passo lungo fa solo trasferimenti.";
   if (m.includes("TOO_MANY_OWN")) return "Hai già 5 mezzi su questo servizio: è il massimo.";
   if (m.includes("MISSION_LOCKED")) return "🔒 Servizio bloccato: un'altra associazione ci ha già mandato due mezzi.";
   if (m.includes("CARD_TOO_TIRED")) return "Qualcuno dell'equipaggio è troppo stanco per questo servizio.";
@@ -88,7 +89,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -105,6 +106,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
+    if (v.transfer_only && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
     if (v.base_lat != null && v.base_lng != null) {
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
