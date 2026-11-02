@@ -1,0 +1,3 @@
+-- auto_dispatch_org riscritta: lock per associazione (niente deadlock), posizioni calcolate una volta (temp table),
+-- esce subito senza autisti, salta le elettriche senza carica sufficiente, officina automatica per usura >= 80%.
+-- Da ~3,5 s a ~0,2 s per giro. (vedi SQL applicato)

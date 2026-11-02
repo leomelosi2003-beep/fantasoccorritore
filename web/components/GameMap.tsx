@@ -982,9 +982,17 @@ export default function GameMap() {
           max-height: 50vh; overflow-y: auto; }
         @media (max-width: 760px) {
           .fs-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
-          .fs-notes { bottom: auto; top: 110px; }
+          .fs-notes { bottom: auto; top: 160px; }
           .fs-theme-btn { top: 10px; }
-          .fs-top { max-width: calc(100% - 124px); }
+          /* telefono: nome e soldi su tutta la riga, gasolio ed elettricità sotto */
+          .fs-top { left: 62px; right: 60px; max-width: none; flex-wrap: wrap; gap: 6px; }
+          .fs-top > .fs-pill { flex: 1 1 100%; width: 100%; }
+          .fs-name { font-size: 13px; }
+          .fs-money { font-size: 14px; }
+          .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 5px 8px !important; font-size: 11px !important; gap: 3px; }
+          .fs-fuel-bar { height: 6px; }
+          .fs-fleet { top: 112px; left: 10px; width: calc(100% - 20px); }
+          .fs-map .leaflet-control-zoom { display: none; }
           .fs-chat-btn { bottom: calc(20px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
           .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); height: 55vh; }
           .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
