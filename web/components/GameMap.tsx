@@ -70,6 +70,9 @@ type Assignment = {
   vehicle_id: string; route_ends_at: string; transport: string | null;
 };
 
+type Responder = { org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; call_sign: string;
+  status: string; arrives_at: string; mine: boolean; support: boolean };
+
 type OtherAmbulance = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string; route: RoutePoint[] | null;
   title: string; code: MissionPin["code"]; call_sign: string; vehicle_image: string | null;
@@ -262,6 +265,13 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // chi sta andando su un servizio: caricato solo quando apro il popup del servizio
+  const [responders, setResponders] = useState<Record<string, Responder[] | null>>({});
+  async function loadResponders(id: string) {
+    setResponders((r) => ({ ...r, [id]: r[id] ?? null }));
+    const { data } = await supabase.rpc("mission_responders", { p_mission: id });
+    setResponders((r) => ({ ...r, [id]: (data as Responder[]) ?? [] }));
+  }
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
   const [fleetKey, setFleetKey] = useState(0);
@@ -714,9 +724,32 @@ export default function GameMap() {
           <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={m.contestable ? 12 : 10}
                         pathOptions={m.contestable
                           ? { color: "#111", weight: 3, dashArray: "4 4", fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
-                          : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}>
+                          : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}
+                        eventHandlers={{ popupopen: () => loadResponders(m.id) }}>
             <Popup>
               <strong>{m.title}</strong><br />
+              {m.slots_taken > 0 && (
+                <div style={{ margin: "6px 0", background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 2 }}>🚑 Chi sta andando</div>
+                  {responders[m.id] === undefined || responders[m.id] === null ? <span style={{ color: "#888" }}>Caricamento…</span>
+                    : responders[m.id]!.length === 0 ? <span style={{ color: "#888" }}>Nessuno in viaggio</span>
+                    : responders[m.id]!.map((r, i) => {
+                        const ms = new Date(r.arrives_at).getTime() - now;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                            <FactionEmblem type={r.org_type} size={18} logo={r.logo_url} />
+                            <span style={{ flex: 1 }}>
+                              <strong style={{ color: r.mine ? "#15803D" : undefined }}>{r.mine ? "Tu" : r.org_name}</strong> · {r.call_sign}
+                              {r.support && " (supporto)"}
+                            </span>
+                            <span style={{ whiteSpace: "nowrap", fontWeight: 700 }}>
+                              {r.status === "sul_posto" || ms <= 0 ? "📍 sul posto" : `arriva tra ${Math.max(1, Math.round(ms / 60000))} min`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                </div>
+              )}
               {m.description && <>{m.description}<br /></>}
               Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
               {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
@@ -763,9 +796,16 @@ export default function GameMap() {
             <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
                           makeIcon={(sc, fr) => otherAmbulanceIcon(sc, a.vehicle_image, fr, a.org_type, a.logo_url)}>
               <Popup>
-                <strong>{a.org_name}</strong> · {a.call_sign}<br />
-                {a.title}<br />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <FactionEmblem type={a.org_type} size={28} logo={a.logo_url} />
+                  <div style={{ lineHeight: 1.2 }}>
+                    <strong>{a.org_name}</strong><br />
+                    <span style={{ fontSize: 12, color: "#666" }}>🚑 {a.call_sign}</span>
+                  </div>
+                </div>
+                {a.title.split(" — ")[0]}<br />
                 {pos.text}
+                {now < new Date(a.arrives_at).getTime() && <> · sul posto tra {Math.max(1, Math.round((new Date(a.arrives_at).getTime() - now) / 60000))} min</>}
               </Popup>
             </MovingMarker>
           );
