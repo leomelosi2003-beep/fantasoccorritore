@@ -1,0 +1,5 @@
+-- Server saturo: cron meno frequenti, più servizi creati per giro (applicato via MCP)
+-- generate-missions */2 * * * *; auto-dispatch / complete-assignments 30 s; resolve-races 15 s
+-- close-auctions, close-base-auctions, recharge-electric */2 * * * *
+-- generate_missions: creazione per giro = greatest(5, round((5 + nb) * mult))
+-- Client: polling ridotto (mappa 15 s, sedi 60 s, eventi 5 min, avvisi 60 s, prestiti solo a pannello aperto)

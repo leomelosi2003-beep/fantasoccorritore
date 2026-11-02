@@ -80,14 +80,15 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType }
       .then(({ data }) => setFleet((data as Vehicle[]) ?? []));
   }, [refreshKey]);
 
-  // guadagni delle ambulanze prestate: aggiornati ogni 10 secondi
+  // guadagni delle ambulanze prestate: solo con il pannello aperto, ogni 20 secondi
   useEffect(() => {
+    if (!open) return;
     const load = () => supabase.from("my_lent_vehicles").select("*").then(({ data }) =>
       setLent(Object.fromEntries(((data as LentInfo[]) ?? []).map((x) => [x.vehicle_id, x]))));
     load();
-    const t = setInterval(load, 10_000);
+    const t = setInterval(load, 20_000);
     return () => clearInterval(t);
-  }, [refreshKey]);
+  }, [open]);
 
   // ultimo servizio di ogni mezzo
   const lastJob = new Map<string, Job>();

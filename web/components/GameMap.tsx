@@ -318,7 +318,7 @@ export default function GameMap() {
   }, []);
 
   useEffect(() => {
-    if (!org?.id || Date.now() - fuelAt.current < 8000) return;
+    if (!org?.id || Date.now() - fuelAt.current < 60_000) return;
     fuelAt.current = Date.now();
     Promise.all([
       supabase.from("organizations").select("fuel_stock").eq("id", org.id).maybeSingle(),
@@ -397,7 +397,7 @@ export default function GameMap() {
     }
     loadAssignments();
     reloadRef.current = loadAssignments;
-    const t1 = setInterval(() => { if (document.visibilityState === "visible") loadAssignments(); }, 20_000);
+    const t1 = setInterval(() => { if (document.visibilityState === "visible") loadAssignments(); }, 25_000);
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, []);
@@ -442,7 +442,7 @@ export default function GameMap() {
       setNotes(list);
     }
     loadNotes();
-    const t = setInterval(loadNotes, 20_000);
+    const t = setInterval(() => { if (document.visibilityState === "visible") loadNotes(); }, 60_000);
     return () => clearInterval(t);
   }, [org]);
 
@@ -477,23 +477,27 @@ export default function GameMap() {
   }, [router]);
 
   useEffect(() => {
+    // servizi ogni 15 s; sedi ogni minuto; eventi ogni 5 minuti (cambiano di rado)
+    let n = 0;
     async function load() {
       const in24h = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+      const withBases = n % 4 === 0, withEvents = n % 20 === 0;
+      n++;
       const [m, b, ev] = await Promise.all([
         supabase.from("missions_map").select("*"),
-        supabase.from("bases_map").select("*"),
-        supabase.from("events_map").select("id,title,kind,starts_at,show_at,time_confirmed,venue,slots,reward_funds,lat,lng")
-          .gt("starts_at", new Date().toISOString()).lt("starts_at", in24h).order("starts_at"),
+        withBases ? supabase.from("bases_map").select("*") : Promise.resolve(null),
+        withEvents ? supabase.from("events_map").select("id,title,kind,starts_at,show_at,time_confirmed,venue,slots,reward_funds,lat,lng")
+          .gt("starts_at", new Date().toISOString()).lt("starts_at", in24h).order("starts_at") : Promise.resolve(null),
       ]);
-      if (!ev.error) setUpcoming((ev.data as UpcomingEvent[]) ?? []);
-      if (m.error) { setError(`Errore Supabase: ${m.error.message}`); return; }
+      if (ev && !ev.error) setUpcoming((ev.data as UpcomingEvent[]) ?? []);
+      if (m.error) { setError(`Il server è lento, riprovo tra poco…`); return; }
       setError(null);
       setMissions((m.data as MissionPin[]) ?? []);
-      if (!b.error) setBases((b.data as BasePin[]) ?? []);
+      if (b && !b.error) setBases((b.data as BasePin[]) ?? []);
     }
     load();
     // aggiornamento ogni 12 secondi (niente tempo reale: pesava troppo sul server)
-    const poll = setInterval(() => { if (document.visibilityState === "visible") load(); }, 12_000);
+    const poll = setInterval(() => { if (document.visibilityState === "visible") load(); }, 15_000);
     return () => clearInterval(poll);
   }, []);
 

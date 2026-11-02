@@ -61,14 +61,14 @@ export default function ChatPanel({ orgId }: { orgId: string }) {
 
   useEffect(() => {
     checkLatest();
-    const t = setInterval(checkLatest, 20_000);
+    const t = setInterval(() => { if (document.visibilityState === "visible") checkLatest(); }, 45_000);
     return () => clearInterval(t);
   }, [checkLatest]);
 
   useEffect(() => {
     if (!open) return;
     loadMsgs();
-    const t = setInterval(loadMsgs, 4_000);
+    const t = setInterval(loadMsgs, 6_000);
     return () => clearInterval(t);
   }, [open, loadMsgs]);
 

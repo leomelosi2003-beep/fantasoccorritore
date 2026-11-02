@@ -103,7 +103,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     };
     reloadRef.current = loadAll;
     loadAll();
-    const r = setInterval(loadAll, 10_000);
+    const r = setInterval(loadAll, 20_000);
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t); clearInterval(r); };
   }, []);
