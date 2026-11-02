@@ -18,7 +18,7 @@ function km(aLat: number, aLng: number, bLat: number, bLng: number) {
 type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
-const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, caposervizio: 3, autista: 0 };
+const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0 };
 const REQ: Record<string, string> = {
   ecg: "cardiomonitor", defib: "defibrillatore", spinale: "tavola spinale adulti", spinale_ped: "spinale pediatrica",
   collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
@@ -291,7 +291,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
               </span>
             ))}
           </span>
-          {(required.soccorritore_avanzato ?? 0) >= 2 && <><br /><span style={{ color: "#555" }}>L&apos;autista avanzato vale come uno dei soccorritori avanzati.</span></>}
+          {(required.soccorritore_avanzato ?? 0) >= 2 && <><br /><span style={{ color: "#555" }}>L&apos;autista avanzato vale come uno dei soccorritori avanzati. Infermiere e medico valgono come soccorritori avanzati.</span></>}
+          {(mission.code === "rosso" || mission.code === "giallo") && (
+            <><br /><span style={{ color: "#9D174D", fontWeight: 600 }}>
+              🩺 Bonus premio: {mission.title.startsWith("Arresto cardiaco") ? "infermiere +35%, medico +60% (fino a +100%)"
+                : mission.code === "rosso" ? "infermiere +15%, medico +25%" : "infermiere +5%, medico +10%"}
+            </span></>
+          )}
           {mission.requires.length > 0 && <><br /><strong>Presidi:</strong> {mission.requires.map((r) => REQ[r] ?? r).join(", ")}</>}
         </div>
 

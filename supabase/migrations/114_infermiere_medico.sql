@@ -1,0 +1,6 @@
+-- Applicato via MCP.
+-- volunteer_role: aggiunti 'infermiere' (rank 2) e 'medico' (rank 3) -> valgono come soccorritori avanzati.
+-- 64 nuove carte (40 infermieri, 24 medici; comuni/epiche/leggendarie) nei pacchetti; le comuni anche nel negozio (9.000 / 18.000 €).
+-- clinical_bonus(assignment, title, code): Arresto cardiaco +35% infermiere / +60% medico (max +100%),
+--   altri rossi +15% / +25% (max +50%), gialli +5% / +10% (max +20%). Applicato in complete_due_assignments.
+-- generate_missions: i rossi hanno 1 slot, tranne "Incidente stradale, 2 feriti" e "Incidente con incastrato, 2 feriti" (2 slot).

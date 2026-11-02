@@ -150,7 +150,7 @@ export default function Squadra() {
   const counts = [
     { ...ROLE.autista, n: active.filter((c) => c.role === "autista" && !c.avanzato).length },
     { label: "Autista avanzato", icon: "🚑", n: active.filter((c) => c.role === "autista" && c.avanzato).length },
-    ...(["soccorritore_base", "soccorritore_avanzato"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
+    ...(["soccorritore_base", "soccorritore_avanzato", "infermiere", "medico"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
   ];
   const nextPack = pack?.next_pack_at ? new Date(pack.next_pack_at) : null;
 
