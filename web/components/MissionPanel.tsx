@@ -54,6 +54,7 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
 function claimError(m: string) {
   if (m.includes("MISSION_FULL_OR_CLOSED")) return "Troppo tardi: il servizio è stato preso da qualcun altro o è scaduto.";
   if (m.includes("ALREADY_ON_MISSION")) return "Hai già un mezzo su questo servizio.";
+  if (m.includes("MISSION_LOCKED")) return "🔒 Servizio bloccato: un'altra associazione ci ha già mandato due mezzi.";
   if (m.includes("CARD_TOO_TIRED")) return "Qualcuno dell'equipaggio è troppo stanco per questo servizio.";
   if (m.includes("CARD_RESTING")) return "Qualcuno dell'equipaggio è ancora a riposo.";
   if (m.includes("CARD_BUSY")) return "Qualcuno dell'equipaggio è già in servizio.";
@@ -237,6 +238,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             </div>
           );
         })()}
+
+        {!contest && mission.code === "rosso" && mission.slots_total >= 2 && mission.slots_taken === mission.slots_total - 1 && (
+          <div style={{ background: "#FEF3C7", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
+            🔒 <strong>Codice rosso con un mezzo già in viaggio.</strong> Se è tuo, manda la seconda ambulanza:
+            con due mezzi tuoi il servizio è bloccato e gli altri giocatori non possono più contenderlo.
+          </div>
+        )}
 
         {/* Requisiti */}
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
