@@ -185,13 +185,24 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
 }
 
 // Ambulanza di un altro giocatore: più piccola, con lo stemma della sua associazione
+// Lampeggianti accesi: solo le luci sul tetto si illuminano (non tutto il mezzo)
+function lightsHtml(w: number) {
+  const d = Math.max(4, Math.round(w / 10));
+  const dot = (x: number, phase: "a" | "b") =>
+    `<span style="position:absolute;top:${Math.round(-d / 3)}px;left:${Math.round(w * x - d / 2)}px;width:${d}px;height:${Math.round(d * 0.7)}px;
+      border-radius:${d}px;animation:amb-light-${phase} .5s steps(1) infinite;pointer-events:none"></span>`;
+  return dot(0.31, "a") + dot(0.47, "b") + dot(0.52, "a") + dot(0.92, "b");
+}
+
 function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null) {
   const pic = img
-    ? `<img src="${img.replace(/\.png$/, "-map.png")}" style="width:48px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});opacity:.92" alt=""/>`
+    ? `<div style="position:relative;transform:scaleX(${facingRight ? -1 : 1})">
+         <img src="${img.replace(/\.png$/, "-map.png")}" style="width:48px;height:auto;display:block;opacity:.92" alt=""/>
+         ${onScene ? "" : lightsHtml(48)}</div>`
     : `<div style="font-size:22px">🚑</div>`;
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}">
+    html: `<div style="position:relative;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">
              ${pic}
              <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;
                          background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 2px rgba(0,0,0,.5)">${emblemSvg(type, 14, logo)}</div>
@@ -213,8 +224,10 @@ function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolea
   const small = img.replace(/\.png$/, "-map.png");
   return L.divIcon({
     className: "",
-    html: `<img src="${small}" style="width:60px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});
-           filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));${onScene ? "" : "animation:amb-blink .6s steps(1) infinite"}" alt=""/>`,
+    html: `<div style="position:relative;width:60px;transform:scaleX(${facingRight ? -1 : 1})">
+             <img src="${small}" style="width:60px;height:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))" alt=""/>
+             ${onScene ? "" : lightsHtml(60)}
+           </div>`,
     iconSize: [60, 30], iconAnchor: [30, 15],
   });
 }
@@ -997,6 +1010,8 @@ export default function GameMap() {
           .fs-pill { padding: 5px 10px 5px 6px; }
         }
         @keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
+        @keyframes amb-light-a { 0% { background: #60a5fa; box-shadow: 0 0 5px 2px rgba(59,130,246,.9) } 50% { background: transparent; box-shadow: none } }
+        @keyframes amb-light-b { 0% { background: transparent; box-shadow: none } 50% { background: #60a5fa; box-shadow: 0 0 5px 2px rgba(59,130,246,.9) } }
         @keyframes ev-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,.6) } 50% { box-shadow: 0 0 0 10px rgba(124,58,237,0) } }`}</style>
 
       {selected && (
