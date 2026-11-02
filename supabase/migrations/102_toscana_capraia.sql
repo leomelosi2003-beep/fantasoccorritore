@@ -1,0 +1,4 @@
+-- Servizi in tutta la Toscana (anche Capraia): tabella mission_spots_toscana (~110 località, punti extra nelle città),
+-- generate_missions: 22% Pisa, 22% Livorno, 31% zona, 25% Toscana; tetto servizi aperti (20 + 3×sedi).
+-- Ospedali con PS in tutta la regione: Careggi, Le Scotte, San Luca (Lucca), Meyer (pediatria), Massa (Cuore),
+-- + Grosseto, Arezzo, Prato, Pistoia, Empoli, Piombino, Versilia, Massa (coordinate approssimate). (vedi SQL applicato)
