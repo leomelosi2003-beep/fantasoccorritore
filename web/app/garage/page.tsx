@@ -81,6 +81,7 @@ export default function Garage() {
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
+  const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -133,19 +134,37 @@ export default function Garage() {
     setCallSign(`Alfa ${vehicles.length + 1}`);
   }
 
+  // sigle per più mezzi uguali: "Alfa 1", "Alfa 2"… (se finisce con un numero lo incrementa)
+  function signs(base: string, n: number) {
+    const b = base.trim(); const m = b.match(/^(.*?)(\d+)$/);
+    return Array.from({ length: n }, (_, i) => {
+      if (i === 0) return b;
+      return m ? `${m[1]}${Number(m[2]) + i}` : `${b.slice(0, 17)} ${i + 1}`;
+    });
+  }
+
   async function buy() {
     if (!ready || !model || !builder || !baseId) return;
     setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("buy_vehicle", {
-      p_model_id: model.id, p_builder_id: builder.id, p_base_id: baseId, p_call_sign: callSign,
-      p_equipment: pickedCodes,
-    });
+    const list = signs(callSign, qty);
+    const done: string[] = [];
+    let err: string | null = null;
+    for (const cs of list) {
+      const { error } = await supabase.rpc("buy_vehicle", {
+        p_model_id: model.id, p_builder_id: builder.id, p_base_id: baseId, p_call_sign: cs,
+        p_equipment: pickedCodes,
+      });
+      if (error) { err = `${cs}: ${garageError(error.message)}`; break; }
+      done.push(cs);
+    }
     setBusy(false);
-    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
-    setMsg({ ok: true, text: `${callSign} è in garage!` });
-    setShop(false);
+    if (!done.length) { setMsg({ ok: false, text: err ?? "Errore" }); return; }
+    setMsg({ ok: !err, text: (done.length === 1 ? `${done[0]} è in garage!` : `${done.length} ambulanze in garage: ${done.join(", ")}`)
+      + (err ? ` — fermato: ${err}` : "") });
+    setShop(false); setQty(1);
     load();
   }
+
 
   // Cambia il nome dell'ambulanza (deve essere unico tra tutti i giocatori)
   async function rename(v: Vehicle) {
@@ -326,6 +345,10 @@ export default function Garage() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <input value={callSign} onChange={(e) => setCallSign(e.target.value)} maxLength={20} placeholder="Sigla (es. Alfa 1)"
                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }} />
+              <select value={qty} onChange={(e) => setQty(Number(e.target.value))} title="Quante ambulanze uguali"
+                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "0 0 auto" }}>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n === 1 ? "1 mezzo" : `${n} mezzi uguali`}</option>)}
+              </select>
               {bases.length > 1 && (
                 <select value={baseId ?? ""} onChange={(e) => setBaseId(e.target.value)}
                         style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }}>
@@ -337,12 +360,13 @@ export default function Garage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16,
                           borderTop: "1px solid #eee", paddingTop: 12, gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 13, color: "#666" }}>Totale</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: total > org.funds ? "#DC2626" : "#111" }}>{euro(total)}</div>
+                <div style={{ fontSize: 13, color: "#666" }}>Totale{qty > 1 && ` (${qty} × ${euro(total)})`}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: total * qty > org.funds ? "#DC2626" : "#111" }}>{euro(total * qty)}</div>
+                {qty > 1 && <div style={{ fontSize: 12, color: "#666" }}>Sigle: {signs(callSign, qty).join(", ")}</div>}
               </div>
-              <button onClick={buy} disabled={!ready || busy || total > org.funds}
-                      style={{ ...btn, background: "#F97316", opacity: !ready || busy || total > org.funds ? 0.4 : 1 }}>
-                {busy ? "Acquisto…" : total > org.funds ? "Fondi insufficienti" : "Compra"}
+              <button onClick={buy} disabled={!ready || busy || total * qty > org.funds}
+                      style={{ ...btn, background: "#F97316", opacity: !ready || busy || total * qty > org.funds ? 0.4 : 1 }}>
+                {busy ? "Acquisto…" : total * qty > org.funds ? "Fondi insufficienti" : qty > 1 ? `Compra ${qty}` : "Compra"}
               </button>
             </div>
           </div>
