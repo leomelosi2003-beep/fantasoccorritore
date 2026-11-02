@@ -255,8 +255,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {support && (
           <div style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
             <strong>➕ Mezzo di supporto</strong><br />
-            Hai già {mission.my_vehicles} {mission.my_vehicles === 1 ? "ambulanza" : "ambulanze"} su questo servizio. Puoi mandarne altre (fino a 5):
-            ognuna prende <strong>metà premio</strong>.{mission.code === "rosso" && " Sul codice rosso, con due mezzi tuoi il servizio è bloccato agli altri."}
+            Hai già {mission.my_vehicles} {mission.my_vehicles === 1 ? "ambulanza" : "ambulanze"} su questo servizio. Puoi mandarne un&apos;altra per arrivare prima degli altri:
+            appena qualcuno arriva sul posto restano <strong>solo i primi {mission.slots_total} arrivati</strong>, le altre tornano in sede senza premio.
+            {mission.code === "rosso" && " Sul codice rosso, con due mezzi tuoi il servizio è bloccato agli altri."}
           </div>
         )}
 

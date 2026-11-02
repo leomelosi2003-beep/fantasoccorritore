@@ -1,0 +1,2 @@
+-- resolve_races: appena qualcuno arriva sul posto restano solo i primi slots_total arrivati (anche i mezzi di supporto
+-- contano); i supporti rimasti dentro i posti diventano mezzi normali (premio pieno). (vedi SQL applicato)
