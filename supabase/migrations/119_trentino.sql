@@ -1,0 +1,3 @@
+-- Applicato via MCP. Trentino: 7 ospedali (Santa Chiara Trento hub, Rovereto, Arco, Cles, Cavalese, Borgo Valsugana, Tione;
+-- coordinate approssimative) e mission_spots_trentino (189 punti su 51 comuni).
+-- generate_missions: 7% dei servizi in Trentino (r >= 0.93) + punti trentini nel ramo "vicino alle sedi".
