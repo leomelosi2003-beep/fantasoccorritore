@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, friendlyError, type Organization } from "@/lib/supabase";
+import { supabase, friendlyError, livery, type Organization } from "@/lib/supabase";
 import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
 import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
@@ -297,7 +297,7 @@ export default function Garage() {
                 <button key={m.id} onClick={() => setModelId(m.id)}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                  <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={m.image_url} stripe={stripe} /></div>
+                  <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={livery(m.image_url, org.type)} stripe={stripe} /></div>
                   <div style={{ fontWeight: 700, marginTop: 6 }}>{m.name}</div>
                   <div style={{ fontSize: 13, color: "#666", minHeight: 34 }}>{m.description}</div>
                   <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
@@ -479,7 +479,7 @@ export default function Garage() {
               const cost = Math.round(v.wear * v.value_score * 2);
               return (
                 <div key={v.id} style={box}>
-                  <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={m?.image_url} stripe={stripe} height={80} /></div>
+                  <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={livery(m?.image_url, org.type)} stripe={stripe} height={80} /></div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                     <strong style={{ fontSize: 17 }}>
                       {v.call_sign}{" "}

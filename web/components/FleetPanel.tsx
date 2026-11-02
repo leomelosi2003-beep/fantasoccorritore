@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, livery } from "@/lib/supabase";
 
 type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
@@ -33,8 +33,8 @@ function countdown(ms: number) {
 }
 
 // Elenco delle mie ambulanze con il tempo che manca per liberarsi
-export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
-  jobs: Job[]; now: number; refreshKey: number; onChanged: (msg: string) => void;
+export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType }: {
+  jobs: Job[]; now: number; refreshKey: number; onChanged: (msg: string) => void; orgType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState<string | null>(null); // id del servizio
@@ -130,7 +130,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
               {v.vehicle_image
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={v.vehicle_image.replace(/\.png$/, "-map.png")} alt="" style={{ width: 46, height: "auto", flexShrink: 0 }} />
+                ? <img src={(livery(v.vehicle_image, v.lent_from ? null : orgType) ?? "").replace(/\.png$/, "-map.png")} alt="" style={{ width: 46, height: "auto", flexShrink: 0 }} />
                 : <span style={{ fontSize: 24 }}>🚑</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>

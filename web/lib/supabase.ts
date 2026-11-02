@@ -80,3 +80,12 @@ export function friendlyError(msg: string): string {
   if (msg.toLowerCase().includes("password")) return "La password deve avere almeno 6 caratteri.";
   return msg;
 }
+
+// Livrea dell'ambulanza in base al tipo di associazione: Misericordia (blu), Croce Rossa (rosso),
+// Pubblica Assistenza (arancione, immagine base). Le elettriche restano verdi.
+export function livery(url: string | null | undefined, type?: string | null): string | null {
+  if (!url) return null;
+  if (/-e\.png$/.test(url)) return url;
+  const suf = type === "blu_giallo" ? "-mis" : type === "rosso_bianco" ? "-cri" : "";
+  return suf ? url.replace(/\.png$/, `${suf}.png`) : url;
+}

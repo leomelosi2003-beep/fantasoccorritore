@@ -139,7 +139,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   // distanza in linea d'aria dalla sede del mezzo al servizio
   const distOf = (v: Vehicle) => v.base_lat != null && v.base_lng != null ? km(v.base_lat, v.base_lng, mission.lat, mission.lng) : 999;
   // mezzi ordinati: prima quelli disponibili, dal più vicino al più lontano
-  const sortedVehicles = [...vehicles].sort((a, b) =>
+  // i mezzi solo-trasferimenti non compaiono nemmeno sui servizi di emergenza
+  const sortedVehicles = vehicles.filter((v) => !v.transfer_only || mission.transport === "trasferimento").sort((a, b) =>
     (vehicleProblem(a) ? 1 : 0) - (vehicleProblem(b) ? 1 : 0) || distOf(a) - distOf(b));
 
   // scegli automaticamente il mezzo disponibile più vicino (e cambia se quello scelto non è più disponibile)

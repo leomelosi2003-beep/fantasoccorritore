@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { supabase, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
+import { supabase, livery, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
@@ -565,7 +565,7 @@ export default function GameMap() {
       </div>
 
       {/* Le mie ambulanze con il conto alla rovescia */}
-      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey}
+      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey} orgType={org.type}
                           onChanged={(msg) => {
                             showToast(msg);
                             supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
@@ -716,7 +716,7 @@ export default function GameMap() {
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                             {c.image_url
                               // eslint-disable-next-line @next/next/no-img-element
-                              ? <img src={c.image_url.replace(/\.png$/, "-map.png")} alt="" style={{ width: 34, height: "auto" }} />
+                              ? <img src={(livery(c.image_url, b.org_type) ?? "").replace(/\.png$/, "-map.png")} alt="" style={{ width: 34, height: "auto" }} />
                               : <span>🚑</span>}
                             <strong style={{ flex: 1 }}>{c.call_sign}{c.electric && " ⚡"}</strong>
                             <span style={{ color: CAR_STATE[c.state][1], fontWeight: 700, whiteSpace: "nowrap" }}>{CAR_STATE[c.state][0]}</span>
@@ -837,7 +837,7 @@ export default function GameMap() {
           const pos = alongRoute(route, now);
           return (
             <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
-                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, a.vehicle_image, fr, a.org_type, a.logo_url)}>
+                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url)}>
               <Popup>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <FactionEmblem type={a.org_type} size={28} logo={a.logo_url} />
@@ -873,7 +873,7 @@ export default function GameMap() {
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
             {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
-                          makeIcon={(sc, fr) => ambulanceIcon(sc, a.vehicle_image, fr)}>
+                          makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
