@@ -5,6 +5,7 @@ const MODEL_SHAPE: Record<string, { roof: number; nose: number; color: string }>
   "R-Masteron":   { roof: 30, nose: 34, color: "#e9eef3" },
   "F-Ducalis":    { roof: 26, nose: 40, color: "#f4f4f2" },
   "M-Sprinterix": { roof: 22, nose: 48, color: "#ffffff" },
+  "V-Craftor":    { roof: 24, nose: 44, color: "#f7f7f7" },
 };
 
 export function ModelImage({ name, url, stripe = "#F97316", height = 90 }: {
