@@ -225,6 +225,7 @@ export default function GameMap() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
   const [fleetKey, setFleetKey] = useState(0);
@@ -457,21 +458,46 @@ export default function GameMap() {
       {/* Chat tra giocatori */}
       {org && <ChatPanel orgId={org.id} />}
 
-      {/* Menu: in alto a destra sul computer, in basso sul telefono */}
+      {/* Menu hamburger: si apre da sinistra verso destra */}
       {org && (
-        <nav className="fs-nav">
-          <button className="fs-btn" style={{ background: "#F97316" }} onClick={() => router.push("/garage")}><span>🚑</span>Garage</button>
-          <button className="fs-btn" style={{ background: "#1E3A8A" }} onClick={() => router.push("/squadra")}><span>👥</span>Squadra</button>
-          <button className="fs-btn" style={{ background: "#15803D", position: "relative" }} onClick={() => router.push("/alleanza")}>
-            <span>🤝</span>Alleanza
+        <>
+          <button className="fs-burger" onClick={() => setMenuOpen(true)} aria-label="Apri il menu">
+            <span /><span /><span />
             {notes.length > 0 && <b className="fs-badge">{notes.length}</b>}
           </button>
-          <button className="fs-btn" style={{ background: "#0E7490" }} onClick={() => router.push("/trasferimenti")}><span>🔁</span>Trasf.</button>
-          <button className="fs-btn" style={{ background: "#111" }} onClick={() => router.push("/negozio")}><span>🛒</span>Presidi</button>
-          <button className="fs-btn" style={{ background: "#B45309" }} onClick={() => router.push("/classifica")}><span>🏆</span>Classifica</button>
-          {isAdmin && <button className="fs-btn" style={{ background: "#7C3AED" }} onClick={() => router.push("/admin")}><span>🛠️</span>Admin</button>}
-          <button className="fs-btn fs-exit" onClick={logout}><span>🚪</span>Esci</button>
-        </nav>
+          <div className={`fs-drawer-bg${menuOpen ? " open" : ""}`} onClick={() => setMenuOpen(false)} />
+          <nav className={`fs-drawer${menuOpen ? " open" : ""}`} aria-hidden={!menuOpen}>
+            <div className="fs-drawer-head">
+              <FactionEmblem type={org.type} size={38} logo={org.logo_url} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="fs-drawer-name">{org.name}</div>
+                <div className="fs-drawer-sub">💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € · ⭐ {org.reputation}</div>
+              </div>
+              <button className="fs-drawer-x" onClick={() => setMenuOpen(false)} aria-label="Chiudi">✕</button>
+            </div>
+            {([
+              ["🚑", "Garage", "#F97316", "/garage"],
+              ["👥", "Squadra", "#1E3A8A", "/squadra"],
+              ["🤝", "Alleanza", "#15803D", "/alleanza"],
+              ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
+              ["🛒", "Presidi", "#374151", "/negozio"],
+              ["🏠", "Sedi", "#9333EA", "/sedi"],
+              ["🏆", "Classifica", "#B45309", "/classifica"],
+              ["🎨", "Associazione", "#DB2777", "/associazione"],
+              ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
+            ] as [string, string, string, string][]).map(([icon, label, color, href]) => (
+              <button key={href} className="fs-drawer-item" onClick={() => { setMenuOpen(false); router.push(href); }}>
+                <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
+                <span style={{ flex: 1 }}>{label}</span>
+                {href === "/alleanza" && notes.length > 0 && <b className="fs-drawer-badge">{notes.length}</b>}
+              </button>
+            ))}
+            <div style={{ flex: 1 }} />
+            <button className="fs-drawer-item fs-drawer-exit" onClick={logout}>
+              <span className="fs-drawer-ico" style={{ background: "#e5e5e0" }}>🚪</span>Esci
+            </button>
+          </nav>
+        </>
       )}
 
       {error && (
@@ -679,7 +705,7 @@ export default function GameMap() {
 
       <style>{`
         .fs-map { height: 100vh; height: 100dvh; }
-        .fs-top { position: absolute; top: 10px; left: 56px; z-index: 1000; max-width: calc(100% - 66px); }
+        .fs-top { position: absolute; top: 10px; left: 62px; z-index: 1000; max-width: calc(100% - 72px); }
         .fs-pill { display: flex; align-items: center; gap: 10px; background: #fff; border: none; border-radius: 14px;
           padding: 6px 12px 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; text-align: left;
           max-width: 100%; font-family: inherit; }
@@ -706,10 +732,28 @@ export default function GameMap() {
           12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
           80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
-        .fs-nav { position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 6px; }
-        .fs-btn { border: none; color: #fff; border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px;
-          font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-family: inherit; }
-        .fs-exit { background: #fff !important; color: #333; }
+        .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
+          background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+          box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+        .fs-burger span { display: block; width: 22px; height: 3px; border-radius: 2px; background: #fff; }
+        .fs-map .leaflet-top.leaflet-left { top: 50px; }
+        .fs-drawer-bg { position: fixed; inset: 0; z-index: 1300; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .25s; }
+        .fs-drawer-bg.open { opacity: 1; pointer-events: auto; }
+        .fs-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 1310; width: min(290px, 84vw); background: #fff;
+          box-shadow: 6px 0 28px rgba(0,0,0,.35); transform: translateX(-105%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+          display: flex; flex-direction: column; padding: 12px 10px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; }
+        .fs-drawer.open { transform: translateX(0); }
+        .fs-drawer-head { display: flex; align-items: center; gap: 10px; padding: 6px 6px 14px; margin-bottom: 6px; border-bottom: 1px solid #eee; }
+        .fs-drawer-name { font-weight: 800; font-size: 15px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fs-drawer-sub { font-size: 12px; color: #15803D; font-weight: 700; }
+        .fs-drawer-x { border: none; background: #f1f1f1; color: #333; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 15px; }
+        .fs-drawer-item { display: flex; align-items: center; gap: 12px; width: 100%; border: none; background: transparent; color: #111;
+          font: inherit; font-size: 15px; font-weight: 700; padding: 9px 8px; border-radius: 12px; cursor: pointer; text-align: left; }
+        .fs-drawer-item:hover { background: #f3f3f3; }
+        .fs-drawer-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+        .fs-drawer-badge { background: #DC2626; color: #fff; font-size: 12px; min-width: 22px; height: 22px; border-radius: 11px;
+          display: flex; align-items: center; justify-content: center; padding: 0 6px; animation: note-pulse 1.4s infinite; }
+        .fs-drawer-exit { color: #555; }
         .fs-toast { bottom: 24px; }
         .fs-theme-btn { position: absolute; z-index: 1000; top: 62px; right: 10px; width: 42px; height: 42px; border-radius: 50%;
           border: none; background: #fff; font-size: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
@@ -735,20 +779,13 @@ export default function GameMap() {
         .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
           max-height: 50vh; overflow-y: auto; }
         @media (max-width: 760px) {
-          .fs-nav { top: auto; bottom: 0; left: 0; right: 0; gap: 0; background: #fff; box-shadow: 0 -2px 10px rgba(0,0,0,.2);
-            padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); justify-content: space-around; }
-          .fs-btn { flex: 1; flex-direction: column; gap: 2px; font-size: 11px; padding: 6px 2px; border-radius: 10px;
-            margin: 0 2px; box-shadow: none; min-width: 0; }
-          .fs-btn span { font-size: 20px; line-height: 1; }
-          .fs-exit { background: #f1f1f1 !important; }
-          .fs-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+          .fs-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
           .fs-notes { bottom: auto; top: 110px; }
           .fs-theme-btn { top: 10px; }
-          .fs-top { max-width: calc(100% - 118px); }
-          .fs-chat-btn { bottom: calc(80px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
-          .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(136px + env(safe-area-inset-bottom)); height: 55vh; }
-          .fs-badge { top: 0; right: 4px; }
-          .leaflet-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
+          .fs-top { max-width: calc(100% - 124px); }
+          .fs-chat-btn { bottom: calc(20px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
+          .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); height: 55vh; }
+          .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
           .fs-pill { padding: 5px 10px 5px 6px; }
         }
         @keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }

@@ -74,10 +74,16 @@ html.dark .fs-pill, html.dark .fs-fleet-btn, html.dark .fs-fleet-list, html.dark
 html.dark .fs-name { color: #eceef3 !important; }
 html.dark .fs-money { color: #4ade80 !important; }
 html.dark .fs-rep { color: #f0a54a !important; }
-html.dark .fs-exit { background: #2a303c !important; color: #eceef3 !important; }
+html.dark .fs-drawer { background: #1b1f27; box-shadow: 6px 0 28px rgba(0,0,0,.7); }
+html.dark .fs-drawer-head { border-bottom-color: #2a303c; }
+html.dark .fs-drawer-name, html.dark .fs-drawer-item { color: #eceef3; }
+html.dark .fs-drawer-sub { color: #4ade80; }
+html.dark .fs-drawer-item:hover { background: #2a303c; }
+html.dark .fs-drawer-x { background: #2a303c; color: #eceef3; }
+html.dark .fs-drawer-exit { color: #a9b0bd; }
+html.dark .fs-burger { background: #2b3240; }
 html.dark .fs-chat-btn { background: #2b3240; box-shadow: 0 3px 14px rgba(0,0,0,.6); }
 html.dark .fs-pop-label { background: rgba(43,50,64,.95); }
-@media (max-width: 760px) { html.dark .fs-nav { background: #151920 !important; box-shadow: 0 -2px 12px rgba(0,0,0,.6) !important; } }
 
 ${rules.join("\n")}
 `;
