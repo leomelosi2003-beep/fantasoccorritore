@@ -1,0 +1,1 @@
+-- Applicato via MCP: generate_missions +6% Rosignano (9 km) e +6% Grosseto/Maremma (40 km); 155 punti in Maremma in mission_spots_toscana; ospedali Orbetello, Massa Marittima, Castel del Piano.
