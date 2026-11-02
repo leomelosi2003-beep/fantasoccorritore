@@ -123,12 +123,21 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       .then(({ data }) => setEta(data as { km: number; minutes: number }));
   }, [vehicleId, mission.id]);
 
-  // scegli automaticamente il primo mezzo idoneo
+  // distanza in linea d'aria dalla sede del mezzo al servizio
+  const distOf = (v: Vehicle) => v.base_lat != null && v.base_lng != null ? km(v.base_lat, v.base_lng, mission.lat, mission.lng) : 999;
+  // mezzi ordinati: prima quelli disponibili, dal più vicino al più lontano
+  const sortedVehicles = [...vehicles].sort((a, b) =>
+    (vehicleProblem(a) ? 1 : 0) - (vehicleProblem(b) ? 1 : 0) || distOf(a) - distOf(b));
+
+  // scegli automaticamente il mezzo disponibile più vicino (e cambia se quello scelto non è più disponibile)
+  const [userPicked, setUserPicked] = useState(false);
   useEffect(() => {
-    if (!vehicleId && vehicles.length) {
-      const ok = vehicles.find((v) => !vehicleProblem(v));
-      if (ok) setVehicleId(ok.id);
-    }
+    if (!vehicles.length) return;
+    const cur = vehicles.find((v) => v.id === vehicleId);
+    if (userPicked && cur && !vehicleProblem(cur)) return;
+    const best = sortedVehicles.find((v) => !vehicleProblem(v));
+    if (best && best.id !== vehicleId) setVehicleId(best.id);
+    if (!best && vehicleId) setVehicleId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, equip]);
 
@@ -247,16 +256,16 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         <div style={{ fontWeight: 700, marginBottom: 6 }}>1. Mezzo</div>
         {vehicles.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Non hai mezzi: comprane uno nel garage.</div>}
         <div style={{ display: "grid", gap: 6 }}>
-          {vehicles.map((v) => {
+          {sortedVehicles.map((v, i) => {
             const prob = vehicleProblem(v);
             const sel = vehicleId === v.id;
             return (
-              <button key={v.id} disabled={!!prob} onClick={() => setVehicleId(v.id)}
+              <button key={v.id} disabled={!!prob} onClick={() => { setVehicleId(v.id); setUserPicked(true); }}
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
                 <strong>{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
-                <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : "idoneo")}</span>
+                <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : `${distOf(v) < 999 ? `${distOf(v).toFixed(1).replace(".", ",")} km` : "idoneo"}${i === 0 ? " · più vicina" : ""}`)}</span>
               </button>
             );
           })}
