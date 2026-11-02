@@ -1,0 +1,5 @@
+-- Modalità automatica: organizations.auto_enabled / auto_codes / auto_reserve, mission_assignments.auto.
+-- claim_mission_as(p_org, ...) = copia di claim_mission con org esplicita (solo server).
+-- auto_dispatch(): ogni minuto (cron 'auto-dispatch') assegna servizi alle ambulanze libere con equipaggio automatico;
+-- i servizi diventano "automatici" solo dopo 60 s, priorità rosso > giallo > verde > altri, poi il più vicino.
+-- rpc set_auto_mode(enabled, codes, reserve), my_auto_log(). (vedi SQL applicato)

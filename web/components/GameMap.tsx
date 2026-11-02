@@ -243,7 +243,7 @@ export default function GameMap() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from("organizations")
-      .select("id,name,type,funds,reputation,logo_url").eq("owner_id", session.user.id).maybeSingle();
+      .select("id,name,type,funds,reputation,logo_url,auto_enabled").eq("owner_id", session.user.id).maybeSingle();
     if (data) setOrg(data as Organization);
   }
 
@@ -346,7 +346,7 @@ export default function GameMap() {
       if (!session) { setLoggedIn(false); return; }
       setLoggedIn(true);
       const { data } = await supabase.from("organizations")
-        .select("id,name,type,funds,reputation,logo_url").eq("owner_id", session.user.id).maybeSingle();
+        .select("id,name,type,funds,reputation,logo_url,auto_enabled").eq("owner_id", session.user.id).maybeSingle();
       if (!data) { router.replace("/onboarding"); return; }
       // associazione venduta: deve scegliere una nuova sede
       const { count } = await supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", data.id);
@@ -407,6 +407,7 @@ export default function GameMap() {
             <FactionEmblem type={org.type} size={34} logo={org.logo_url} />
             <span className="fs-pill-text">
               <span className="fs-name">{org.name}</span>
+              {org.auto_enabled && <span className="fs-auto">🤖 AUTO</span>}
               <span className={`fs-money${fundsFlash ? " fs-money-flash" : ""}`}>💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
             </span>
           </button>
@@ -479,6 +480,7 @@ export default function GameMap() {
               ["🚑", "Garage", "#F97316", "/garage"],
               ["👥", "Squadra", "#1E3A8A", "/squadra"],
               ["🤝", "Alleanza", "#15803D", "/alleanza"],
+              ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
               ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
               ["🛒", "Presidi", "#374151", "/negozio"],
               ["🏠", "Sedi", "#9333EA", "/sedi"],
@@ -732,6 +734,7 @@ export default function GameMap() {
           12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
           80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
+        .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
           background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
           box-shadow: 0 2px 10px rgba(0,0,0,.3); }

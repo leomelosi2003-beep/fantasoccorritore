@@ -62,6 +62,7 @@ export type Organization = {
   funds: number;
   reputation: number;
   logo_url?: string | null;
+  auto_enabled?: boolean;
 };
 
 // Traduce i codici di errore del database in messaggi leggibili
