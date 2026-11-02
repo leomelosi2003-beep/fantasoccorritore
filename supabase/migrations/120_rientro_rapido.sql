@@ -1,0 +1,1 @@
+-- Applicato via MCP: rientro in sede -25% (claim_mission/_as ultimo tratto, resolve_races t_back, automedica_handover back).
