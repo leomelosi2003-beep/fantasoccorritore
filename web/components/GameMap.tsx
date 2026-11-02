@@ -95,6 +95,32 @@ function eventIcon(kind: string, open: boolean) {
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
+// Ambulanza ferma sul posto del servizio: non la disegniamo (coprirebbe il puntino), la contiamo nel badge
+function nearM(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const dy = (aLat - bLat) * 111_000, dx = (aLng - bLng) * 111_000 * Math.cos(aLat * Math.PI / 180);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function routeOf(a: { route: RoutePoint[] | null; base_lat: number; base_lng: number; lat: number; lng: number;
+  assigned_at: string; arrives_at: string; completes_at: string }): RoutePoint[] {
+  return a.route?.length ? a.route : [
+    { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
+    { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
+    { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
+  ];
+}
+function onScene(a: Parameters<typeof routeOf>[0], now: number) {
+  const pos = alongRoute(routeOf(a), now);
+  return !pos.moving && nearM(pos.lat, pos.lng, a.lat, a.lng) < 40;
+}
+function sceneBadge(n: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="background:#111;color:#fff;font:800 12px system-ui;padding:2px 6px;border-radius:999px;border:2px solid #fff;
+           box-shadow:0 1px 4px rgba(0,0,0,.5);white-space:nowrap;pointer-events:none">🚑 ${n}</div>`,
+    iconSize: [40, 20], iconAnchor: [-6, 26],
+  });
+}
+
 // Per ogni mezzo, solo il servizio più recente, finché il percorso (rientro compreso) non è finito
 function onTheRoad<T extends { vehicle_id: string; assigned_at: string; route_ends_at: string }>(list: T[], now: number) {
   const latest = new Map<string, T>();
@@ -344,6 +370,15 @@ export default function GameMap() {
     window.location.href = "/";
   }
 
+  // quante ambulanze (mie e degli altri) sono ferme sul posto di ogni servizio
+  const sceneCount = new Map<string, { lat: number; lng: number; n: number }>();
+  for (const a of [...onTheRoad(assignments, now), ...onTheRoad(others, now)]) {
+    if (!onScene(a, now)) continue;
+    const k = `${a.lat.toFixed(5)},${a.lng.toFixed(5)}`;
+    const cur = sceneCount.get(k) ?? { lat: a.lat, lng: a.lng, n: 0 };
+    cur.n += 1; sceneCount.set(k, cur);
+  }
+
   return (
     <div style={{ position: "relative", fontFamily: "system-ui, sans-serif" }}>
       {/* Barra in alto: associazione e soldi */}
@@ -544,7 +579,11 @@ export default function GameMap() {
           </CircleMarker>
         ))}
 
-        {onTheRoad(others, now).map((a) => {
+        {Array.from(sceneCount.entries()).map(([k, c]) => (
+          <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(c.n)} interactive={false} zIndexOffset={500} />
+        ))}
+
+        {onTheRoad(others, now).filter((a) => !onScene(a, now)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -584,7 +623,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!sirens(a.code, pos), a.vehicle_image, facingRight)}>
+            {!onScene(a, now) && <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!sirens(a.code, pos), a.vehicle_image, facingRight)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
@@ -602,7 +641,7 @@ export default function GameMap() {
                              padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>↩️ Annulla viaggio</button></>
                 )}
               </Popup>
-            </Marker>
+            </Marker>}
             </Fragment>
           );
         })}
