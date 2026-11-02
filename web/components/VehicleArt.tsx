@@ -7,6 +7,8 @@ const MODEL_SHAPE: Record<string, { roof: number; nose: number; color: string }>
   "M-Sprinterix": { roof: 22, nose: 48, color: "#ffffff" },
   "V-Craftor":    { roof: 24, nose: 44, color: "#f7f7f7" },
   "M-Sprinterix XL": { roof: 22, nose: 40, color: "#f7f7f7" },
+  "V-Transporto": { roof: 34, nose: 38, color: "#fafafa" },
+  "F-Transitor":  { roof: 26, nose: 44, color: "#f5f5f5" },
 };
 
 export function ModelImage({ name, url, stripe = "#F97316", height = 90 }: {

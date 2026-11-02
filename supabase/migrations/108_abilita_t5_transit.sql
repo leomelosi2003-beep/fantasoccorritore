@@ -1,0 +1,5 @@
+-- Abilità speciali dei modelli (vehicle_models.ability / ability_label):
+--   robusta (R-Masteron) -30% usura; comfort (F-Ducalis) +10% su ordinari e trasferimenti;
+--   rettilineo (M-Sprinterix, XL) +12% velocità oltre 8 km; curve (V-Craftor, V-Transporto) +12% sotto 8 km;
+--   economica (F-Transitor) consumo 9 L/100 km, versione E ricarica -25%.
+-- Nuovi modelli (nomi di fantasia): V-Transporto (tipo T5) e F-Transitor (tipo Transit), a gasolio ed elettrici. (vedi SQL applicato)

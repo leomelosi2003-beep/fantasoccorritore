@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -319,6 +319,11 @@ export default function Garage() {
                   <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={livery(m.image_url, org.type)} stripe={stripe} /></div>
                   <div style={{ fontWeight: 700, marginTop: 6 }}>{m.name}</div>
                   <div style={{ fontSize: 13, color: "#666", minHeight: 34 }}>{m.description}</div>
+                  {m.ability_label && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1E40AF", background: "#EFF6FF", borderRadius: 8, padding: "4px 8px", margin: "4px 0" }}>
+                      {m.ability_label}
+                    </div>
+                  )}
                   <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
                   <Bar label="Affidabilità" value={m.base_reliability} color="#16A34A" />
                   <Bar label="Durata" value={m.base_durability} color="#9333EA" />
