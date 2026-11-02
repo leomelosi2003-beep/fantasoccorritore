@@ -18,7 +18,7 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
-  speed_level?: number; fuel_liters: number };
+  speed_level?: number; fuel_liters: number; battery_pct?: number };
 const SPEED_COST = [6000, 12000, 24000];
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
@@ -424,7 +424,7 @@ export default function Garage() {
           const room = Math.max(0, Math.floor(cap - fuelStock));
           const qtyL = Math.min(Math.max(0, Math.floor(liters || 0)), room);
           const cost = Math.ceil(qtyL * price);
-          const needFull = vehicles.reduce((t, v) => t + Math.max(0, (byId.model[v.model_id]?.tank_liters ?? 80) - v.fuel_liters), 0);
+          const needFull = vehicles.filter((v) => !byId.model[v.model_id]?.electric).reduce((t, v) => t + Math.max(0, (byId.model[v.model_id]?.tank_liters ?? 80) - v.fuel_liters), 0);
           return (
             <div style={{ ...box, marginTop: 16, marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
@@ -530,7 +530,23 @@ export default function Garage() {
                   <Bar label="Affidabilità" value={v.reliability} color="#16A34A" />
                   <Bar label="Durata" value={v.durability} color="#9333EA" />
                   <Bar label="Usura" value={v.wear} color={v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#EAB308" : "#999"} />
-                  {(() => {
+                  {m?.electric ? (() => {
+                    const pct = Math.max(0, Math.min(100, Number(v.battery_pct ?? 100)));
+                    const km = Math.round((pct / 100) * (m.range_km ?? 0));
+                    return (
+                      <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>{pct < 100 ? "🔌" : "🔋"} Batteria{pct < 100 && v.status !== "in_servizio" ? " · in ricarica" : ""}</span>
+                          <span>{Math.round(pct)}% · {km} / {m.range_km ?? 0} km</span>
+                        </div>
+                        <div style={{ height: 6, background: "#eee", borderRadius: 3 }}>
+                          <div style={{ width: `${pct}%`, height: 6, borderRadius: 3,
+                                        background: pct < 20 ? "#DC2626" : pct < 50 ? "#EAB308" : "#16A34A" }} />
+                        </div>
+                        <div style={{ color: "#15803D", marginTop: 3 }}>⚡ Si ricarica gratis in 1 minuto quando è ferma in sede</div>
+                      </div>
+                    );
+                  })() : (() => {
                     const tank = m?.tank_liters ?? 80;
                     const pct = (v.fuel_liters / tank) * 100;
                     return (
