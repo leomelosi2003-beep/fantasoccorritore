@@ -7,7 +7,8 @@ import FactionEmblem from "@/components/FactionEmblem";
 
 type Row = {
   org_id: string; name: string; type: Organization["type"]; logo_url: string | null; alliance: string | null;
-  earnings_7d: number; services_7d: number; wealth: number; growth_pct: number | null; reputation: number;
+  earnings_7d: number | null; services_7d: number | null; wealth: number | null; growth_pct: number | null; reputation: number | null;
+  hidden?: boolean;
 };
 
 const TABS = [
@@ -24,9 +25,10 @@ const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFa
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
 
 function value(r: Row, k: Key) {
-  if (k === "earnings_7d") return euro(r.earnings_7d);
-  if (k === "wealth") return euro(r.wealth);
-  if (k === "reputation") return `⭐ ${r.reputation}`;
+  if (r.hidden && k !== "growth_pct") return "🔒";
+  if (k === "earnings_7d") return euro(r.earnings_7d ?? 0);
+  if (k === "wealth") return euro(r.wealth ?? 0);
+  if (k === "reputation") return `⭐ ${r.reputation ?? 0}`;
   if (r.growth_pct === null) return "—";
   return `${r.growth_pct > 0 ? "+" : ""}${r.growth_pct.toLocaleString("it-IT")}%`;
 }
@@ -44,7 +46,7 @@ export default function Classifica() {
       if (!session) { router.replace("/"); return; }
       const { data: o } = await supabase.from("organizations").select("id").eq("owner_id", session.user.id).maybeSingle();
       setMe(o?.id ?? null);
-      const { data, error } = await supabase.rpc("leaderboard");
+      const { data, error } = await supabase.rpc("leaderboard_v2");
       if (error) { setError("Classifica non disponibile al momento."); return; }
       setRows((data as Row[]) ?? []);
     })();
@@ -93,7 +95,7 @@ export default function Classifica() {
                   {r.name}{r.org_id === me && <span style={{ color: "#B45309" }}> (tu)</span>}
                 </div>
                 <div style={{ fontSize: 12, color: "#777" }}>
-                  {r.services_7d} servizi in 7 giorni{r.alliance && <> · 🤝 {r.alliance}</>}
+                  {r.hidden ? "statistiche nascoste" : `${r.services_7d ?? 0} servizi in 7 giorni`}{r.alliance && <> · 🤝 {r.alliance}</>}
                 </div>
               </div>
               <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap",
