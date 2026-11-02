@@ -451,7 +451,19 @@ export default function GameMap() {
                   </div>
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                  🏠 <strong>{b.name}</strong>{b.is_headquarters && <span style={{ color: "#B45309", fontWeight: 700 }}> · sede principale</span>}<br />
+                  🏠 <strong>{b.name}</strong>{b.is_headquarters && <span style={{ color: "#B45309", fontWeight: 700 }}> · sede principale</span>}
+                  {b.org_id === org?.id && (
+                    <button title="Cambia nome" onClick={async () => {
+                        const name = window.prompt("Nuovo nome della sede (2-40 caratteri):", b.name);
+                        if (name === null || name.trim() === b.name) return;
+                        const { error } = await supabase.rpc("rename_base", { p_base: b.id, p_name: name });
+                        if (error) { showToast(error.message.includes("BAD_NAME") ? "Il nome deve avere tra 2 e 40 caratteri." : "Non riesco a cambiare il nome."); return; }
+                        showToast(`🏠 Sede rinominata: ${name.trim()}`);
+                        supabase.from("bases_map").select("*").then(({ data }) => { if (data) setBases(data as BasePin[]); });
+                      }}
+                      style={{ marginLeft: 6, border: "none", background: "#f1f1f1", borderRadius: 6, padding: "1px 6px",
+                               cursor: "pointer", fontSize: 12 }}>✏️</button>
+                  )}<br />
                   {!b.is_headquarters && b.hq_name && <>🏛️ Sede principale: <strong>{b.hq_name}</strong><br /></>}
                   🤝 Alleanza: <strong>{b.alliance ?? "nessuna"}</strong><br />
                   🚑 Ambulanze qui: <strong>{b.vehicles_here ?? 0}</strong>{b.vehicle_capacity ? ` / ${b.vehicle_capacity} posti` : ""}<br />
