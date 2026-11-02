@@ -265,6 +265,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const reloadRef = useRef<() => void>(() => {});
   // chi sta andando su un servizio: caricato solo quando apro il popup del servizio
   const [responders, setResponders] = useState<Record<string, Responder[] | null>>({});
   async function loadResponders(id: string) {
@@ -316,6 +317,19 @@ export default function GameMap() {
     });
   }, [org?.id, fleetKey]);
 
+  // appena un'ambulanza arriva sul posto la corsa si chiude: ricarico subito per vedere chi l'ha persa
+  useEffect(() => {
+    const t0 = Date.now();
+    const next = [...assignments, ...others]
+      .filter((a) => a.status === "in_viaggio")
+      .map((a) => new Date(a.arrives_at).getTime())
+      .filter((t) => t > t0)
+      .sort((a, b) => a - b)[0];
+    if (!next) return;
+    const id = setTimeout(() => reloadRef.current(), Math.min(next - t0 + 6000, 2_147_000_000));
+    return () => clearTimeout(id);
+  }, [assignments, others]);
+
   async function refreshOrg() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -355,6 +369,7 @@ export default function GameMap() {
       setOthers((o as OtherAmbulance[]) ?? []);
     }
     loadAssignments();
+    reloadRef.current = loadAssignments;
     const t1 = setInterval(loadAssignments, 20_000);
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };

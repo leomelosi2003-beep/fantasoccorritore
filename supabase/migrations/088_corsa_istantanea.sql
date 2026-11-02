@@ -1,0 +1,1 @@
+-- La corsa al servizio si chiude subito: resolve_races() ogni 5 secondi (cron 'resolve-races'), prima solo ogni minuto.
