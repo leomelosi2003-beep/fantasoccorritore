@@ -26,6 +26,7 @@ export default function Automatico() {
   const [codes, setCodes] = useState<string[]>([]);
   const [reserve, setReserve] = useState(0);
   const [steal, setSteal] = useState(false);
+  const [maxKm, setMaxKm] = useState(10);
   const [fleet, setFleet] = useState(0);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -41,10 +42,10 @@ export default function Automatico() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/"); return; }
-      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve,auto_steal_red")
+      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve,auto_steal_red,auto_max_km")
         .eq("owner_id", session.user.id).maybeSingle();
       if (o) {
-        setEnabled(!!o.auto_enabled); setCodes(o.auto_codes ?? []); setReserve(o.auto_reserve ?? 0); setSteal(!!o.auto_steal_red);
+        setEnabled(!!o.auto_enabled); setCodes(o.auto_codes ?? []); setReserve(o.auto_reserve ?? 0); setSteal(!!o.auto_steal_red); setMaxKm(o.auto_max_km ?? 10);
         const { count } = await supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", o.id);
         setFleet(count ?? 0);
       }
@@ -141,6 +142,22 @@ export default function Automatico() {
                                  background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
                 </button>
               </div>
+            </div>
+
+            <div style={card}>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>📍 Distanza massima</div>
+              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
+                Prende solo i servizi entro questa distanza dall&apos;ambulanza, e ci manda sempre la tua ambulanza libera più vicina.
+              </div>
+              <select value={maxKm} disabled={busy} onChange={async (e) => {
+                        const km = Number(e.target.value); setMaxKm(km); setBusy(true);
+                        const { error } = await supabase.rpc("set_auto_max_km", { p_km: km });
+                        setBusy(false);
+                        setMsg(error ? { ok: false, text: "Non riesco a salvare, riprova." } : { ok: true, text: `📍 Solo servizi entro ${km} km.` });
+                      }}
+                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }}>
+                {[3, 5, 8, 10, 15, 20, 25].map((k) => <option key={k} value={k}>{k} km{k === 10 ? " (consigliato)" : ""}</option>)}
+              </select>
             </div>
 
             <div style={card}>
