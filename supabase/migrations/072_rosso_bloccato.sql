@@ -1,0 +1,3 @@
+-- Codice rosso: se un'associazione manda due mezzi suoi sullo stesso servizio, gli altri non possono più contenderlo.
+-- claim_mission: nel ramo "corsa al servizio" raise MISSION_LOCKED se un org ha >= 2 assegnazioni attive.
+-- missions_map.contestable: falso se un org ha >= 2 assegnazioni attive. (vedi SQL applicato)
