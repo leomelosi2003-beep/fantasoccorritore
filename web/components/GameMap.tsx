@@ -473,10 +473,25 @@ export default function GameMap() {
         ) : null}
         {org && fuel && (
           <button className="fs-fleet-btn fs-fuel-btn" onClick={() => router.push("/garage")}
-                  title={`Cisterna: ${Math.round(fuel.stock)} L su ${fuel.cap} L · Serbatoi dei mezzi: ${Math.round(fuel.tanks)} L su ${fuel.tanksMax} L. Tocca per andare al benzinaio.`}
-                  style={{ color: fuel.stock <= 0 || fuel.empty > 0 ? "#DC2626" : "#111" }}>
-            ⛽ <span className="fs-fuel-word">Gasolio </span><strong>{Math.round(fuel.stock).toLocaleString("it-IT")}</strong> L
-            {fuel.empty > 0 && <> · <strong>{fuel.empty}</strong> <span className="fs-fuel-word">{fuel.empty === 1 ? "mezzo" : "mezzi"} </span>a secco</>}
+                  title={`Gasolio nella cisterna per rifornire i mezzi: ${Math.round(fuel.stock)} L su ${fuel.cap} L. Tocca per andare al benzinaio.`}>
+            {(() => {
+              const pct = Math.max(0, Math.min(100, (fuel.stock / fuel.cap) * 100));
+              const col = pct <= 0 ? "#9CA3AF" : pct < 20 ? "#DC2626" : pct < 50 ? "#EAB308" : "#16A34A";
+              return (
+                <>
+                  <span className="fs-fuel-head">
+                    <span>⛽ <span className="fs-fuel-word">Gasolio </span><strong style={{ color: pct < 20 ? "#DC2626" : "inherit" }}>{Math.round(fuel.stock).toLocaleString("it-IT")} L</strong></span>
+                    <span style={{ color: "#888", fontWeight: 500 }}>/ {fuel.cap.toLocaleString("it-IT")}</span>
+                  </span>
+                  <span className="fs-fuel-bar"><span style={{ width: `${pct}%`, background: col }} /></span>
+                  {fuel.empty > 0 && (
+                    <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 700 }}>
+                      {fuel.empty} {fuel.empty === 1 ? "mezzo" : "mezzi"} a secco
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </button>
         )}
       </div>
@@ -799,7 +814,10 @@ export default function GameMap() {
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
         .fs-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
         .fs-top > .fs-pill { min-width: 0; }
-        .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; }
+        .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; min-width: 130px; text-align: left; }
+        .fs-fuel-head { display: flex; justify-content: space-between; gap: 6px; }
+        .fs-fuel-bar { display: block; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .fs-fuel-bar > span { display: block; height: 100%; border-radius: 4px; transition: width .4s, background .4s; }
         @media (max-width: 760px) { .fs-fuel-word { display: none; } }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
