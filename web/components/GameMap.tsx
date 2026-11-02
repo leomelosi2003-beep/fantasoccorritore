@@ -477,13 +477,20 @@ export default function GameMap() {
       if (!b.error) setBases((b.data as BasePin[]) ?? []);
     }
     load();
+    // le modifiche arrivano a raffica (modalità automatica): ricarico al massimo una volta ogni 8 secondi
+    let last = Date.now(), timer: ReturnType<typeof setTimeout> | null = null;
+    const soon = () => {
+      if (timer) return;
+      const wait = Math.max(1500, 8000 - (Date.now() - last));
+      timer = setTimeout(() => { timer = null; last = Date.now(); load(); }, wait);
+    };
     const ch = supabase
       .channel("map-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "missions" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "bases" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "missions" }, soon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bases" }, soon)
       .subscribe();
-    const poll = setInterval(load, 30_000);
-    return () => { supabase.removeChannel(ch); clearInterval(poll); };
+    const poll = setInterval(() => { last = Date.now(); load(); }, 30_000);
+    return () => { supabase.removeChannel(ch); clearInterval(poll); if (timer) clearTimeout(timer); };
   }, []);
 
   async function logout() {
