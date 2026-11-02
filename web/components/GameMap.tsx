@@ -112,12 +112,16 @@ function onScene(a: Parameters<typeof routeOf>[0], now: number) {
   const pos = alongRoute(routeOf(a), now);
   return !pos.moving && nearM(pos.lat, pos.lng, a.lat, a.lng) < 40;
 }
-function sceneBadge(n: number) {
+type SceneOrg = { type: BasePin["org_type"]; logo: string | null; n: number };
+function sceneBadge(orgs: SceneOrg[]) {
+  const chips = orgs.map((o) =>
+    `<span style="display:inline-flex;align-items:center;gap:3px;background:#fff;color:#111;border-radius:999px;padding:1px 6px 1px 2px;
+       box-shadow:0 1px 3px rgba(0,0,0,.4);font:800 12px system-ui">
+       <span style="display:inline-flex;width:16px;height:16px;border-radius:50%;overflow:hidden;align-items:center;justify-content:center">${emblemSvg(o.type, 16, o.logo)}</span>🚑${o.n}</span>`).join("");
   return L.divIcon({
     className: "",
-    html: `<div style="background:#111;color:#fff;font:800 12px system-ui;padding:2px 6px;border-radius:999px;border:2px solid #fff;
-           box-shadow:0 1px 4px rgba(0,0,0,.5);white-space:nowrap;pointer-events:none">🚑 ${n}</div>`,
-    iconSize: [40, 20], iconAnchor: [-6, 26],
+    html: `<div style="display:flex;gap:3px;white-space:nowrap;pointer-events:none">${chips}</div>`,
+    iconSize: [60 * orgs.length, 20], iconAnchor: [-6, 26],
   });
 }
 
@@ -370,14 +374,16 @@ export default function GameMap() {
     window.location.href = "/";
   }
 
-  // quante ambulanze (mie e degli altri) sono ferme sul posto di ogni servizio
-  const sceneCount = new Map<string, { lat: number; lng: number; n: number }>();
-  for (const a of [...onTheRoad(assignments, now), ...onTheRoad(others, now)]) {
-    if (!onScene(a, now)) continue;
-    const k = `${a.lat.toFixed(5)},${a.lng.toFixed(5)}`;
-    const cur = sceneCount.get(k) ?? { lat: a.lat, lng: a.lng, n: 0 };
-    cur.n += 1; sceneCount.set(k, cur);
-  }
+  // chi è fermo sul posto di ogni servizio: logo dell'associazione e numero di ambulanze
+  const sceneCount = new Map<string, { lat: number; lng: number; orgs: Map<string, SceneOrg> }>();
+  const addScene = (lat: number, lng: number, orgId: string, type: BasePin["org_type"], logo: string | null) => {
+    const k = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    const cur = sceneCount.get(k) ?? { lat, lng, orgs: new Map<string, SceneOrg>() };
+    const o = cur.orgs.get(orgId) ?? { type, logo, n: 0 };
+    o.n += 1; cur.orgs.set(orgId, o); sceneCount.set(k, cur);
+  };
+  if (org) for (const a of onTheRoad(assignments, now)) if (onScene(a, now)) addScene(a.lat, a.lng, org.id, org.type, org.logo_url ?? null);
+  for (const a of onTheRoad(others, now)) if (onScene(a, now)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
 
   return (
     <div style={{ position: "relative", fontFamily: "system-ui, sans-serif" }}>
@@ -580,7 +586,7 @@ export default function GameMap() {
         ))}
 
         {Array.from(sceneCount.entries()).map(([k, c]) => (
-          <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(c.n)} interactive={false} zIndexOffset={500} />
+          <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
         {onTheRoad(others, now).filter((a) => !onScene(a, now)).map((a) => {
