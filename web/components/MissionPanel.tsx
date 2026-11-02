@@ -272,6 +272,17 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             Manca: {missing.map((r) => ROLE[r as Card["role"]]?.label ?? r).join(", ")}
           </div>
         )}
+        {(() => {
+          const ep = crewCards.filter((c) => c.rarity === "epica").length, lg = crewCards.filter((c) => c.rarity === "leggendaria").length;
+          if (!ep && !lg) return null;
+          const money = ep * 10 + lg * 25, time = Math.min(50, ep * 10 + lg * 20);
+          return (
+            <div style={{ fontSize: 13, fontWeight: 700, background: "linear-gradient(90deg,#FEF3C7,#F5F3FF)", color: "#92400E",
+                          borderRadius: 10, padding: "6px 10px", marginBottom: 8 }}>
+              ✨ Carte rare a bordo: <span style={{ color: "#15803D" }}>+{money}% soldi</span> · <span style={{ color: "#5B21B6" }}>-{time}% tempo</span>
+            </div>
+          );
+        })()}
         {available.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Nessun volontario pronto. Apri il pacchetto nella Squadra o aspetta che finiscano il riposo.</div>}
         <div style={{ display: "grid", gap: 6 }}>
           {available.map((c) => {

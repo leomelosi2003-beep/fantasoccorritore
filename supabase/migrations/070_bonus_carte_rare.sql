@@ -1,0 +1,2 @@
+-- Carte rare a bordo: ogni epica -10% di tempo e +10% di premio, ogni leggendaria -20% di tempo e +25% di premio
+-- (tempo fino a -50%). Patch di claim_mission() (rare_f) e complete_due_assignments() (bonus carte rare); vedi SQL applicato.
