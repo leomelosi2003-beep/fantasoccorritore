@@ -305,6 +305,7 @@ export default function GameMap() {
   const [fuel, setFuel] = useState<{ stock: number; cap: number; tanks: number; tanksMax: number; empty: number } | null>(null);
   const fuelAt = useRef(0);
   // elettricità: compare appena hai almeno un'ambulanza elettrica
+  const [noVehicles, setNoVehicles] = useState(false);
   const [elec, setElec] = useState<{ n: number; pct: number; charging: number; empty: number } | null>(null);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -325,6 +326,7 @@ export default function GameMap() {
       supabase.from("my_fleet").select("fuel_liters,tank_liters,mine,electric,battery_pct").eq("mine", true),
     ]).then(([o, b, f]) => {
       const all = (f.data as { fuel_liters: number; tank_liters: number; electric: boolean | null; battery_pct: number }[]) ?? [];
+      setNoVehicles(!f.error && all.length === 0);
       const list = all.filter((v) => !v.electric);
       const ev = all.filter((v) => v.electric);
       setElec(ev.length ? {
@@ -594,6 +596,21 @@ export default function GameMap() {
                       style={{ border: "none", background: "transparent", color: "#fff", fontSize: 18, cursor: "pointer", padding: 2 }}>✕</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Nessuna ambulanza: guida al primo acquisto */}
+      {org && noVehicles && (
+        <div className="fs-first">
+          <div style={{ fontSize: 30 }}>🚑</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800 }}>Non hai ancora un&apos;ambulanza</div>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>Comprane una nel Garage: ti guido passo passo. Poi tocca un servizio sulla mappa.</div>
+          </div>
+          <button onClick={() => router.push("/garage")}
+                  style={{ border: "none", background: "#fff", color: "#C2410C", fontWeight: 800, borderRadius: 10, padding: "10px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>
+            Compra ora →
+          </button>
         </div>
       )}
 
@@ -944,6 +961,10 @@ export default function GameMap() {
         .fs-fuel-bar { display: block; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
         .fs-fuel-bar > span { display: block; height: 100%; border-radius: 4px; transition: width .4s, background .4s; }
         @media (max-width: 760px) { .fs-fuel-word { display: none; } }
+        .fs-first { position: absolute; z-index: 1050; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom));
+          width: min(520px, calc(100% - 20px)); display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+          background: linear-gradient(135deg,#F97316,#C2410C); color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: note-glow 2s infinite; }
+        @media (max-width: 760px) { .fs-first { bottom: calc(80px + env(safe-area-inset-bottom)); } }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
           background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;

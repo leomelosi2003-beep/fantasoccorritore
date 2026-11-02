@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, livery, type Organization } from "@/lib/supabase";
 import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
@@ -119,6 +119,12 @@ export default function Garage() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+  // chi non ha ancora un'ambulanza trova subito il negozio aperto con la guida
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (!autoOpened.current && org && models.length && vehicles.length === 0) { autoOpened.current = true; openShop(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org, models.length, vehicles.length]);
 
   const model = models.find((m) => m.id === modelId);
   const builder = builders.find((b) => b.id === builderId);
@@ -128,6 +134,8 @@ export default function Garage() {
   const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
   const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
   const ready = !!model && !!builder && !!picked.monitor && !!picked.barella;
+  // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
+  const step = !model ? 1 : !builder ? 2 : 4;
   const caps = Array.from(new Set(equip.filter((e) => pickedCodes.includes(e.code)).flatMap((e) => e.provides)));
   const eqName = (c: string) => equip.find((e) => e.code === c)?.name ?? c;
   const stripe = FACTION_STYLES.find((s) => s.type === org?.type)?.colors[0] ?? "#F97316";
@@ -269,19 +277,24 @@ export default function Garage() {
     <main style={shell}>
       {/* Testata */}
       <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
+        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 10, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}>
           <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
           <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Garage · {org.name}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
           </div>
-          <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333" }}>🏠 Sedi</button>
-          <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333" }}>🛒 Presidi</button>
-          <button onClick={() => router.push("/usate")} style={{ ...btn, background: "#333" }}>🏷️ Usate</button>
-          {!shop && <button onClick={openShop} style={{ ...btn, background: "#F97316" }}>+ Nuovo mezzo</button>}
+          <div className="gar-links" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏠 Sedi</button>
+            <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🛒 Presidi</button>
+            <button onClick={() => router.push("/usate")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏷️ Usate</button>
+          </div>
         </div>
       </div>
+      <style>{`@media (max-width: 640px) { .gar-links { width: 100%; } .gar-links > button { flex: 1; } }
+        .gar-step { scroll-margin-top: 12px; }
+        .gar-step-on { outline: 3px solid #F97316; outline-offset: 4px; border-radius: 8px; animation: gar-pulse 1.6s infinite; }
+        @keyframes gar-pulse { 0%,100% { outline-color: #F97316 } 50% { outline-color: #FDBA74 } }`}</style>
 
       <div style={wrap}>
         {msg && (
@@ -289,7 +302,35 @@ export default function Garage() {
                         color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>
         )}
 
+        {!shop && (
+          <button onClick={openShop}
+                  style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "#F97316", marginBottom: 14,
+                           boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
+            🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}
+          </button>
+        )}
+
         {/* Acquisto */}
+        {shop && firstVehicle && (
+          <div style={{ ...box, marginBottom: 12, background: "#FFF7ED", border: "2px solid #F97316" }}>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>👋 Benvenuto! Compra la tua prima ambulanza in 4 passi</div>
+            <div style={{ fontSize: 14, color: "#555", marginTop: 4 }}>
+              Senza ambulanza non puoi prendere servizi. Segui i passi evidenziati in arancione: ti porto io avanti.
+            </div>
+            <ol style={{ margin: "8px 0 0", paddingLeft: 22, fontSize: 14, lineHeight: 1.7 }}>
+              {[
+                ["Scegli il modello", !!model],
+                ["Scegli l'allestitore (chi la trasforma in ambulanza)", !!builder],
+                ["Controlla i presidi: per la prima sono già inclusi quelli base", !!model && !!builder],
+                ["Dai una sigla e premi Compra", false],
+              ].map(([t, done], i) => (
+                <li key={i} style={{ fontWeight: step === i + 1 ? 800 : 400, color: done ? "#15803D" : step === i + 1 ? "#C2410C" : "#555" }}>
+                  {done ? "✅ " : step === i + 1 ? "👉 " : ""}{t as string}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         {shop && (
           <div style={{ ...box, marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -297,7 +338,7 @@ export default function Garage() {
               <button onClick={() => setShop(false)} style={{ ...btn, background: "#eee", color: "#111" }}>Annulla</button>
             </div>
 
-            <h3 style={{ marginBottom: 8 }}>1. Modello</h3>
+            <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
               {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setPower(k); setModelId(null); }}
@@ -313,7 +354,7 @@ export default function Garage() {
             )}
             <div style={grid}>
               {models.filter((m) => (power === "elettrica") === !!m.electric).map((m) => (
-                <button key={m.id} onClick={() => setModelId(m.id)}
+                <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
                   <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={livery(m.image_url, org.type)} stripe={stripe} /></div>
@@ -333,10 +374,10 @@ export default function Garage() {
               ))}
             </div>
 
-            <h3 style={{ marginBottom: 8 }}>2. Allestitore</h3>
+            <h3 id="step2" className={`gar-step${step === 2 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>2. Allestitore</h3>
             <div style={grid}>
               {builders.map((b) => (
-                <button key={b.id} onClick={() => setBuilderId(b.id)}
+                <button key={b.id} onClick={() => { setBuilderId(b.id); setTimeout(() => document.getElementById(firstVehicle ? "step4" : "step3")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: builderId === b.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -356,7 +397,7 @@ export default function Garage() {
               ))}
             </div>
 
-            <h3 style={{ marginBottom: 8 }}>3. Presidi</h3>
+            <h3 id="step3" className={`gar-step${step === 3 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>3. Presidi</h3>
             {firstVehicle && (
               <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
                 🎁 <strong>Primo mezzo:</strong> DAE, barella standard, borsoni, tavola spinale e collari sono inclusi gratis.
@@ -410,7 +451,7 @@ export default function Garage() {
                 <div style={{ color: "#a16207", marginTop: 4 }}>Con il solo DAE non puoi fare i servizi ECG: serve un cardiomonitor.</div>}
             </div>
 
-            <h3 style={{ marginBottom: 8 }}>4. Sigla e sede</h3>
+            <h3 id="step4" className={`gar-step${step === 4 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>4. Sigla e sede</h3>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <input value={callSign} onChange={(e) => setCallSign(e.target.value)} maxLength={20} placeholder="Sigla (es. Alfa 1)"
                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }} />
@@ -427,7 +468,14 @@ export default function Garage() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16,
-                          borderTop: "1px solid #eee", paddingTop: 12, gap: 12, flexWrap: "wrap" }}>
+                          borderTop: "1px solid #eee", paddingTop: 12, gap: 12, flexWrap: "wrap",
+                          position: "sticky", bottom: 0, background: "#fff", paddingBottom: "calc(10px + env(safe-area-inset-bottom))",
+                          zIndex: 5, boxShadow: "0 -6px 12px rgba(0,0,0,.06)" }}>
+              {!ready && (
+                <div style={{ width: "100%", fontSize: 13, fontWeight: 700, color: "#C2410C" }}>
+                  {!model ? "👉 Passo 1: scegli il modello qui sopra" : !builder ? "👉 Passo 2: scegli l'allestitore" : "👉 Scegli monitor e barella nei presidi"}
+                </div>
+              )}
               <div>
                 <div style={{ fontSize: 13, color: "#666" }}>Totale{qty > 1 && ` (${qty} × ${euro(total)})`}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: total * qty > org.funds ? "#DC2626" : "#111" }}>{euro(total * qty)}</div>
