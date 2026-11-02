@@ -1,0 +1,5 @@
+-- Registro entrate/uscite (org_ledger) riempito dal trigger org_funds_ledger su organizations.funds; la voce viene da
+-- app.money_reason o dal nome della funzione chiamata (money_reason). Pulizia dopo 30 giorni (cron purge-ledger).
+-- Tassa dell'alleanza (cron alliance-tax ogni ora): 0,1% del patrimonio sopra 1 milione, in beneficenza agli altri membri.
+-- Automatica: 500 € + 0,1% del patrimonio + 0,05% della parte sopra 1 milione. rpc my_ledger_summary, alliance_tax_preview.
+-- (vedi SQL applicato)

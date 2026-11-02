@@ -100,7 +100,7 @@ export default function Automatico() {
                     Sceglie il mezzo più vicino e l&apos;equipaggio più riposato.
                   </div>
                   <div style={{ fontSize: 13, marginTop: 6, fontWeight: 700, color: "#0F766E" }}>
-                    💶 Costa <strong>{hourCost != null ? `${hourCost.toLocaleString("it-IT")} €` : "…"} all&apos;ora</strong> (500 € + 0,1% del patrimonio dell&apos;associazione),
+                    💶 Costa <strong>{hourCost != null ? `${hourCost.toLocaleString("it-IT")} €` : "…"} all&apos;ora</strong> (500 € + 0,1% del patrimonio, + 0,05% della parte sopra 1 milione),
                     pagati all&apos;inizio di ogni ora. Se finiscono i soldi si spegne da sola.
                     {enabled && paidUntil && new Date(paidUntil).getTime() > Date.now() &&
                       <> · Pagata fino alle {new Date(paidUntil).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</>}
