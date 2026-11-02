@@ -1,0 +1,3 @@
+-- Applicato via MCP. MOTO di primo soccorso: vehicle_models.moto (anche automedica=true: stesse regole di attesa/cambio/tavolino).
+-- Y-Scootix e Y-Scootix E. Equipaggio 1-2 soccorritori (MOTO_CREW), arrivo al 60% del tempo (la più veloce).
+-- buy_vehicle: massimo 2 moto per sede (MOTO_LIMIT). my_fleet.moto. auto_medical usa auto_pick_moto_crew per le moto.

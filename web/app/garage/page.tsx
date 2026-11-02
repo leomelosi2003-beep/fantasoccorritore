@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -85,7 +85,7 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
-  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica">("gasolio");
+  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto">("gasolio");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -342,9 +342,9 @@ export default function Garage() {
 
             <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"]] as const).map(([k, l]) => (
+              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setPower(k); setModelId(null); }}
-                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : "#111") : "#e5e5e0",
+                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : "#111") : "#e5e5e0",
                                  color: power === k ? "#fff" : "#111" }}>{l}</button>
               ))}
             </div>
@@ -362,8 +362,15 @@ export default function Garage() {
                 sul giallo si libera appena arriva. Se in 15 minuti non arriva nessuna ambulanza, rientra senza premio.
               </div>
             )}
+            {power === "moto" && (
+              <div style={{ fontSize: 13, background: "#FFEDD5", color: "#7C2D12", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                🛵 <strong>Moto di primo soccorso:</strong> funziona come l&apos;automedica ma senza medico: a bordo <strong>1 o 2 soccorritori</strong>.
+                È il mezzo <strong>più veloce</strong>: arriva per primo, vince il servizio e aspetta una tua ambulanza.
+                Si possono avere <strong>al massimo 2 moto per sede</strong>.
+              </div>
+            )}
             <div style={grid}>
-              {models.filter((m) => power === "automedica" ? !!m.automedica : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
+              {models.filter((m) => power === "moto" ? !!m.moto : power === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
                 <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
@@ -693,6 +700,7 @@ export default function Garage() {
 function garageError(m: string) {
   if (m.includes("BASE_FULL")) return "Il garage della sede è pieno: potenzia la sede o costruiscine un'altra.";
   if (m.includes("NEED_ONE_MONITOR")) return "Scegli un defibrillatore o un cardiomonitor.";
+  if (m.includes("MOTO_LIMIT")) return "🛵 In questa sede ci sono già 2 moto: è il massimo.";
   if (m.includes("NEED_ONE_STRETCHER")) return "Scegli una barella.";
   if (m.includes("BAD_CALL_SIGN")) return "Il nome deve avere tra 2 e 20 caratteri.";
   if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))

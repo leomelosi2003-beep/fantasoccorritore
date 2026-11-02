@@ -7,7 +7,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
-  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -73,6 +73,7 @@ function claimError(m: string) {
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
+  if (m.includes("MOTO_CREW")) return "🛵 Sulla moto vanno solo 1 o 2 soccorritori.";
   if (m.includes("AUTOMEDICA_CREW")) return "🩺 Sull'automedica servono esattamente 1 autista e 1 medico.";
   if (m.includes("AUTOMEDICA_ONLY_EMERGENCY")) return "🩺 L'automedica va solo su codici gialli e rossi.";
   return m;
@@ -98,7 +99,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -169,7 +170,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const required = mission.required_roles ?? {};
   const crewCards = cards.filter((c) => crew.includes(c.id));
   const isAm = !!vehicles.find((v) => v.id === vehicleId)?.automedica;
-  const missing = isAm
+  const isMoto = !!vehicles.find((v) => v.id === vehicleId)?.moto;
+  const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
+  const missing = isMoto
+    ? [...(crewCards.length === 0 ? ["1 soccorritore"] : []), ...(crewCards.some((c) => !SOCC.includes(c.role)) ? ["solo soccorritori"] : [])]
+    : isAm
     ? [...(crewCards.filter((c) => c.role === "autista").length !== 1 ? ["1 autista"] : []),
        ...(crewCards.filter((c) => c.role === "medico").length !== 1 ? ["1 medico"] : []),
        ...(crewCards.length > 2 ? ["solo 2 persone"] : [])]
@@ -191,6 +196,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   // Equipaggio automatico: per ogni posto richiesto, il volontario pronto più riposato del grado giusto
   function autoCrew() {
     const pool = [...available];
+    if (isMoto) {
+      const s1 = pool.find((c) => c.role === "soccorritore_base") ?? pool.find((c) => c.role === "soccorritore_avanzato");
+      setCrew(s1 ? [s1.id] : []);
+      return;
+    }
     if (isAm) {
       const d = pool.find((c) => c.role === "autista" && !c.avanzato) ?? pool.find((c) => c.role === "autista");
       const m = pool.find((c) => c.role === "medico");
@@ -242,7 +252,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     const v = vehicles.find((x) => x.id === vehicleId);
     const arr = new Date((data as { arrives_at: string }).arrives_at);
-    onClaimed(`${v?.automedica ? "🩺" : "🚑"} ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
+    onClaimed(`${v?.moto ? "🛵" : v?.automedica ? "🩺" : "🚑"} ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
   }
 
   const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support || companion) && !full;
@@ -279,7 +289,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         )}
         {isAm && !waiting && (
           <div style={{ background: "#FEE2E2", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#7F1D1D" }}>
-            🩺 <strong>Automedica:</strong> a bordo 1 autista + 1 medico. Arriva prima e si prende lo slot, poi aspetta una tua ambulanza
+            {isMoto ? <>🛵 <strong>Moto:</strong> a bordo 1 o 2 soccorritori (il secondo è facoltativo).</> : <>🩺 <strong>Automedica:</strong> a bordo 1 autista + 1 medico.</>} Arriva prima e si prende lo slot, poi aspetta una tua ambulanza
             (max 15 minuti, altrimenti rientra senza premio). {mission.code === "rosso" ? "Sul rosso segue l'ambulanza in ospedale." : "Sul giallo si libera all'arrivo dell'ambulanza."}
           </div>
         )}
@@ -318,7 +328,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
           <strong>Equipaggio:</strong>{" "}
           <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, verticalAlign: "middle" }}>
-            {Object.entries(isAm ? { autista: 1, medico: 1 } : required).map(([r, n]) => (
+            {Object.entries(isMoto ? { soccorritore_base: 1 } : isAm ? { autista: 1, medico: 1 } : required).map(([r, n]) => (
               <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                 <strong>{n}×</strong><RoleBadge c={{ role: r as Card["role"] }} small />
               </span>
@@ -346,7 +356,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
-                <strong>{v.automedica && "🩺 "}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
+                <strong>{v.moto ? "🛵 " : v.automedica ? "🩺 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
                 <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : `${distOf(v) < 999 ? `${distOf(v).toFixed(1).replace(".", ",")} km` : "idoneo"}${i === 0 ? " · più vicina" : ""}`)}</span>
               </button>
             );
