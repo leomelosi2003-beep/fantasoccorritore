@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
@@ -88,6 +88,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
+  const reloadRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
@@ -100,6 +101,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       setEquip((e.data as Equip[]) ?? []);
       setCards(((c.data as Card[]) ?? []).filter((x) => x.state !== "scaduta"));
     };
+    reloadRef.current = loadAll;
     loadAll();
     const r = setInterval(loadAll, 10_000);
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -206,7 +208,17 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     const { data, error } = await supabase.rpc("claim_mission",
       { p_mission_id: mission.id, p_vehicle_id: vehicleId, p_card_ids: crew });
     setBusy(false);
-    if (error) { setError(claimError(error.message)); return; }
+    if (error) {
+      if (error.message.includes("VEHICLE_BUSY") || error.message.includes("CARD_BUSY")) {
+        // mezzo o volontari appena presi (di solito dalla modalità automatica): aggiorno e scelgo il successivo
+        const name = vehicles.find((x) => x.id === vehicleId)?.call_sign;
+        await reloadRef.current();
+        setUserPicked(false); setVehicleId(null);
+        setError(`${error.message.includes("VEHICLE_BUSY") ? `${name ?? "Il mezzo"} è appena partito (probabilmente con la modalità automatica)` : "Un volontario è appena partito"}: ho aggiornato l'elenco, controlla e riprova.`);
+        return;
+      }
+      setError(claimError(error.message)); return;
+    }
     const v = vehicles.find((x) => x.id === vehicleId);
     const arr = new Date((data as { arrives_at: string }).arrives_at);
     onClaimed(`🚑 ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
