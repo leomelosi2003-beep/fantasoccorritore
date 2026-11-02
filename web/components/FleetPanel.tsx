@@ -101,6 +101,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType }
     const freeAt = j ? new Date(j.completes_at).getTime() : 0;
     const homeAt = j ? new Date(j.route_ends_at).getTime() : 0;
     if (v.lent_to) return { v, color: "#B45309", text: `🤝 Prestata a ${v.lent_to}`, timer: null, order: 3 };
+    if (v.status === "fuori_servizio") return { v, color: "#B45309", text: "🏷️ All'asta (Ambulanze usate)", timer: null, order: 3 };
     if (v.status === "manutenzione" && v.maintenance_until)
       return { v, color: "#6B7280", text: "🔧 In officina", timer: countdown(new Date(v.maintenance_until).getTime() - now), order: 2 };
     if (j && freeAt > now)

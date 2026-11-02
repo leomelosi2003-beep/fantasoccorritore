@@ -116,7 +116,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
     }
-    if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
+    if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : v.status === "fuori_servizio" ? "all'asta" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
     if (!v.electric && (v.fuel_liters ?? 99) < 5) return "senza gasolio: fai il pieno";
     if (v.electric && v.base_lat != null && v.base_lng != null && mission.transport !== "trasferimento") {

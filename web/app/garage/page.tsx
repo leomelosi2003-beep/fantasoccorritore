@@ -28,7 +28,7 @@ const CERT: Record<Cert, { label: string; color: string }> = {
   avanzata_rianimazione: { label: "Rianimazione", color: "#DC2626" },
 };
 const STATUS: Record<Vehicle["status"], string> = {
-  disponibile: "Disponibile", in_servizio: "In servizio", manutenzione: "In manutenzione", fuori_servizio: "Fuori servizio",
+  disponibile: "Disponibile", in_servizio: "In servizio", manutenzione: "In manutenzione", fuori_servizio: "🏷️ All'asta (Ambulanze usate)",
 };
 // Gruppi di presidi: scelta singola per slot, oppure multipla (immobilizzazione)
 const GROUPS: { key: string; title: string; required: boolean; multi: boolean }[] = [
@@ -237,6 +237,24 @@ export default function Garage() {
     load();
   }
 
+  // Mette il mezzo all'asta nella sezione "Ambulanze usate"
+  async function sell(v: Vehicle) {
+    setMsg(null);
+    const { data: mv } = await supabase.rpc("vehicle_market_value", { p_vehicle: v.id });
+    const market = Number(mv ?? 0);
+    const txt = window.prompt(
+      `Vendi ${v.call_sign} all'asta.\nValore di mercato: ${euro(market)}.\n` +
+      `Se in 30 minuti nessuno fa offerte, la ritira il concessionario a ${euro(Math.round(market * 0.6))} (60%).\n\nPrezzo di partenza (€):`,
+      String(Math.round(market * 0.8)));
+    if (txt === null) return;
+    const price = parseInt(txt.replace(/[^0-9]/g, ""), 10);
+    if (!price || price < 1) { setMsg({ ok: false, text: "Prezzo non valido." }); return; }
+    const { error } = await supabase.rpc("create_auction", { p_vehicle: v.id, p_start_price: price, p_minutes: 30 });
+    if (error) { setMsg({ ok: false, text: error.message.includes("VEHICLE_BUSY") ? "Il mezzo deve essere libero in sede (non in servizio, in officina o in prestito)." : garageError(error.message) }); return; }
+    setMsg({ ok: true, text: `🏷️ ${v.call_sign} è all'asta per 30 minuti in "Ambulanze usate".` });
+    load();
+  }
+
   async function maintain(v: Vehicle) {
     setMsg(null);
     const { error } = await supabase.rpc("start_maintenance", { p_vehicle_id: v.id });
@@ -260,6 +278,7 @@ export default function Garage() {
           </div>
           <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333" }}>🏠 Sedi</button>
           <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333" }}>🛒 Presidi</button>
+          <button onClick={() => router.push("/usate")} style={{ ...btn, background: "#333" }}>🏷️ Usate</button>
           {!shop && <button onClick={openShop} style={{ ...btn, background: "#F97316" }}>+ Nuovo mezzo</button>}
         </div>
       </div>
@@ -582,6 +601,16 @@ export default function Garage() {
                                      opacity: cost > org.funds ? 0.4 : 1 }}>
                       Manutenzione · {euro(cost)}
                     </button>
+                  )}
+                  {v.status === "disponibile" && (
+                    <button onClick={() => sell(v)}
+                            style={{ ...btn, width: "100%", marginTop: 8, background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>
+                      🏷️ Vendi all&apos;asta
+                    </button>
+                  )}
+                  {v.status === "fuori_servizio" && (
+                    <button onClick={() => router.push("/usate")}
+                            style={{ ...btn, width: "100%", marginTop: 8, background: "#B45309" }}>🏷️ Vedi l&apos;asta</button>
                   )}
                 </div>
               );
