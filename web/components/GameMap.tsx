@@ -442,13 +442,27 @@ export default function GameMap() {
         {bases.map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url)}>
             <Popup>
-              <strong>{b.name}</strong><br />
-              {b.org_name} · livello {b.level}{b.is_headquarters ? " · sede centrale" : ""}
-              {b.org_id === org?.id && (
-                <><br /><button onClick={() => router.push("/sedi")}
-                        style={{ marginTop: 6, border: "none", background: "#111", color: "#fff", borderRadius: 8,
-                                 padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>🏠 Compra una nuova sede</button></>
-              )}
+              <div style={{ minWidth: 210 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <FactionEmblem type={b.org_type} size={34} logo={b.logo_url} />
+                  <div style={{ lineHeight: 1.2 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>{b.org_name}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>⭐ {b.reputation ?? 0} reputazione</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+                  🏠 <strong>{b.name}</strong>{b.is_headquarters && <span style={{ color: "#B45309", fontWeight: 700 }}> · sede principale</span>}<br />
+                  {!b.is_headquarters && b.hq_name && <>🏛️ Sede principale: <strong>{b.hq_name}</strong><br /></>}
+                  🤝 Alleanza: <strong>{b.alliance ?? "nessuna"}</strong><br />
+                  🚑 Ambulanze qui: <strong>{b.vehicles_here ?? 0}</strong>{b.vehicle_capacity ? ` / ${b.vehicle_capacity} posti` : ""}<br />
+                  📍 In tutto: <strong>{b.org_bases ?? 1}</strong> {b.org_bases === 1 ? "sede" : "sedi"} · <strong>{b.org_vehicles ?? 0}</strong> ambulanze · livello {b.level}
+                </div>
+                {b.org_id === org?.id && (
+                  <button onClick={() => router.push("/sedi")}
+                          style={{ marginTop: 8, width: "100%", border: "none", background: "#111", color: "#fff", borderRadius: 8,
+                                   padding: "7px 10px", cursor: "pointer", fontWeight: 700 }}>🏠 Compra una nuova sede</button>
+                )}
+              </div>
             </Popup>
           </Marker>
         ))}

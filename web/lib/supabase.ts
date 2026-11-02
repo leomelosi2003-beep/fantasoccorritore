@@ -40,6 +40,13 @@ export type BasePin = {
   org_name: string;
   org_type: "blu_giallo" | "arancio_nero" | "rosso_bianco";
   logo_url?: string | null;
+  alliance?: string | null;
+  hq_name?: string | null;
+  org_bases?: number;
+  vehicles_here?: number;
+  org_vehicles?: number;
+  vehicle_capacity?: number;
+  reputation?: number;
   lat: number;
   lng: number;
 };
