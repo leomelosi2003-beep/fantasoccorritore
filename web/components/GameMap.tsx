@@ -268,6 +268,8 @@ export default function GameMap() {
   // carburante: cisterna dell'associazione (1.000 L per sede) e mezzi in riserva
   const [fuel, setFuel] = useState<{ stock: number; cap: number; tanks: number; tanksMax: number; empty: number } | null>(null);
   const fuelAt = useRef(0);
+  // elettricità: compare appena hai almeno un'ambulanza elettrica
+  const [elec, setElec] = useState<{ n: number; pct: number; charging: number; empty: number } | null>(null);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -284,9 +286,17 @@ export default function GameMap() {
     Promise.all([
       supabase.from("organizations").select("fuel_stock").eq("id", org.id).maybeSingle(),
       supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", org.id),
-      supabase.from("my_fleet").select("fuel_liters,tank_liters,mine").eq("mine", true),
+      supabase.from("my_fleet").select("fuel_liters,tank_liters,mine,electric,battery_pct").eq("mine", true),
     ]).then(([o, b, f]) => {
-      const list = (f.data as { fuel_liters: number; tank_liters: number }[]) ?? [];
+      const all = (f.data as { fuel_liters: number; tank_liters: number; electric: boolean | null; battery_pct: number }[]) ?? [];
+      const list = all.filter((v) => !v.electric);
+      const ev = all.filter((v) => v.electric);
+      setElec(ev.length ? {
+        n: ev.length,
+        pct: ev.reduce((t, v) => t + Number(v.battery_pct ?? 0), 0) / ev.length,
+        charging: ev.filter((v) => Number(v.battery_pct ?? 0) < 100).length,
+        empty: ev.filter((v) => Number(v.battery_pct ?? 0) < 15).length,
+      } : null);
       setFuel({
         stock: Number(o.data?.fuel_stock ?? 0), cap: 1000 * Math.max(1, b.count ?? 1),
         tanks: list.reduce((t, v) => t + Number(v.fuel_liters ?? 0), 0),
@@ -488,6 +498,27 @@ export default function GameMap() {
                     <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 700 }}>
                       {fuel.empty} {fuel.empty === 1 ? "mezzo" : "mezzi"} a secco
                     </span>
+                  )}
+                </>
+              );
+            })()}
+          </button>
+        )}
+        {org && elec && (
+          <button className="fs-fleet-btn fs-fuel-btn" onClick={() => setFleetKey((k) => k + 1)}
+                  title={`Batteria media delle tue ${elec.n} ambulanze elettriche. Si ricaricano in 1 minuto quando sono ferme in sede.`}>
+            {(() => {
+              const pct = Math.max(0, Math.min(100, elec.pct));
+              const col = pct < 20 ? "#DC2626" : pct < 50 ? "#EAB308" : "#16A34A";
+              return (
+                <>
+                  <span className="fs-fuel-head">
+                    <span>⚡ <span className="fs-fuel-word">Elettricità </span><strong style={{ color: pct < 20 ? "#DC2626" : "inherit" }}>{Math.round(pct)}%</strong></span>
+                    <span style={{ color: "#888", fontWeight: 500 }}>{elec.n} {elec.n === 1 ? "mezzo" : "mezzi"}</span>
+                  </span>
+                  <span className="fs-fuel-bar"><span style={{ width: `${pct}%`, background: col }} /></span>
+                  {elec.charging > 0 && (
+                    <span style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>🔌 {elec.charging} in ricarica</span>
                   )}
                 </>
               );

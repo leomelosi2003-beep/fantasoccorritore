@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -85,6 +85,7 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
+  const [power, setPower] = useState<"gasolio" | "elettrica">("gasolio");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -278,8 +279,21 @@ export default function Garage() {
             </div>
 
             <h3 style={{ marginBottom: 8 }}>1. Modello</h3>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"]] as const).map(([k, l]) => (
+                <button key={k} onClick={() => { setPower(k); setModelId(null); }}
+                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : "#111") : "#e5e5e0",
+                                 color: power === k ? "#fff" : "#111" }}>{l}</button>
+              ))}
+            </div>
+            {power === "elettrica" && (
+              <div style={{ fontSize: 13, background: "#DCFCE7", color: "#166534", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                ⚡ Niente gasolio: si ricaricano gratis in <strong>1 minuto</strong> quando sono ferme in sede.
+                Hanno però poca autonomia: se il servizio (andata e ritorno) è più lungo della carica rimasta, non partono.
+              </div>
+            )}
             <div style={grid}>
-              {models.map((m) => (
+              {models.filter((m) => (power === "elettrica") === !!m.electric).map((m) => (
                 <button key={m.id} onClick={() => setModelId(m.id)}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
@@ -289,6 +303,7 @@ export default function Garage() {
                   <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
                   <Bar label="Affidabilità" value={m.base_reliability} color="#16A34A" />
                   <Bar label="Durata" value={m.base_durability} color="#9333EA" />
+                  {m.electric && <Bar label={`Autonomia ${m.range_km ?? 0} km`} value={Math.min(100, ((m.range_km ?? 0) / 150) * 100)} color="#16A34A" />}
                   <div style={{ fontWeight: 700, marginTop: 8 }}>{euro(m.base_cost)}</div>
                 </button>
               ))}

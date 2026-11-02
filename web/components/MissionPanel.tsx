@@ -7,7 +7,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
-  fuel_liters?: number };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -55,6 +55,7 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
 function claimError(m: string) {
   if (m.includes("MISSION_FULL_OR_CLOSED")) return "Troppo tardi: il servizio è stato preso da qualcun altro o è scaduto.";
   if (m.includes("ALREADY_ON_MISSION")) return "Hai già un mezzo su questo servizio.";
+  if (m.includes("NO_CHARGE")) return "🔋 Batteria insufficiente per andata e ritorno: aspetta che si ricarichi in sede (1 minuto).";
   if (m.includes("TRANSFER_ONLY")) return "Questo mezzo a passo lungo fa solo trasferimenti.";
   if (m.includes("TOO_MANY_OWN")) return "Hai già 5 mezzi su questo servizio: è il massimo.";
   if (m.includes("MISSION_LOCKED")) return "🔒 Servizio bloccato: un'altra associazione ci ha già mandato due mezzi.";
@@ -91,7 +92,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -115,7 +116,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
-    if ((v.fuel_liters ?? 99) < 5) return "senza gasolio: fai il pieno";
+    if (!v.electric && (v.fuel_liters ?? 99) < 5) return "senza gasolio: fai il pieno";
+    if (v.electric && v.base_lat != null && v.base_lng != null && mission.transport !== "trasferimento") {
+      const need = km(v.base_lat, v.base_lng, mission.lat, mission.lng) * 2 * 1.3;
+      const have = (Number(v.battery_pct ?? 0) / 100) * (v.range_km ?? 0);
+      if (need > have) return `batteria scarica: ${Math.round(have)} km, ne servono ${Math.round(need)}`;
+    }
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
       return "solo trasporti";
     const p = provides(v.equipment);

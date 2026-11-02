@@ -1,0 +1,5 @@
+-- Ambulanze elettriche: versione "E" di ogni modello (stesso prezzo, niente gasolio, autonomia corta).
+-- vehicle_models.electric / range_km; vehicles.battery_pct. Consumo batteria a fine servizio (trip_km),
+-- partenza bloccata se andata+ritorno > autonomia rimasta (NO_CHARGE, planned_km).
+-- Ricarica: recharge_electric() ogni minuto, batteria piena dopo 1 minuto fermi in sede.
+-- my_fleet: electric, battery_pct, range_km. (vedi SQL applicato)

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 
 type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
-  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null; fuel_liters?: number; tank_liters?: number;
+  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null; fuel_liters?: number; tank_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null;
 };
 type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; arrives_at: string;
   route_ends_at: string; hospital: string | null; transport?: string | null;
@@ -75,7 +75,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
 
   useEffect(() => {
     supabase.from("my_fleet")
-      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name,fuel_liters,tank_liters")
+      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name,fuel_liters,tank_liters,electric,battery_pct,range_km")
       .order("call_sign")
       .then(({ data }) => setFleet((data as Vehicle[]) ?? []));
   }, [refreshKey]);
@@ -109,7 +109,9 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
     if (j && homeAt > now)
       return { v, color: "#15803D", text: `✅ Libera · in rientro (${countdown(homeAt - now)})`, timer: null, order: 1 };
     if (v.wear >= 80) return { v, color: "#B45309", text: "⚠️ Da revisionare", timer: null, order: 2 };
-    if ((v.fuel_liters ?? 99) < 5) return { v, color: "#DC2626", text: "⛽ Senza gasolio: non parte, fai il pieno", timer: null, order: 2 };
+    if (!v.electric && (v.fuel_liters ?? 99) < 5) return { v, color: "#DC2626", text: "⛽ Senza gasolio: non parte, fai il pieno", timer: null, order: 2 };
+    if (v.electric && Number(v.battery_pct ?? 100) < 100)
+      return { v, color: "#15803D", text: `🔌 In ricarica in sede (1 minuto)${v.base_name ? ` · ${v.base_name}` : ""}`, timer: null, order: 1 };
     return { v, color: "#15803D", text: `✅ Libera in sede${v.base_name ? ` · ${v.base_name}` : ""}`, timer: null, order: 1 };
   }).sort((a, b) => a.order - b.order || (a.v.call_sign > b.v.call_sign ? 1 : -1));
 
@@ -135,7 +137,14 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 11, color: "#15803D" }}> · da {v.lent_from}</span>}
                   </span>
-                  {v.fuel_liters != null && (
+                  {v.electric && (
+                    <span title={`Batteria: ${Math.round(Number(v.battery_pct ?? 0))}% · circa ${Math.round(Number(v.battery_pct ?? 0) / 100 * (v.range_km ?? 0))} km di autonomia`}
+                          style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0,
+                                   color: Number(v.battery_pct ?? 0) < 25 ? "#DC2626" : Number(v.battery_pct ?? 0) < 60 ? "#B45309" : "#15803D" }}>
+                      {Number(v.battery_pct ?? 0) < 100 ? "🔌" : "🔋"} {Math.round(Number(v.battery_pct ?? 0))}%
+                    </span>
+                  )}
+                  {!v.electric && v.fuel_liters != null && (
                     <span title={`Gasolio: ${Math.round(Number(v.fuel_liters))} L su ${v.tank_liters ?? 80} L`}
                           style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0,
                                    color: Number(v.fuel_liters) < 5 ? "#DC2626" : Number(v.fuel_liters) / Number(v.tank_liters ?? 80) < 0.25 ? "#B45309" : "#555" }}>
