@@ -1,0 +1,2 @@
+-- A ogni partenza (claim_mission e claim_mission_as) il mezzo fa il pieno dalla cisterna: il gasolio comprato scende
+-- a ogni attivazione. (vedi SQL applicato)
