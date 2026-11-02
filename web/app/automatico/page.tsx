@@ -25,6 +25,7 @@ export default function Automatico() {
   const [enabled, setEnabled] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [reserve, setReserve] = useState(0);
+  const [steal, setSteal] = useState(false);
   const [fleet, setFleet] = useState(0);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -40,10 +41,10 @@ export default function Automatico() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/"); return; }
-      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve")
+      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve,auto_steal_red")
         .eq("owner_id", session.user.id).maybeSingle();
       if (o) {
-        setEnabled(!!o.auto_enabled); setCodes(o.auto_codes ?? []); setReserve(o.auto_reserve ?? 0);
+        setEnabled(!!o.auto_enabled); setCodes(o.auto_codes ?? []); setReserve(o.auto_reserve ?? 0); setSteal(!!o.auto_steal_red);
         const { count } = await supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", o.id);
         setFleet(count ?? 0);
       }
@@ -54,11 +55,11 @@ export default function Automatico() {
     return () => clearInterval(t);
   }, [router]);
 
-  async function save(next: { enabled?: boolean; codes?: string[]; reserve?: number }) {
-    const e = next.enabled ?? enabled, c = next.codes ?? codes, r = next.reserve ?? reserve;
-    setEnabled(e); setCodes(c); setReserve(r);
+  async function save(next: { enabled?: boolean; codes?: string[]; reserve?: number; steal?: boolean }) {
+    const e = next.enabled ?? enabled, c = next.codes ?? codes, r = next.reserve ?? reserve, st = next.steal ?? steal;
+    setEnabled(e); setCodes(c); setReserve(r); setSteal(st);
     setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("set_auto_mode", { p_enabled: e, p_codes: c, p_reserve: r });
+    const { error } = await supabase.rpc("set_auto_mode", { p_enabled: e, p_codes: c, p_reserve: r, p_steal_red: st });
     setBusy(false);
     if (error) { setMsg({ ok: false, text: "Non riesco a salvare, riprova." }); return; }
     setMsg({ ok: true, text: e ? (c.length ? "🤖 Modalità automatica attiva: salvato." : "Attiva, ma non hai scelto nessun tipo di servizio.") : "Modalità automatica spenta." });
@@ -118,6 +119,26 @@ export default function Automatico() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            <div style={{ ...card, border: steal ? "2px solid #DC2626" : undefined }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800 }}>🚨 Precedenza ai rossi: rubali agli altri</div>
+                  <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
+                    Appena esce un codice rosso le tue ambulanze partono subito, senza aspettare il minuto di attesa.
+                    Se un rosso è già stato preso da un altro giocatore ma nessuno è ancora arrivato, ci manda l&apos;ambulanza
+                    che arriverebbe prima di lui per soffiarglielo. Non funziona sui rossi bloccati (due mezzi della stessa associazione).
+                  </div>
+                  {steal && !codes.includes("rosso") && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginTop: 4 }}>Attiva anche i codici rossi qui sopra.</div>}
+                </div>
+                <button disabled={busy} onClick={() => save({ steal: !steal })} aria-label="Precedenza ai rossi"
+                        style={{ width: 64, height: 36, borderRadius: 18, border: "none", cursor: "pointer", position: "relative",
+                                 background: steal ? "#DC2626" : "#ccc", transition: "background .2s", flexShrink: 0 }}>
+                  <span style={{ position: "absolute", top: 4, left: steal ? 32 : 4, width: 28, height: 28, borderRadius: "50%",
+                                 background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
+                </button>
               </div>
             </div>
 
