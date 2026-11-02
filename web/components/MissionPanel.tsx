@@ -115,7 +115,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
-    if ((v.fuel_liters ?? 99) < 5) return "in riserva: fai il pieno";
+    if ((v.fuel_liters ?? 99) < 5) return "senza gasolio: fai il pieno";
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
       return "solo trasporti";
     const p = provides(v.equipment);

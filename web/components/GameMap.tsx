@@ -9,6 +9,7 @@ import { supabase, type MissionPin, type BasePin, type Organization } from "@/li
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
+import FuelBattery from "@/components/FuelBattery";
 import ChatPanel from "@/components/ChatPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
@@ -265,6 +266,9 @@ export default function GameMap() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
   const [fleetKey, setFleetKey] = useState(0);
+  // carburante: cisterna dell'associazione (1.000 L per sede) e mezzi in riserva
+  const [fuel, setFuel] = useState<{ stock: number; cap: number; tanks: number; tanksMax: number; empty: number } | null>(null);
+  const fuelAt = useRef(0);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -274,6 +278,24 @@ export default function GameMap() {
   useEffect(() => {
     supabase.from("hospitals_map").select("*").then(({ data, error }) => { if (!error) setHospitals((data as Hospital[]) ?? []); });
   }, []);
+
+  useEffect(() => {
+    if (!org?.id || Date.now() - fuelAt.current < 8000) return;
+    fuelAt.current = Date.now();
+    Promise.all([
+      supabase.from("organizations").select("fuel_stock").eq("id", org.id).maybeSingle(),
+      supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", org.id),
+      supabase.from("my_fleet").select("fuel_liters,tank_liters,mine").eq("mine", true),
+    ]).then(([o, b, f]) => {
+      const list = (f.data as { fuel_liters: number; tank_liters: number }[]) ?? [];
+      setFuel({
+        stock: Number(o.data?.fuel_stock ?? 0), cap: 1000 * Math.max(1, b.count ?? 1),
+        tanks: list.reduce((t, v) => t + Number(v.fuel_liters ?? 0), 0),
+        tanksMax: list.reduce((t, v) => t + Number(v.tank_liters ?? 80), 0),
+        empty: list.filter((v) => Number(v.fuel_liters ?? 0) < 5).length,
+      });
+    });
+  }, [org?.id, fleetKey]);
 
   async function refreshOrg() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -450,6 +472,22 @@ export default function GameMap() {
         ) : loggedIn === false ? (
           <button className="fs-pill" onClick={() => router.push("/login")} style={{ fontWeight: 700 }}>Accedi / Registrati</button>
         ) : null}
+        {org && fuel && (
+          <button className="fs-pill fs-fuel" onClick={() => router.push("/garage")}
+                  title={`Cisterna: ${Math.round(fuel.stock)} L su ${fuel.cap} L · Serbatoi dei mezzi: ${Math.round(fuel.tanks)} L su ${fuel.tanksMax} L. Tocca per andare al benzinaio.`}>
+            <span className="fs-fuel-row">
+              <span className="fs-fuel-lbl">⛽ Cisterna</span>
+              <FuelBattery pct={(fuel.stock / fuel.cap) * 100} width={38} label={`${Math.round(fuel.stock)} L`} />
+            </span>
+            {fuel.tanksMax > 0 && (
+              <span className="fs-fuel-row">
+                <span className="fs-fuel-lbl">🚑 Mezzi</span>
+                <FuelBattery pct={(fuel.tanks / fuel.tanksMax) * 100} width={38}
+                             label={fuel.empty > 0 ? `${fuel.empty} a secco` : `${Math.round((fuel.tanks / fuel.tanksMax) * 100)}%`} />
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Le mie ambulanze con il conto alla rovescia */}
@@ -768,6 +806,9 @@ export default function GameMap() {
           12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
           80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
+        .fs-pill.fs-fuel { flex-direction: column; align-items: stretch; gap: 3px; padding: 6px 10px; margin-top: 6px; width: fit-content; }
+        .fs-fuel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .fs-fuel-lbl { font-size: 11px; font-weight: 700; color: #555; }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
           background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
