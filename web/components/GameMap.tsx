@@ -863,7 +863,12 @@ export default function GameMap() {
               Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
               {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
               Scade: {new Date(m.expires_at).toLocaleTimeString("it-IT")}
-              {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
+              {m.won_by_automedica && (
+                <div style={{ marginTop: 8, background: "#FEE2E2", color: "#7F1D1D", borderRadius: 8, padding: "6px 8px", fontSize: 12, fontWeight: 700 }}>
+                  🩺🏆 Vinto a tavolino da {m.won_by_automedica}: la sua automedica è arrivata per prima.
+                </div>
+              )}
+              {org && m.status === "aperta" && m.slots_taken < m.slots_total && (!m.won_by_automedica || m.won_by_automedica === org.name) && (
                 <div style={{ marginTop: 8 }}>
                   <button onClick={() => setSelected(m)}
                           style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",

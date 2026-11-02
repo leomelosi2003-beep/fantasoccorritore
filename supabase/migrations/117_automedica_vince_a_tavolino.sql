@@ -1,0 +1,4 @@
+-- Applicato via MCP. automedica_lock_org(mission): l'associazione la cui automedica è arrivata per prima.
+-- claim_mission/_as: MISSION_WON_BY_AUTOMEDICA per le altre associazioni.
+-- resolve_races: annulla (senza premio) i mezzi delle altre associazioni sul servizio vinto a tavolino.
+-- missions_map.won_by_automedica (nome associazione).
