@@ -125,15 +125,16 @@ export default function Automatico() {
             <div style={{ ...card, border: steal ? "2px solid #DC2626" : undefined }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800 }}>🚨 Precedenza ai rossi: rubali agli altri</div>
+                  <div style={{ fontWeight: 800 }}>⚔️ Modalità aggressiva: occupa tutto e ruba i servizi</div>
                   <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
-                    Appena esce un codice rosso le tue ambulanze partono subito, senza aspettare il minuto di attesa.
-                    Se un rosso è già stato preso da un altro giocatore ma nessuno è ancora arrivato, ci manda l&apos;ambulanza
-                    che arriverebbe prima di lui per soffiarglielo. Non funziona sui rossi bloccati (due mezzi della stessa associazione).
+                    Le tue ambulanze partono subito su ogni servizio, senza il minuto di attesa, per non lasciarne agli altri.
+                    <br />🔴 <strong>Rosso:</strong> ci manda <strong>due ambulanze</strong>, così il servizio è bloccato e nessuno può più contenderlo.
+                    <br />🟡 <strong>Giallo:</strong> se l&apos;ha già preso un altro giocatore ma nessuno è arrivato, ci manda la tua ambulanza più vicina per arrivare prima e soffiarglielo.
+                    <br />Vale anche sui rossi presi da altri, tranne quelli già bloccati con due mezzi.
                   </div>
-                  {steal && !codes.includes("rosso") && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginTop: 4 }}>Attiva anche i codici rossi qui sopra.</div>}
+                  {steal && !codes.includes("rosso") && !codes.includes("giallo") && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginTop: 4 }}>Attiva i codici rossi e/o gialli qui sopra.</div>}
                 </div>
-                <button disabled={busy} onClick={() => save({ steal: !steal })} aria-label="Precedenza ai rossi"
+                <button disabled={busy} onClick={() => save({ steal: !steal })} aria-label="Modalità aggressiva"
                         style={{ width: 64, height: 36, borderRadius: 18, border: "none", cursor: "pointer", position: "relative",
                                  background: steal ? "#DC2626" : "#ccc", transition: "background .2s", flexShrink: 0 }}>
                   <span style={{ position: "absolute", top: 4, left: steal ? 32 : 4, width: 28, height: 28, borderRadius: "50%",
