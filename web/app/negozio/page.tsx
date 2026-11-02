@@ -54,7 +54,8 @@ export default function Negozio() {
 
   function open(e: Equip) {
     setSelected(e); setMsg(null);
-    const first = vehicles.find((v) => !v.equipment.includes(e.code) && v.status === "disponibile");
+    const first = vehicles.find((v) => !v.equipment.includes(e.code) && v.status === "disponibile")
+      ?? vehicles.find((v) => !v.equipment.includes(e.code) && v.status !== "fuori_servizio");
     setVehicleId(first?.id ?? "");
   }
 
@@ -140,8 +141,8 @@ export default function Negozio() {
               {vehicles.map((v) => {
                 const has = v.equipment.includes(selected.code);
                 return (
-                  <option key={v.id} value={v.id} disabled={has || v.status !== "disponibile"}>
-                    {v.call_sign}{has ? " (già montato)" : v.status !== "disponibile" ? " (occupato)" : ""}
+                  <option key={v.id} value={v.id} disabled={has || v.status === "fuori_servizio"}>
+                    {v.call_sign}{has ? " (già montato)" : v.status === "in_servizio" ? " (in servizio)" : v.status === "manutenzione" ? " (in officina)" : ""}
                   </option>
                 );
               })}
@@ -149,7 +150,7 @@ export default function Negozio() {
             <button onClick={() => setSelected(null)} style={{ ...btn, background: "#eee", color: "#111" }}>Annulla</button>
             <button onClick={buy} disabled={!vehicleId || busy || selected.cost > org.funds}
                     style={{ ...btn, background: "#F97316", opacity: !vehicleId || busy || selected.cost > org.funds ? 0.4 : 1 }}>
-              {busy ? "Acquisto…" : selected.cost > org.funds ? "Fondi insufficienti" : "Compra e monta"}
+              {busy ? "Acquisto…" : selected.cost > org.funds ? "Fondi insufficienti" : !vehicleId ? "Scegli il mezzo" : "Compra e monta"}
             </button>
             {replaced && (
               <div style={{ flexBasis: "100%", fontSize: 13, color: "#a16207" }}>
