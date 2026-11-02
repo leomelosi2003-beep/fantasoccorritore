@@ -1,0 +1,3 @@
+-- Modalità automatica: partenza istantanea quando i volontari tornano disponibili.
+-- Trigger statement-level cards_ready_dispatch su card_inventory (stato -> 'attiva') chiama auto_dispatch_org.
+-- wake_rested_cards() ogni 10 secondi (cron 'wake-rested') sveglia chi ha finito il riposo. (vedi SQL applicato)
