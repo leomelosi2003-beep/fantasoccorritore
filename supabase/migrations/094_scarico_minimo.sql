@@ -1,0 +1,2 @@
+-- In ospedale almeno 1 minuto per scaricare il paziente: min_hospital_stop(route, 60) applicato in claim_mission
+-- e claim_mission_as dopo l'accorciamento dei tempi (sposta in avanti il resto del percorso). (vedi SQL applicato)
