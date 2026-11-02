@@ -8,7 +8,8 @@ import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
-  base_reliability: number; base_durability: number; image_url: string | null; description: string | null };
+  base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
+  tank_liters: number; consumption_l100: number };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -17,7 +18,7 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
-  speed_level?: number };
+  speed_level?: number; fuel_liters: number };
 const SPEED_COST = [6000, 12000, 24000];
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
@@ -43,6 +44,8 @@ const CAN: Record<string, string> = {
   cucchiaio: "Cadute dall'alto", steccobende: "Fratture",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
+const litri = (n: number) => (Math.round(n * 10) / 10).toLocaleString("it-IT") + " L";
+const RISERVA = 5; // sotto questi litri il mezzo non parte
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 980, margin: "0 auto", padding: 16 };
@@ -84,6 +87,9 @@ export default function Garage() {
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [fuelStock, setFuelStock] = useState(0);
+  const [fuelPrice, setFuelPrice] = useState<{ price_eur: number; source: string | null } | null>(null);
+  const [liters, setLiters] = useState(100);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -92,13 +98,17 @@ export default function Garage() {
       .eq("owner_id", session.user.id).maybeSingle();
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
-    const [m, b, bs, v, e] = await Promise.all([
+    const [m, b, bs, v, e, fs, fp] = await Promise.all([
       supabase.from("vehicle_models").select("*").eq("is_active", true).order("base_cost"),
       supabase.from("builders").select("*").eq("is_active", true).order("cost"),
       supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters").eq("org_id", o.id).order("built_at"),
       supabase.from("vehicles").select("*").eq("org_id", o.id).order("created_at"),
       supabase.from("equipment").select("*").order("slot").order("sort"),
+      supabase.from("organizations").select("fuel_stock").eq("id", o.id).maybeSingle(),
+      supabase.from("fuel_prices").select("price_eur,source").eq("fuel", "gasolio").maybeSingle(),
     ]);
+    setFuelStock(Number(fs.data?.fuel_stock ?? 0));
+    setFuelPrice(fp.data ? { price_eur: Number(fp.data.price_eur), source: fp.data.source } : null);
     setEquip((e.data as Equip[]) ?? []);
     setModels((m.data as Model[]) ?? []);
     setBuilders((b.data as Builder[]) ?? []);
@@ -203,6 +213,26 @@ export default function Garage() {
     const { error } = await supabase.rpc("upgrade_vehicle_speed", { p_vehicle: v.id });
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
     setMsg({ ok: true, text: `⚡ ${v.call_sign} ora è al livello ${lvl + 1}: più veloce!` });
+    load();
+  }
+
+  // Benzinaio: compra gasolio per la cisterna dell'associazione
+  async function buyFuel() {
+    if (!liters || liters < 1) return;
+    setMsg(null);
+    const { data, error } = await supabase.rpc("buy_fuel", { p_liters: Math.floor(liters) });
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    const r = data as { liters: number; cost: number };
+    setMsg({ ok: true, text: `⛽ Comprati ${litri(r.liters)} di gasolio per ${euro(r.cost)}.` });
+    load();
+  }
+
+  // Pieno dalla cisterna: a un mezzo o a tutti
+  async function refuel(v: Vehicle | null) {
+    setMsg(null);
+    const { data, error } = await supabase.rpc("refuel", { p_vehicle: v?.id ?? null });
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    setMsg({ ok: true, text: `⛽ ${v ? v.call_sign : "Mezzi"}: messi ${litri(Number(data))} nel serbatoio.` });
     load();
   }
 
@@ -372,6 +402,54 @@ export default function Garage() {
           </div>
         )}
 
+        {/* Benzinaio */}
+        {(() => {
+          const cap = 1000 * Math.max(1, bases.length);
+          const price = fuelPrice?.price_eur ?? 0;
+          const room = Math.max(0, Math.floor(cap - fuelStock));
+          const qtyL = Math.min(Math.max(0, Math.floor(liters || 0)), room);
+          const cost = Math.ceil(qtyL * price);
+          const needFull = vehicles.reduce((t, v) => t + Math.max(0, (byId.model[v.model_id]?.tank_liters ?? 80) - v.fuel_liters), 0);
+          return (
+            <div style={{ ...box, marginTop: 16, marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                <h2 style={{ margin: 0 }}>⛽ Benzinaio</h2>
+                <span style={{ fontSize: 14 }}>Gasolio self: <strong>{price.toLocaleString("it-IT", { minimumFractionDigits: 3 })} €/L</strong></span>
+              </div>
+              {fuelPrice?.source && <div style={{ fontSize: 12, color: "#888" }}>Prezzo reale · {fuelPrice.source}</div>}
+              <Bar label={`Cisterna: ${litri(fuelStock)} su ${litri(cap)}`} value={(fuelStock / cap) * 100} color="#0EA5E9" />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+                {[50, 100, 250, 500].map((n) => (
+                  <button key={n} onClick={() => setLiters(n)}
+                          style={{ ...btn, padding: "6px 10px", fontSize: 13, background: liters === n ? "#0EA5E9" : "#eee", color: liters === n ? "#fff" : "#111" }}>
+                    {n} L
+                  </button>
+                ))}
+                <input type="number" min={1} max={room} value={liters} onChange={(e) => setLiters(Number(e.target.value))}
+                       style={{ width: 90, padding: "7px 8px", borderRadius: 8, border: "1px solid #ccc", fontSize: 14 }} />
+                <span style={{ fontSize: 14 }}>litri</span>
+                <button onClick={buyFuel} disabled={qtyL < 1 || cost > org.funds}
+                        style={{ ...btn, background: "#0EA5E9", opacity: qtyL < 1 || cost > org.funds ? 0.4 : 1 }}>
+                  Compra {litri(qtyL)} · {euro(cost)}
+                </button>
+              </div>
+              {liters > room && <div style={{ fontSize: 12, color: "#a00", marginTop: 4 }}>La cisterna ha posto solo per {litri(room)}.</div>}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+                <button onClick={() => refuel(null)} disabled={fuelStock <= 0 || needFull <= 0}
+                        style={{ ...btn, opacity: fuelStock <= 0 || needFull <= 0 ? 0.4 : 1 }}>
+                  Pieno a tutti i mezzi
+                </button>
+                <span style={{ fontSize: 13, color: "#666" }}>
+                  {needFull > 0 ? `Servono ${litri(needFull)} per riempire tutti i serbatoi.` : "Tutti i serbatoi sono pieni."}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>
+                Ogni servizio consuma gasolio in base ai km. Sotto {RISERVA} litri il mezzo resta in sede. In modalità automatica il pieno si fa da solo dalla cisterna.
+              </div>
+            </div>
+          );
+        })()}
+
         {/* I miei mezzi */}
         <h2>I tuoi mezzi</h2>
         {vehicles.length === 0 ? (
@@ -437,6 +515,31 @@ export default function Garage() {
                   <Bar label="Affidabilità" value={v.reliability} color="#16A34A" />
                   <Bar label="Durata" value={v.durability} color="#9333EA" />
                   <Bar label="Usura" value={v.wear} color={v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#EAB308" : "#999"} />
+                  {(() => {
+                    const tank = m?.tank_liters ?? 80;
+                    const pct = (v.fuel_liters / tank) * 100;
+                    return (
+                      <>
+                        <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>⛽ Gasolio{v.fuel_liters < RISERVA ? " · IN RISERVA" : ""}</span>
+                            <span>{litri(v.fuel_liters)} / {tank} L</span>
+                          </div>
+                          <div style={{ height: 6, background: "#eee", borderRadius: 3 }}>
+                            <div style={{ width: `${Math.min(100, pct)}%`, height: 6, borderRadius: 3,
+                                          background: v.fuel_liters < RISERVA ? "#DC2626" : pct < 25 ? "#EAB308" : "#0EA5E9" }} />
+                          </div>
+                        </div>
+                        {v.fuel_liters < tank - 0.5 && v.status !== "in_servizio" && (
+                          <button onClick={() => refuel(v)} disabled={fuelStock <= 0}
+                                  style={{ ...btn, width: "100%", marginTop: 8, background: v.fuel_liters < RISERVA ? "#DC2626" : "#0EA5E9",
+                                           opacity: fuelStock <= 0 ? 0.4 : 1 }}>
+                            {fuelStock <= 0 ? "Cisterna vuota: compra gasolio" : `Fai il pieno · ${litri(Math.min(tank - v.fuel_liters, fuelStock))}`}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div style={{ fontSize: 13, marginTop: 8 }}>
                     {STATUS[v.status]}
                     {v.status === "manutenzione" && v.maintenance_until &&
@@ -468,6 +571,10 @@ function garageError(m: string) {
     return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
   if (m.includes("MAX_LEVEL")) return "È già al livello massimo.";
+  if (m.includes("TANK_TOO_SMALL")) return `La cisterna è quasi piena: c'è posto solo per ${m.split("TANK_TOO_SMALL:")[1]?.split(/\D/)[0] ?? "pochi"} litri.`;
+  if (m.includes("NO_FUEL_STOCK")) return "La cisterna è vuota: compra prima il gasolio al benzinaio.";
+  if (m.includes("TANK_FULL")) return "Il serbatoio è già pieno.";
+  if (m.includes("BAD_LITERS")) return "Scegli quanti litri comprare.";
   if (m.includes("buy_vehicle") || m.includes("function")) return "Il garage non è ancora attivo nel database.";
   return friendlyError(m);
 }

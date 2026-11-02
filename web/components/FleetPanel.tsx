@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 
 type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
-  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null;
+  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null; fuel_liters?: number;
 };
 type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; arrives_at: string;
   route_ends_at: string; hospital: string | null; transport?: string | null;
@@ -75,7 +75,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
 
   useEffect(() => {
     supabase.from("my_fleet")
-      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name")
+      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name,fuel_liters")
       .order("call_sign")
       .then(({ data }) => setFleet((data as Vehicle[]) ?? []));
   }, [refreshKey]);
@@ -109,6 +109,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
     if (j && homeAt > now)
       return { v, color: "#15803D", text: `✅ Libera · in rientro (${countdown(homeAt - now)})`, timer: null, order: 1 };
     if (v.wear >= 80) return { v, color: "#B45309", text: "⚠️ Da revisionare", timer: null, order: 2 };
+    if ((v.fuel_liters ?? 99) < 5) return { v, color: "#B45309", text: "⛽ In riserva: fai il pieno", timer: null, order: 2 };
     return { v, color: "#15803D", text: `✅ Libera in sede${v.base_name ? ` · ${v.base_name}` : ""}`, timer: null, order: 1 };
   }).sort((a, b) => a.order - b.order || (a.v.call_sign > b.v.call_sign ? 1 : -1));
 

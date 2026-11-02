@@ -6,7 +6,8 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean };
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
+  fuel_liters?: number };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -64,6 +65,7 @@ function claimError(m: string) {
   if (m.includes("MISSING_ROLE")) return "Mancano dei ruoli nell'equipaggio.";
   if (m.includes("MISSING_EQUIPMENT")) return "Il mezzo non ha i presidi richiesti.";
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
+  if (m.includes("NO_FUEL")) return "Il mezzo è in riserva: fai il pieno nel Garage (⛽ Benzinaio).";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
@@ -89,7 +91,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -113,6 +115,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
     if (v.wear >= 80) return "da revisionare";
+    if ((v.fuel_liters ?? 99) < 5) return "in riserva: fai il pieno";
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
       return "solo trasporti";
     const p = provides(v.equipment);
