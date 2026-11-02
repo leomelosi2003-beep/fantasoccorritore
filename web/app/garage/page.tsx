@@ -135,7 +135,7 @@ export default function Garage() {
   const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
   const ready = !!model && !!builder && !!picked.monitor && !!picked.barella;
   // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
-  const step = !model ? 1 : !builder ? 2 : 4;
+  const step: number = !model ? 1 : !builder ? 2 : 4;
   const caps = Array.from(new Set(equip.filter((e) => pickedCodes.includes(e.code)).flatMap((e) => e.provides)));
   const eqName = (c: string) => equip.find((e) => e.code === c)?.name ?? c;
   const stripe = FACTION_STYLES.find((s) => s.type === org?.type)?.colors[0] ?? "#F97316";
