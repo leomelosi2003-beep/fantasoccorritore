@@ -7,7 +7,7 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 
 const PickBaseMap = dynamic(() => import("@/components/PickBaseMap"), { ssr: false });
 
-type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean };
+type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean; level: number };
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
@@ -18,6 +18,9 @@ const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 // Stesso calcolo del server: la prima è gratis, poi 5.000 € e ogni sede costa il 60% in più della precedente
 const baseCost = (owned: number) => (owned === 0 ? 0 : Math.round(5000 * Math.pow(1.6, owned - 1)));
+// Stesso calcolo del server (base_upgrade_cost): ogni livello aggiunge 1 posto ambulanza
+const UPGRADE: Record<number, number> = { 1: 8000, 2: 14000, 3: 22000, 4: 32000, 5: 45000, 6: 60000, 7: 80000, 8: 100000, 9: 125000 };
+const MAX_LEVEL = 10;
 
 export default function Sedi() {
   const router = useRouter();
@@ -38,7 +41,7 @@ export default function Sedi() {
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
     const [bs, vs] = await Promise.all([
-      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters").eq("org_id", o.id).order("built_at"),
+      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level").eq("org_id", o.id).order("built_at"),
       supabase.from("vehicles").select("base_id").eq("org_id", o.id),
     ]);
     setBases((bs.data as Base[]) ?? []);
@@ -64,6 +67,21 @@ export default function Sedi() {
     load();
   }
 
+  async function upgrade(b: Base) {
+    const c = UPGRADE[b.level];
+    if (!c || !window.confirm(`Ampliare "${b.name}" al livello ${b.level + 1} (${b.vehicle_capacity + 1} posti) per ${euro(c)}?`)) return;
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("upgrade_base", { p_base: b.id });
+    setBusy(false);
+    if (error) {
+      setMsg({ ok: false, text: error.message.includes("MAX_LEVEL") ? "La sede è già al livello massimo."
+        : error.message.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza soldi." : friendlyError(error.message) });
+      return;
+    }
+    setMsg({ ok: true, text: `⬆️ ${b.name} ampliata: ora ha ${b.vehicle_capacity + 1} posti per le ambulanze.` });
+    load();
+  }
+
   if (!org) return <main style={shell} />;
 
   return (
@@ -81,13 +99,24 @@ export default function Sedi() {
 
       <div style={wrap}>
         <div style={box}>
+          <div style={{ fontWeight: 800, fontSize: 17 }}>Le tue sedi</div>
+          <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Amplia una sede per avere più posti per le ambulanze (fino al livello {MAX_LEVEL}, {MAX_LEVEL + 2} posti).</div>
+          {msg && <div style={{ color: msg.ok ? "#15803D" : "#B91C1C", margin: "6px 0", fontWeight: 600 }}>{msg.text}</div>}
           {bases.map((b) => (
             <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #f0f0f0" }}>
               <span style={{ fontSize: 22 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{b.name}</div>
-                <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>
+                <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>
               </div>
+              {b.level < MAX_LEVEL ? (
+                <button disabled={busy || org.funds < UPGRADE[b.level]} onClick={() => upgrade(b)}
+                        title="Ogni livello aggiunge un posto per le ambulanze"
+                        style={{ ...btn, fontSize: 13, padding: "8px 10px", background: "#15803D", whiteSpace: "nowrap",
+                                 opacity: busy || org.funds < UPGRADE[b.level] ? 0.4 : 1 }}>
+                  ⬆️ +1 posto · {euro(UPGRADE[b.level])}
+                </button>
+              ) : <span style={{ fontSize: 12, fontWeight: 700, color: "#B45309" }}>⭐ Livello massimo</span>}
             </div>
           ))}
         </div>
