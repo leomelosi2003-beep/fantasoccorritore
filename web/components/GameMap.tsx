@@ -9,7 +9,6 @@ import { supabase, type MissionPin, type BasePin, type Organization } from "@/li
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
-import FuelBattery from "@/components/FuelBattery";
 import ChatPanel from "@/components/ChatPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
@@ -473,19 +472,11 @@ export default function GameMap() {
           <button className="fs-pill" onClick={() => router.push("/login")} style={{ fontWeight: 700 }}>Accedi / Registrati</button>
         ) : null}
         {org && fuel && (
-          <button className="fs-pill fs-fuel" onClick={() => router.push("/garage")}
-                  title={`Cisterna: ${Math.round(fuel.stock)} L su ${fuel.cap} L · Serbatoi dei mezzi: ${Math.round(fuel.tanks)} L su ${fuel.tanksMax} L. Tocca per andare al benzinaio.`}>
-            <span className="fs-fuel-row">
-              <span className="fs-fuel-lbl">⛽ Cisterna</span>
-              <FuelBattery pct={(fuel.stock / fuel.cap) * 100} width={38} label={`${Math.round(fuel.stock)} L`} />
-            </span>
-            {fuel.tanksMax > 0 && (
-              <span className="fs-fuel-row">
-                <span className="fs-fuel-lbl">🚑 Mezzi</span>
-                <FuelBattery pct={(fuel.tanks / fuel.tanksMax) * 100} width={38}
-                             label={fuel.empty > 0 ? `${fuel.empty} a secco` : `${Math.round((fuel.tanks / fuel.tanksMax) * 100)}%`} />
-              </span>
-            )}
+          <button className="fs-fleet-btn fs-fuel-btn" onClick={() => router.push("/garage")}
+                  title={`Cisterna: ${Math.round(fuel.stock)} L su ${fuel.cap} L · Serbatoi dei mezzi: ${Math.round(fuel.tanks)} L su ${fuel.tanksMax} L. Tocca per andare al benzinaio.`}
+                  style={{ color: fuel.stock <= 0 || fuel.empty > 0 ? "#DC2626" : "#111" }}>
+            ⛽ <span className="fs-fuel-word">Gasolio </span><strong>{Math.round(fuel.stock).toLocaleString("it-IT")}</strong> L
+            {fuel.empty > 0 && <> · <strong>{fuel.empty}</strong> <span className="fs-fuel-word">{fuel.empty === 1 ? "mezzo" : "mezzi"} </span>a secco</>}
           </button>
         )}
       </div>
@@ -806,9 +797,10 @@ export default function GameMap() {
           12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
           80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
         .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
-        .fs-pill.fs-fuel { flex-direction: column; align-items: stretch; gap: 3px; padding: 6px 10px; margin-top: 6px; width: fit-content; }
-        .fs-fuel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .fs-fuel-lbl { font-size: 11px; font-weight: 700; color: #555; }
+        .fs-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+        .fs-top > .fs-pill { min-width: 0; }
+        .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; }
+        @media (max-width: 760px) { .fs-fuel-word { display: none; } }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
           background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;

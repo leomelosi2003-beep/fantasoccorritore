@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import FuelBattery from "@/components/FuelBattery";
 
 type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
@@ -137,9 +136,11 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged }: {
                     {v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 11, color: "#15803D" }}> · da {v.lent_from}</span>}
                   </span>
                   {v.fuel_liters != null && (
-                    <FuelBattery pct={(Number(v.fuel_liters) / Number(v.tank_liters ?? 80)) * 100} width={26}
-                                 label={`${Math.round(Number(v.fuel_liters))} L`}
-                                 title={`Gasolio: ${Math.round(Number(v.fuel_liters))} L su ${v.tank_liters ?? 80} L`} />
+                    <span title={`Gasolio: ${Math.round(Number(v.fuel_liters))} L su ${v.tank_liters ?? 80} L`}
+                          style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0,
+                                   color: Number(v.fuel_liters) < 5 ? "#DC2626" : Number(v.fuel_liters) / Number(v.tank_liters ?? 80) < 0.25 ? "#B45309" : "#555" }}>
+                      ⛽ {Math.round(Number(v.fuel_liters))} L
+                    </span>
                   )}
                 </div>
                 <div style={{ fontSize: 12, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</div>
