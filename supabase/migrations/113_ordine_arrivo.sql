@@ -1,0 +1,2 @@
+-- Applicato via MCP: mission_race(p_mission) restituisce i mezzi sul servizio in ordine d'arrivo
+-- (pos, slots, lost = annullato per corsa persa negli ultimi 20 minuti). Usata dal popup del servizio.

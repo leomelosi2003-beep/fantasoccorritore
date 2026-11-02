@@ -76,7 +76,7 @@ const CAR_STATE: Record<BaseCar["state"], [string, string]> = {
 };
 
 type Responder = { org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; call_sign: string;
-  status: string; arrives_at: string; mine: boolean; support: boolean };
+  status: string; arrives_at: string; mine: boolean; pos: number; slots: number; lost: boolean };
 
 type OtherAmbulance = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string; route: RoutePoint[] | null;
@@ -293,11 +293,18 @@ export default function GameMap() {
   }
   // chi sta andando su un servizio: caricato solo quando apro il popup del servizio
   const [responders, setResponders] = useState<Record<string, Responder[] | null>>({});
+  const [openMission, setOpenMission] = useState<string | null>(null);
   async function loadResponders(id: string) {
     setResponders((r) => ({ ...r, [id]: r[id] ?? null }));
-    const { data } = await supabase.rpc("mission_responders", { p_mission: id });
+    const { data } = await supabase.rpc("mission_race", { p_mission: id });
     setResponders((r) => ({ ...r, [id]: (data as Responder[]) ?? [] }));
   }
+  // classifica d'arrivo in tempo reale finché il popup del servizio è aperto
+  useEffect(() => {
+    if (!openMission) return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") loadResponders(openMission); }, 8000);
+    return () => clearInterval(t);
+  }, [openMission]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
   const [fleetKey, setFleetKey] = useState(0);
@@ -808,29 +815,47 @@ export default function GameMap() {
                         pathOptions={m.contestable
                           ? { color: "#111", weight: 3, dashArray: "4 4", fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
                           : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}
-                        eventHandlers={{ popupopen: () => loadResponders(m.id) }}>
+                        eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
+                                         popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
             <Popup>
               <strong>{m.title}</strong><br />
               {m.slots_taken > 0 && (
                 <div style={{ margin: "6px 0", background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12 }}>
-                  <div style={{ fontWeight: 800, marginBottom: 2 }}>🚑 Chi sta andando</div>
+                  <div style={{ fontWeight: 800, marginBottom: 2 }}>🏁 Ordine di arrivo</div>
                   {responders[m.id] === undefined || responders[m.id] === null ? <span style={{ color: "#888" }}>Caricamento…</span>
                     : responders[m.id]!.length === 0 ? <span style={{ color: "#888" }}>Nessuno in viaggio</span>
-                    : responders[m.id]!.map((r, i) => {
-                        const ms = new Date(r.arrives_at).getTime() - now;
-                        return (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                            <FactionEmblem type={r.org_type} size={18} logo={r.logo_url} />
-                            <span style={{ flex: 1 }}>
-                              <strong style={{ color: r.mine ? "#15803D" : undefined }}>{r.mine ? "Tu" : r.org_name}</strong> · {r.call_sign}
-                              {r.support && " (supporto)"}
-                            </span>
-                            <span style={{ whiteSpace: "nowrap", fontWeight: 700 }}>
-                              {r.status === "sul_posto" || ms <= 0 ? "📍 sul posto" : `arriva tra ${Math.max(1, Math.round(ms / 60000))} min`}
-                            </span>
-                          </div>
-                        );
-                      })}
+                    : (() => {
+                        const list = responders[m.id]!;
+                        const alive = list.filter((r) => !r.lost);
+                        const lastAlive = alive.length > 1 ? alive[alive.length - 1] : null;
+                        let rank = 0;
+                        return list.map((r, i) => {
+                          const ms = new Date(r.arrives_at).getTime() - now;
+                          const here = r.status === "sul_posto" || ms <= 0;
+                          const eta = ms < 60000 ? `${Math.max(1, Math.round(ms / 1000))} s` : `${Math.round(ms / 60000)} min`;
+                          if (!r.lost) rank++;
+                          const out = r.lost || rank > r.slots;
+                          const medal = r.lost ? "❌" : rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}°`;
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3,
+                                                  opacity: r.lost ? 0.6 : 1, background: out ? "#FEE2E2" : undefined,
+                                                  borderRadius: 6, padding: out ? "2px 4px" : undefined }}>
+                              <span style={{ width: 22, textAlign: "center", fontWeight: 800 }}>{medal}</span>
+                              <FactionEmblem type={r.org_type} size={18} logo={r.logo_url} />
+                              <span style={{ flex: 1 }}>
+                                <strong style={{ color: r.mine ? "#15803D" : undefined, textDecoration: r.lost ? "line-through" : undefined }}>
+                                  {r.mine ? "Tu" : r.org_name}</strong> · {r.call_sign}
+                                {rank === 1 && !r.lost && <span style={{ color: "#15803D", fontWeight: 700 }}> · primo</span>}
+                                {r === lastAlive && <span style={{ color: "#B91C1C", fontWeight: 700 }}> · ultimo</span>}
+                              </span>
+                              <span style={{ whiteSpace: "nowrap", fontWeight: 700, color: out ? "#B91C1C" : undefined }}>
+                                {r.lost ? "ha perso, torna in sede" : out ? (here ? "senza posto" : `tra ${eta} · fuori`)
+                                  : here ? "📍 sul posto" : `arriva tra ${eta}`}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
                 </div>
               )}
               {m.description && <>{m.description}<br /></>}
