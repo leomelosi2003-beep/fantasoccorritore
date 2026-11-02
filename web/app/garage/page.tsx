@@ -288,7 +288,7 @@ export default function Garage() {
             </div>
             {power === "elettrica" && (
               <div style={{ fontSize: 13, background: "#DCFCE7", color: "#166534", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                ⚡ Niente gasolio: si ricaricano gratis in <strong>1 minuto</strong> quando sono ferme in sede.
+                ⚡ Niente gasolio: si ricaricano in <strong>1 minuto</strong> quando sono ferme in sede, pagando la corrente al prezzo reale (0,74 €/kWh, circa 30 € per un pieno).
                 Hanno però poca autonomia: se il servizio (andata e ritorno) è più lungo della carica rimasta, non partono.
               </div>
             )}
@@ -543,7 +543,7 @@ export default function Garage() {
                           <div style={{ width: `${pct}%`, height: 6, borderRadius: 3,
                                         background: pct < 20 ? "#DC2626" : pct < 50 ? "#EAB308" : "#16A34A" }} />
                         </div>
-                        <div style={{ color: "#15803D", marginTop: 3 }}>⚡ Si ricarica gratis in 1 minuto quando è ferma in sede</div>
+                        <div style={{ color: "#15803D", marginTop: 3 }}>⚡ Si ricarica in 1 minuto in sede · 0,74 €/kWh</div>
                       </div>
                     );
                   })() : (() => {

@@ -29,6 +29,7 @@ export default function Automatico() {
   const [maxKm, setMaxKm] = useState(10);
   const [refill, setRefill] = useState(false);
   const [paidUntil, setPaidUntil] = useState<string | null>(null);
+  const [hourCost, setHourCost] = useState<number | null>(null);
   const [fleet, setFleet] = useState(0);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -51,6 +52,7 @@ export default function Automatico() {
         const { count } = await supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", o.id);
         setFleet(count ?? 0);
       }
+      supabase.rpc("my_auto_hour_cost").then(({ data }) => setHourCost(typeof data === "number" ? data : null));
       setLoaded(true);
       loadLog();
     })();
@@ -66,7 +68,7 @@ export default function Automatico() {
     setBusy(false);
     if (error) {
       if (e && !enabled) setEnabled(false);
-      setMsg({ ok: false, text: error.message.includes("INSUFFICIENT_FUNDS") ? "Servono 500 € per attivare la modalità automatica." : "Non riesco a salvare, riprova." });
+      setMsg({ ok: false, text: error.message.includes("INSUFFICIENT_FUNDS") ? `Servono ${(hourCost ?? 500).toLocaleString("it-IT")} € per attivare la modalità automatica.` : "Non riesco a salvare, riprova." });
       if (error.message.includes("INSUFFICIENT_FUNDS")) setEnabled(false);
       return;
     }
@@ -98,7 +100,8 @@ export default function Automatico() {
                     Sceglie il mezzo più vicino e l&apos;equipaggio più riposato.
                   </div>
                   <div style={{ fontSize: 13, marginTop: 6, fontWeight: 700, color: "#0F766E" }}>
-                    💶 Costa 500 € all&apos;ora, pagati all&apos;inizio di ogni ora. Se finiscono i soldi si spegne da sola.
+                    💶 Costa <strong>{hourCost != null ? `${hourCost.toLocaleString("it-IT")} €` : "…"} all&apos;ora</strong> (500 € + 0,1% del patrimonio dell&apos;associazione),
+                    pagati all&apos;inizio di ogni ora. Se finiscono i soldi si spegne da sola.
                     {enabled && paidUntil && new Date(paidUntil).getTime() > Date.now() &&
                       <> · Pagata fino alle {new Date(paidUntil).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</>}
                   </div>

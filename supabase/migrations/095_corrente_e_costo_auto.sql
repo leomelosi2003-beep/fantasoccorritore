@@ -1,0 +1,3 @@
+-- Elettriche: la ricarica in sede si paga al prezzo reale (fuel_prices 'elettricita' 0,74 €/kWh, Adiconsum-TariffEV
+-- luglio 2026, ricarica rapida DC), consumo 32 kWh/100 km. Senza soldi non si ricarica.
+-- Modalità automatica: 500 € + 0,1% del patrimonio all'ora (auto_hour_cost_org, my_auto_hour_cost). (vedi SQL applicato)
