@@ -588,7 +588,15 @@ export default function GameMap() {
                                    background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
                 </div>
               )}
-              {org && m.contestable && (
+              {org && m.slots_taken >= m.slots_total && (m.my_vehicles ?? 0) > 0 && (m.my_vehicles ?? 0) < 5 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>🚑 Hai {m.my_vehicles} {m.my_vehicles === 1 ? "mezzo" : "mezzi"} qui. Puoi mandarne altri in supporto (metà premio).</div>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                   background: "#2563EB", color: "#fff", fontWeight: 800 }}>➕ Manda un altro mezzo</button>
+                </div>
+              )}
+              {org && m.contestable && !(m.my_vehicles ?? 0) && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontSize: 12, marginBottom: 4 }}>⚔️ Già preso, ma nessuno è ancora arrivato: chi arriva primo vince!</div>
                   <button onClick={() => setSelected(m)}

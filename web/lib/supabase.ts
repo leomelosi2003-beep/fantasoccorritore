@@ -27,6 +27,7 @@ export type MissionPin = {
   event_ends_at?: string | null;
   contestable?: boolean;
   first_arrival?: string | null;
+  my_vehicles?: number;
   lat: number;
   lng: number;
 };

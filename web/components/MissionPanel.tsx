@@ -54,6 +54,7 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
 function claimError(m: string) {
   if (m.includes("MISSION_FULL_OR_CLOSED")) return "Troppo tardi: il servizio è stato preso da qualcun altro o è scaduto.";
   if (m.includes("ALREADY_ON_MISSION")) return "Hai già un mezzo su questo servizio.";
+  if (m.includes("TOO_MANY_OWN")) return "Hai già 5 mezzi su questo servizio: è il massimo.";
   if (m.includes("MISSION_LOCKED")) return "🔒 Servizio bloccato: un'altra associazione ci ha già mandato due mezzi.";
   if (m.includes("CARD_TOO_TIRED")) return "Qualcuno dell'equipaggio è troppo stanco per questo servizio.";
   if (m.includes("CARD_RESTING")) return "Qualcuno dell'equipaggio è ancora a riposo.";
@@ -147,8 +148,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const missing = roleCheck(required, crewCards);
   const secondsLeft = Math.max(0, Math.floor((new Date(mission.expires_at).getTime() - now) / 1000));
   // corsa al servizio: posti pieni ma nessuno ancora arrivato → si può partire lo stesso, vince chi arriva prima
-  const contest = !!mission.contestable;
-  const full = mission.slots_taken >= mission.slots_total && !contest;
+  const support = mission.slots_taken >= mission.slots_total && (mission.my_vehicles ?? 0) > 0;
+  const contest = !!mission.contestable && !support;
+  const full = mission.slots_taken >= mission.slots_total && !contest && !support;
 
   const available = useMemo(() => cards.filter(ready).sort((a, b) => b.energy - a.energy), [cards]);
   const unavailable = cards.filter((c) => !ready(c));
@@ -198,7 +200,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     onClaimed(`🚑 ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
   }
 
-  const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest) && !full;
+  const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support) && !full;
   const isEvent = mission.category === "grande_evento";
   const code = isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
@@ -239,7 +241,15 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           );
         })()}
 
-        {!contest && mission.code === "rosso" && mission.slots_total >= 2 && mission.slots_taken === mission.slots_total - 1 && (
+        {support && (
+          <div style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
+            <strong>➕ Mezzo di supporto</strong><br />
+            Hai già {mission.my_vehicles} {mission.my_vehicles === 1 ? "ambulanza" : "ambulanze"} su questo servizio. Puoi mandarne altre (fino a 5):
+            ognuna prende <strong>metà premio</strong>.{mission.code === "rosso" && " Sul codice rosso, con due mezzi tuoi il servizio è bloccato agli altri."}
+          </div>
+        )}
+
+        {!contest && !support && mission.code === "rosso" && mission.slots_total >= 2 && mission.slots_taken === mission.slots_total - 1 && (
           <div style={{ background: "#FEF3C7", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
             🔒 <strong>Codice rosso con un mezzo già in viaggio.</strong> Se è tuo, manda la seconda ambulanza:
             con due mezzi tuoi il servizio è bloccato e gli altri giocatori non possono più contenderlo.
@@ -336,7 +346,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {error && <div style={{ color: "#B91C1C", fontSize: 14, marginBottom: 8 }}>{error}</div>}
         <button onClick={claim} disabled={!canGo}
                 style={{ ...btn, width: "100%", padding: 14, fontSize: 17, background: code.color, opacity: canGo ? 1 : 0.4 }}>
-          {busy ? "Invio…" : full ? "Servizio già coperto" : contest ? "⚔️ Parti e arriva primo!" : secondsLeft <= 0 ? "Servizio scaduto" : isEvent ? "🏟️ Vai in postazione" : "🚨 Parti!"}
+          {busy ? "Invio…" : full ? "Servizio già coperto" : support ? "➕ Manda in supporto" : contest ? "⚔️ Parti e arriva primo!" : secondsLeft <= 0 ? "Servizio scaduto" : isEvent ? "🏟️ Vai in postazione" : "🚨 Parti!"}
         </button>
       </div>
     </div>
