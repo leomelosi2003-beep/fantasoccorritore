@@ -1,0 +1,2 @@
+-- Sezione Trasferimenti: rpc transfer_quotes() (premio stimato, durata, sede più vicina).
+-- generate_transfers: premio 1500 + 30/km (prima 900 + 22/km), scadenza 15 min (prima 5), fino a 6 aperti (prima 3). (vedi SQL applicato)

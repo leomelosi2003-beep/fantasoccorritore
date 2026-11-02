@@ -466,6 +466,7 @@ export default function GameMap() {
             <span>🤝</span>Alleanza
             {notes.length > 0 && <b className="fs-badge">{notes.length}</b>}
           </button>
+          <button className="fs-btn" style={{ background: "#0E7490" }} onClick={() => router.push("/trasferimenti")}><span>🔁</span>Trasf.</button>
           <button className="fs-btn" style={{ background: "#111" }} onClick={() => router.push("/negozio")}><span>🛒</span>Presidi</button>
           <button className="fs-btn" style={{ background: "#B45309" }} onClick={() => router.push("/classifica")}><span>🏆</span>Classifica</button>
           {isAdmin && <button className="fs-btn" style={{ background: "#7C3AED" }} onClick={() => router.push("/admin")}><span>🛠️</span>Admin</button>}
