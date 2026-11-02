@@ -382,7 +382,7 @@ export default function GameMap() {
     }
     loadAssignments();
     reloadRef.current = loadAssignments;
-    const t1 = setInterval(loadAssignments, 20_000);
+    const t1 = setInterval(() => { if (document.visibilityState === "visible") loadAssignments(); }, 20_000);
     const t2 = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, []);
@@ -477,20 +477,9 @@ export default function GameMap() {
       if (!b.error) setBases((b.data as BasePin[]) ?? []);
     }
     load();
-    // le modifiche arrivano a raffica (modalità automatica): ricarico al massimo una volta ogni 8 secondi
-    let last = Date.now(), timer: ReturnType<typeof setTimeout> | null = null;
-    const soon = () => {
-      if (timer) return;
-      const wait = Math.max(1500, 8000 - (Date.now() - last));
-      timer = setTimeout(() => { timer = null; last = Date.now(); load(); }, wait);
-    };
-    const ch = supabase
-      .channel("map-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "missions" }, soon)
-      .on("postgres_changes", { event: "*", schema: "public", table: "bases" }, soon)
-      .subscribe();
-    const poll = setInterval(() => { last = Date.now(); load(); }, 30_000);
-    return () => { supabase.removeChannel(ch); clearInterval(poll); if (timer) clearTimeout(timer); };
+    // aggiornamento ogni 12 secondi (niente tempo reale: pesava troppo sul server)
+    const poll = setInterval(() => { if (document.visibilityState === "visible") load(); }, 12_000);
+    return () => clearInterval(poll);
   }, []);
 
   async function logout() {
