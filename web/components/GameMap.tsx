@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
@@ -138,6 +138,42 @@ function onTheRoad<T extends { vehicle_id: string; assigned_at: string; route_en
 // Lampeggianti accesi solo nei codici giallo e rosso, mentre viaggia (non al rientro in sede)
 function sirens(code: string, pos: { moving: boolean; text: string }) {
   return (code === "giallo" || code === "rosso") && pos.moving && pos.text !== "Rientro in sede";
+}
+
+// Ambulanza che si muove in modo fluido: la posizione viene ricalcolata a ogni fotogramma
+// direttamente su Leaflet (senza ridisegnare la pagina), l'icona cambia solo quando cambia verso o lampeggianti.
+function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
+  route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode;
+  makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
+}) {
+  const ref = useRef<L.Marker | null>(null);
+  const routeRef = useRef(route); routeRef.current = route;
+  const makeRef = useRef(makeIcon); makeRef.current = makeIcon;
+  const [start] = useState(() => {
+    const t = Date.now(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
+    return { pos: [p.lat, p.lng] as [number, number], key: `${!sirens(code, p)}|${ah.lng > p.lng}`,
+             icon: makeIcon(!sirens(code, p), ah.lng > p.lng) };
+  });
+  const keyRef = useRef(start.key);
+  useEffect(() => {
+    let raf = 0, last = 0;
+    const tick = (ts: number) => {
+      raf = requestAnimationFrame(tick);
+      if (ts - last < 33) return; // ~30 fotogrammi al secondo bastano e risparmiano batteria
+      last = ts;
+      const m = ref.current; if (!m) return;
+      const t = Date.now();
+      const p = alongRoute(routeRef.current, t);
+      m.setLatLng([p.lat, p.lng]);
+      const ah = alongRoute(routeRef.current, t + 4000);
+      const facing = Math.abs(ah.lng - p.lng) < 1e-7 ? keyRef.current.endsWith("true") : ah.lng > p.lng;
+      const key = `${!sirens(code, p)}|${facing}`;
+      if (key !== keyRef.current) { keyRef.current = key; m.setIcon(makeRef.current(!sirens(code, p), facing)); }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [code]);
+  return <Marker ref={ref} position={start.pos} icon={start.icon} zIndexOffset={zIndexOffset}>{children}</Marker>;
 }
 
 // Ambulanza di un altro giocatore: più piccola, con lo stemma della sua associazione
@@ -648,16 +684,15 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
-          const ahead = alongRoute(route, now + 4000);
           return (
-            <Marker key={`o-${a.id}`} position={[pos.lat, pos.lng]} zIndexOffset={-100}
-                    icon={otherAmbulanceIcon(!sirens(a.code, pos), a.vehicle_image, ahead.lng > pos.lng, a.org_type, a.logo_url)}>
+            <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
+                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, a.vehicle_image, fr, a.org_type, a.logo_url)}>
               <Popup>
                 <strong>{a.org_name}</strong> · {a.call_sign}<br />
                 {a.title}<br />
                 {pos.text}
               </Popup>
-            </Marker>
+            </MovingMarker>
           );
         })}
 
@@ -668,8 +703,6 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
-          const ahead = alongRoute(route, now + 4000);
-          const facingRight = ahead.lng > pos.lng;
           const path = remainingPath(route, pos.leg, pos.f);
           const left = Math.max(0, Math.round((pos.until - now) / 60000));
           const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
@@ -681,7 +714,8 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && <Marker position={[pos.lat, pos.lng]} icon={ambulanceIcon(!sirens(a.code, pos), a.vehicle_image, facingRight)}>
+            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
+                          makeIcon={(sc, fr) => ambulanceIcon(sc, a.vehicle_image, fr)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
                 {pos.text} · {left} min<br />
@@ -699,7 +733,7 @@ export default function GameMap() {
                              padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>↩️ Annulla viaggio</button></>
                 )}
               </Popup>
-            </Marker>}
+            </MovingMarker>}
             </Fragment>
           );
         })}
