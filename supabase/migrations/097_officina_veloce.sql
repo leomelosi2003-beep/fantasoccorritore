@@ -1,0 +1,2 @@
+-- Officina molto più veloce: durata = max(2, usura × 0,12) minuti (80% → 10 minuti; prima usura × 6 = 8 ore).
+-- Applicato in start_maintenance e auto_dispatch_org; accorciati anche i mezzi già in officina. (vedi SQL applicato)
