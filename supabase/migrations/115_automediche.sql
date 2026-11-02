@@ -1,0 +1,12 @@
+-- Applicato via MCP. AUTOMEDICHE.
+-- vehicle_models.automedica; mission_assignments.automedica, companion_of (ambulanza che dà il cambio).
+-- Modelli: D-Dustar (+E), S-Kamik (+E), F-Kugar (+E), T-Voltara (solo elettrica).
+-- claim_mission/_as: automedica solo gialli/rossi 118, equipaggio esattamente 1 autista + 1 medico, presidi ignorati
+--   (ECG e defib a bordo), arrivo 25% più rapido; resta sul posto max 15 min.
+--   Un'ambulanza della stessa associazione può raggiungerla anche a servizio pieno (support, metà premio):
+--   automedica_handover() -> rosso: l'automedica segue l'ambulanza in ospedale; giallo: si libera all'arrivo dell'ambulanza.
+-- complete_due_assignments: automedica senza ambulanza arrivata -> premio 0.
+-- resolve_races: i mezzi "cambio automedica" non contano nella corsa; se l'automedica perde, l'ambulanza rientra.
+-- missions_map.my_automedica_waiting, my_fleet.automedica, mission_race2().
+-- auto_medical(): modalità automatica manda automediche a rubare gialli/rossi e un'ambulanza a darle il cambio
+--   (task 'medical' ogni 30 s in game_tick). auto_dispatch_org non usa le automediche e lascia i medici alle automediche.

@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -85,7 +85,7 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
-  const [power, setPower] = useState<"gasolio" | "elettrica">("gasolio");
+  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica">("gasolio");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -340,9 +340,9 @@ export default function Garage() {
 
             <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"]] as const).map(([k, l]) => (
+              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setPower(k); setModelId(null); }}
-                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : "#111") : "#e5e5e0",
+                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : "#111") : "#e5e5e0",
                                  color: power === k ? "#fff" : "#111" }}>{l}</button>
               ))}
             </div>
@@ -352,8 +352,16 @@ export default function Garage() {
                 Hanno però poca autonomia: se il servizio (andata e ritorno) è più lungo della carica rimasta, non partono.
               </div>
             )}
+            {power === "automedica" && (
+              <div style={{ fontSize: 13, background: "#FEE2E2", color: "#7F1D1D", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                🩺 <strong>Automedica:</strong> a bordo solo <strong>1 autista + 1 medico</strong>, con ECG e defibrillatore già incorporati.
+                Va solo su <strong>gialli e rossi</strong> ed è più veloce delle ambulanze: serve a rubare lo slot alle altre associazioni.
+                Arrivata sul posto <strong>aspetta una tua ambulanza</strong> (che entra anche a servizio pieno): sul rosso la segue in ospedale,
+                sul giallo si libera appena arriva. Se in 15 minuti non arriva nessuna ambulanza, rientra senza premio.
+              </div>
+            )}
             <div style={grid}>
-              {models.filter((m) => (power === "elettrica") === !!m.electric).map((m) => (
+              {models.filter((m) => power === "automedica" ? !!m.automedica : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
                 <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>

@@ -26,6 +26,7 @@ export type MissionPin = {
   event_id?: string | null;
   event_ends_at?: string | null;
   contestable?: boolean;
+  my_automedica_waiting?: boolean;
   first_arrival?: string | null;
   my_vehicles?: number;
   transport?: string | null;

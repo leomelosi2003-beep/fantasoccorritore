@@ -76,7 +76,7 @@ const CAR_STATE: Record<BaseCar["state"], [string, string]> = {
 };
 
 type Responder = { org_name: string; org_type: BasePin["org_type"]; logo_url: string | null; call_sign: string;
-  status: string; arrives_at: string; mine: boolean; pos: number; slots: number; lost: boolean };
+  status: string; arrives_at: string; mine: boolean; pos: number; slots: number; lost: boolean; automedica?: boolean; companion?: boolean };
 
 type OtherAmbulance = {
   id: string; status: string; assigned_at: string; arrives_at: string; completes_at: string; route: RoutePoint[] | null;
@@ -296,7 +296,7 @@ export default function GameMap() {
   const [openMission, setOpenMission] = useState<string | null>(null);
   async function loadResponders(id: string) {
     setResponders((r) => ({ ...r, [id]: r[id] ?? null }));
-    const { data } = await supabase.rpc("mission_race", { p_mission: id });
+    const { data } = await supabase.rpc("mission_race2", { p_mission: id });
     setResponders((r) => ({ ...r, [id]: (data as Responder[]) ?? [] }));
   }
   // classifica d'arrivo in tempo reale finché il popup del servizio è aperto
@@ -826,16 +826,16 @@ export default function GameMap() {
                     : responders[m.id]!.length === 0 ? <span style={{ color: "#888" }}>Nessuno in viaggio</span>
                     : (() => {
                         const list = responders[m.id]!;
-                        const alive = list.filter((r) => !r.lost);
+                        const alive = list.filter((r) => !r.lost && !r.companion);
                         const lastAlive = alive.length > 1 ? alive[alive.length - 1] : null;
                         let rank = 0;
                         return list.map((r, i) => {
                           const ms = new Date(r.arrives_at).getTime() - now;
                           const here = r.status === "sul_posto" || ms <= 0;
                           const eta = ms < 60000 ? `${Math.max(1, Math.round(ms / 1000))} s` : `${Math.round(ms / 60000)} min`;
-                          if (!r.lost) rank++;
-                          const out = r.lost || rank > r.slots;
-                          const medal = r.lost ? "❌" : rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}°`;
+                          if (!r.lost && !r.companion) rank++;
+                          const out = r.lost || (!r.companion && rank > r.slots);
+                          const medal = r.lost ? "❌" : r.companion ? "🤝" : rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `${rank}°`;
                           return (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3,
                                                   opacity: r.lost ? 0.6 : 1, background: out ? "#FEE2E2" : undefined,
@@ -844,8 +844,9 @@ export default function GameMap() {
                               <FactionEmblem type={r.org_type} size={18} logo={r.logo_url} />
                               <span style={{ flex: 1 }}>
                                 <strong style={{ color: r.mine ? "#15803D" : undefined, textDecoration: r.lost ? "line-through" : undefined }}>
-                                  {r.mine ? "Tu" : r.org_name}</strong> · {r.call_sign}
-                                {rank === 1 && !r.lost && <span style={{ color: "#15803D", fontWeight: 700 }}> · primo</span>}
+                                  {r.mine ? "Tu" : r.org_name}</strong> · {r.automedica && "🩺 "}{r.call_sign}
+                                {r.companion && <span style={{ color: "#2563EB", fontWeight: 700 }}> · cambio automedica</span>}
+                                {rank === 1 && !r.lost && !r.companion && <span style={{ color: "#15803D", fontWeight: 700 }}> · primo</span>}
                                 {r === lastAlive && <span style={{ color: "#B91C1C", fontWeight: 700 }}> · ultimo</span>}
                               </span>
                               <span style={{ whiteSpace: "nowrap", fontWeight: 700, color: out ? "#B91C1C" : undefined }}>
@@ -867,6 +868,14 @@ export default function GameMap() {
                   <button onClick={() => setSelected(m)}
                           style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
                                    background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
+                </div>
+              )}
+              {org && m.my_automedica_waiting && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>🩺 La tua automedica aspetta un&apos;ambulanza.</div>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                   background: "#2563EB", color: "#fff", fontWeight: 800 }}>🚑 Manda l&apos;ambulanza</button>
                 </div>
               )}
               {org && m.contestable && !(m.my_vehicles ?? 0) && (
