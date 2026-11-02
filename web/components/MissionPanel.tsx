@@ -274,10 +274,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           </div>
         )}
 
-        {!contest && !support && mission.code === "rosso" && mission.slots_total >= 2 && mission.slots_taken === mission.slots_total - 1 && (
-          <div style={{ background: "#FEF3C7", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
-            🔒 <strong>Codice rosso con un mezzo già in viaggio.</strong> Se è tuo, manda la seconda ambulanza:
-            con due mezzi tuoi il servizio è bloccato e gli altri giocatori non possono più contenderlo.
+        {contest && (
+          <div style={{ background: "#FFEDD5", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
+            ⚔️ <strong>Posti già presi, ma nessuno è ancora arrivato.</strong> Se arrivi prima tu ti prendi lo slot:
+            l'ultima ambulanza ad arrivare senza posto torna in sede senza ricompensa.
           </div>
         )}
 

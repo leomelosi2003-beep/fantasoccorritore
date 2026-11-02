@@ -1,0 +1,8 @@
+-- Applicato via MCP.
+-- 1) Un unico job "game-tick" (call public.game_tick(), ogni 30 s) sostituisce i 13 job frequenti
+--    (disattivati con cron.alter_job active=false). Cadenze in game_tick: gare 30 s, chiusura 30 s,
+--    automatico 60 s, servizi 180 s, officina/riposo/addebiti 60 s, ricarica 180 s, aste 300 s, trasferimenti/eventi 300 s.
+--    Ogni compito gira in run_tick_task(task) con commit separato; tick_state tiene l'ultima esecuzione.
+-- 2) Tolto MISSION_LOCKED: anche con due mezzi della stessa associazione su un rosso si può contendere;
+--    vince chi arriva prima, chi resta senza slot torna in sede senza ricompensa (resolve_races).
+--    Tolta la stessa condizione da missions_map.contestable.
