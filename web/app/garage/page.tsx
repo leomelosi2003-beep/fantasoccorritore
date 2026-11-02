@@ -128,12 +128,14 @@ export default function Garage() {
 
   const model = models.find((m) => m.id === modelId);
   const builder = builders.find((b) => b.id === builderId);
-  const pickedCodes = Object.values(picked).filter(Boolean) as string[];
+  const pickedCodes = (Object.entries(picked).filter(([k, v]) => !!v && !(k === "barella" && models.find((m) => m.id === modelId)?.automedica))
+    .map(([, v]) => v)) as string[];
   const firstVehicle = vehicles.length === 0;
   const priceOf = (e: Equip) => (firstVehicle && e.starter ? 0 : e.cost);
   const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
   const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
-  const ready = !!model && !!builder && !!picked.monitor && !!picked.barella;
+  const isAm = !!model?.automedica; // l'automedica non ha la barella
+  const ready = !!model && !!builder && !!picked.monitor && (isAm || !!picked.barella);
   // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
   const step: number = !model ? 1 : !builder ? 2 : 4;
   const caps = Array.from(new Set(equip.filter((e) => pickedCodes.includes(e.code)).flatMap((e) => e.provides)));
@@ -412,7 +414,12 @@ export default function Garage() {
                 Se vuoi qualcosa di meglio, gli upgrade si pagano.
               </div>
             )}
-            {GROUPS.map(({ key, title, required, multi }) => {
+            {isAm && (
+              <div style={{ background: "#FEE2E2", color: "#7F1D1D", borderRadius: 10, padding: 10, fontSize: 13, marginBottom: 12 }}>
+                🩺 Automedica: niente barella, il paziente lo trasporta l&apos;ambulanza.
+              </div>
+            )}
+            {GROUPS.filter((g) => !(isAm && g.key === "barella")).map(({ key, title, required, multi }) => {
               const opts = equip.filter((e) => (multi ? e.category === key : e.slot === key));
               if (!opts.length) return null;
               const card = (e: Equip, on: boolean, onClick: () => void) => (
@@ -481,7 +488,7 @@ export default function Garage() {
                           zIndex: 5, boxShadow: "0 -6px 12px rgba(0,0,0,.06)" }}>
               {!ready && (
                 <div style={{ width: "100%", fontSize: 13, fontWeight: 700, color: "#C2410C" }}>
-                  {!model ? "👉 Passo 1: scegli il modello qui sopra" : !builder ? "👉 Passo 2: scegli l'allestitore" : "👉 Scegli monitor e barella nei presidi"}
+                  {!model ? "👉 Passo 1: scegli il modello qui sopra" : !builder ? "👉 Passo 2: scegli l'allestitore" : (isAm ? "👉 Scegli il monitor nei presidi" : "👉 Scegli monitor e barella nei presidi")}
                 </div>
               )}
               <div>

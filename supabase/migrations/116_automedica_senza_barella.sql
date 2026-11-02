@@ -1,0 +1,1 @@
+-- Applicato via MCP: buy_vehicle toglie la barella alle automediche e non la richiede.
