@@ -42,11 +42,12 @@ export default function Sedi() {
     setOrg(o as Organization);
     const [bs, vs] = await Promise.all([
       supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level").eq("org_id", o.id).order("built_at"),
-      supabase.from("vehicles").select("base_id").eq("org_id", o.id),
+      supabase.from("my_fleet").select("base_id,boat,mine").eq("mine", true),
     ]);
     setBases((bs.data as Base[]) ?? []);
     const count: Record<string, number> = {};
-    for (const v of (vs.data as { base_id: string }[]) ?? []) count[v.base_id] = (count[v.base_id] ?? 0) + 1;
+    // la barca sta all'ormeggio: non occupa posti in garage
+    for (const v of (vs.data as { base_id: string; boat?: boolean }[]) ?? []) if (!v.boat) count[v.base_id] = (count[v.base_id] ?? 0) + 1;
     setParked(count);
   }, [router]);
 

@@ -1,0 +1,1 @@
+-- Applicato via MCP: la barca non occupa posti in garage (buy_vehicle, move_vehicle, close_auctions, bases_map.vehicles_here).
