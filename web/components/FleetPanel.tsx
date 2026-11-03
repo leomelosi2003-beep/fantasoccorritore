@@ -33,8 +33,9 @@ function countdown(ms: number) {
 }
 
 // Elenco delle mie ambulanze con il tempo che manca per liberarsi
-export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType }: {
+export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, onLocate }: {
   jobs: Job[]; now: number; refreshKey: number; onChanged: (msg: string) => void; orgType?: string;
+  onLocate?: (vehicleId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState<string | null>(null); // id del servizio
@@ -179,6 +180,13 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType }
                 </div>
               )}
             </div>
+            {job && onLocate && (job.status === "in_viaggio" || job.status === "sul_posto" || timer) && (
+              <div style={{ padding: "0 10px 6px" }}>
+                <button onClick={() => onLocate(v.id)}
+                        style={{ border: "1px solid #2563EB", background: "#2563EB", color: "#fff", borderRadius: 8, padding: "5px 10px",
+                                 fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📍 Localizza</button>
+              </div>
+            )}
             {job && job.status === "in_viaggio" && now < new Date(job.arrives_at).getTime() && (
               <div style={{ padding: "0 10px 6px" }}>
                 <button onClick={() => cancelTrip(job)} disabled={busy}

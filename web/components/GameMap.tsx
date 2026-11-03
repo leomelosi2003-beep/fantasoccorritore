@@ -431,6 +431,17 @@ export default function GameMap() {
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(serverNow());
   const fastRef = useRef(false);
+  // "Localizza": centra la mappa sul mezzo e lo evidenzia per qualche secondo
+  const mapRef = useRef<L.Map | null>(null);
+  const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
+  function locate(vehicleId: string) {
+    const a = assignments.filter((x) => x.vehicle_id === vehicleId).sort((x, y) => (x.assigned_at < y.assigned_at ? 1 : -1))[0];
+    if (!a) { showToast("Questo mezzo non è in servizio."); return; }
+    const pos = alongRoute(routeOf(a), serverNow());
+    mapRef.current?.flyTo([pos.lat, pos.lng], Math.max(mapRef.current.getZoom(), 14), { duration: 1.2 });
+    setLocated({ vehicle: vehicleId, until: serverNow() + 8000 });
+    showToast(`📍 ${a.call_sign}: ${pos.text}`);
+  }
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [ports, setPorts] = useState<Port[]>([]);
@@ -736,7 +747,7 @@ export default function GameMap() {
       </div>
 
       {/* Le mie ambulanze con il conto alla rovescia */}
-      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey} orgType={org.type}
+      {org && <FleetPanel jobs={assignments} now={now} refreshKey={fleetKey} orgType={org.type} onLocate={locate}
                           onChanged={(msg) => {
                             showToast(msg);
                             supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
@@ -852,11 +863,18 @@ export default function GameMap() {
           <button onClick={() => setMooring(null)} style={{ border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>Annulla</button>
         </div>
       )}
-      <MapContainer center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
+      <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {mooring && <MooringPicker onPick={moorAt} />}
+        {located && now < located.until && (() => {
+          const a = assignments.filter((x) => x.vehicle_id === located.vehicle).sort((x, y) => (x.assigned_at < y.assigned_at ? 1 : -1))[0];
+          if (!a) return null;
+          const p = alongRoute(routeOf(a), now);
+          return <CircleMarker center={[p.lat, p.lng]} radius={26 + ((now / 1000) % 2) * 6}
+                               pathOptions={{ color: "#2563EB", weight: 4, fillColor: "#60A5FA", fillOpacity: 0.15 }} />;
+        })()}
         {heliBases.map((p) => (
           <Marker key={`heli-${p.id}`} position={[p.lat, p.lng]} icon={heliIcon}>
             <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
