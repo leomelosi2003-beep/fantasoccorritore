@@ -885,7 +885,8 @@ export default function GameMap() {
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
         ))}
-        {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status === "disponibile"
+        {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status !== "manutenzione" && b.status !== "fuori_servizio"
+            // la barca ferma all'ormeggio si vede sempre, tranne quando è in giro (allora la mostra il livello delle barche in movimento)
             && !assignments.some((x) => x.vehicle_id === b.id && now < new Date(x.route_ends_at).getTime())).map((b) => (
           <Marker key={`boat-${b.id}`} position={[b.moor_lat!, b.moor_lng!]} icon={boatIcon(livery(b.vehicle_image, org?.type))}>
             <Popup>
