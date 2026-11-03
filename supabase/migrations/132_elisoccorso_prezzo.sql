@@ -1,0 +1,1 @@
+-- Applicato via MCP: heli_price_org(org) = max(3M, metà del patrimonio = soldi + org_valuation); usato da heli_status e activate_heli.

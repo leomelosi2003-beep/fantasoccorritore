@@ -240,6 +240,9 @@ function lightsHtml(w: number) {
 }
 
 function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null) {
+  if (img && img.includes("h-pegaso")) {
+    return L.divIcon({ className: "", html: heliIconHtml(img, facingRight, 78), iconSize: [78, 30], iconAnchor: [39, 15] });
+  }
   const pic = img
     ? `<div style="position:relative;transform:scaleX(${facingRight ? -1 : 1})">
          <img src="${img.replace(/\.png$/, "-map.png")}" style="width:48px;height:auto;display:block;opacity:.92" alt=""/>
@@ -256,8 +259,26 @@ function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: b
   });
 }
 
+// Elisoccorso in volo: più grande, con il rotore che gira e l'ombra a terra
+function heliIconHtml(img: string, facingRight: boolean, w: number) {
+  const small = img.replace(/-(mis|cri)\.png$/, ".png").replace(/\.png$/, "-map.png");
+  return `<div style="position:relative;width:${w}px;animation:heli-bob 1.6s ease-in-out infinite">
+            <div style="position:absolute;left:12%;right:12%;bottom:-10px;height:7px;border-radius:50%;background:rgba(0,0,0,.28);filter:blur(2px)"></div>
+            <div style="transform:scaleX(${facingRight ? -1 : 1});position:relative">
+              <img src="${small}" style="width:${w}px;height:auto;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))" alt=""/>
+              <div style="position:absolute;top:${Math.round(w * 0.02)}px;left:${Math.round(w * 0.06)}px;width:${Math.round(w * 0.62)}px;height:3px;
+                          border-radius:3px;background:rgba(40,40,40,.55);animation:heli-rotor .18s linear infinite;transform-origin:50% 50%"></div>
+            </div>
+            <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#EA580C;color:#fff;font:700 10px system-ui;
+                        padding:1px 5px;border-radius:999px;white-space:nowrap">🚁 ELISOCCORSO</div>
+          </div>`;
+}
+
 // Ambulanza vista di profilo (immagine del modello), girata verso dove sta andando
 function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolean) {
+  if (img && img.includes("h-pegaso")) {
+    return L.divIcon({ className: "", html: heliIconHtml(img, facingRight, 92), iconSize: [92, 34], iconAnchor: [46, 17] });
+  }
   if (!img) {
     return L.divIcon({
       className: "",
@@ -1190,6 +1211,8 @@ export default function GameMap() {
           .fs-pill { padding: 5px 10px 5px 6px; }
         }
         @keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
+        @keyframes heli-rotor { 0% { transform: scaleX(1) } 50% { transform: scaleX(.15) } 100% { transform: scaleX(1) } }
+        @keyframes heli-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
         @keyframes amb-light-a { 0% { background: #60a5fa; box-shadow: 0 0 5px 2px rgba(59,130,246,.9) } 50% { background: transparent; box-shadow: none } }
         @keyframes amb-light-b { 0% { background: transparent; box-shadow: none } 50% { background: #60a5fa; box-shadow: 0 0 5px 2px rgba(59,130,246,.9) } }
         @keyframes ev-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,.6) } 50% { box-shadow: 0 0 0 10px rgba(124,58,237,0) } }`}</style>

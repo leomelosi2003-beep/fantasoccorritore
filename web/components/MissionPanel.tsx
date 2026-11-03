@@ -346,8 +346,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
               ) : (
                 <button disabled={busy || Number(heli.funds) < Number(heli.price)} onClick={activateHeli}
                         style={{ ...btn, width: "100%", marginTop: 8, background: "#9A3412", opacity: Number(heli.funds) < Number(heli.price) ? 0.5 : 1 }}>
-                  Attiva per 10 minuti · {Number(heli.price).toLocaleString("it-IT")} € (metà dei tuoi soldi)
+                  Attiva per 10 minuti · {Number(heli.price).toLocaleString("it-IT")} € (metà del patrimonio)
                 </button>
+              )}
+              {left <= 0 && Number(heli.funds) < Number(heli.price) && (
+                <div style={{ marginTop: 6, color: "#9A3412" }}>
+                  Costa metà del patrimonio (soldi + valore di sedi e mezzi): in cassa hai {Number(heli.funds).toLocaleString("it-IT")} €, non bastano.
+                </div>
               )}
             </div>
           );
