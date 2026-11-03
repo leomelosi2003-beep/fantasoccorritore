@@ -1,0 +1,1 @@
+-- Applicato via MCP: nuovo modello barca B-Sprint (85.000 €, velocità 1,65, serbatoio 400 L).
