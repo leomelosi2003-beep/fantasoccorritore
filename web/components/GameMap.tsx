@@ -92,6 +92,8 @@ function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: bool
   return ic;
 }
 
+const shortEuro = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString("it-IT", { maximumFractionDigits: 1 })} mln` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : `${Math.round(n)} €`;
+
 // tratti della barca: niente strade
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
   || p.label.startsWith("Eli"); // anche l'elisoccorso vola in linea retta
@@ -431,6 +433,19 @@ export default function GameMap() {
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(serverNow());
   const fastRef = useRef(false);
+  // andamento nel riquadro del profilo: entrate/uscite dell'ultima ora e servizi rubati
+  const [stats, setStats] = useState<{ net_1h: number; in_1h: number; out_1h: number; stolen_24h: number; lost_24h: number; services_1h: number } | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
+  useEffect(() => {
+    if (!org?.id) return;
+    const load = () => supabase.rpc("my_quick_stats").then(({ data }) => {
+      const r = ((data as { net_1h: number; in_1h: number; out_1h: number; stolen_24h: number; lost_24h: number; services_1h: number }[]) ?? [])[0];
+      if (r) setStats({ ...r, net_1h: Number(r.net_1h), in_1h: Number(r.in_1h), out_1h: Number(r.out_1h) });
+    });
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
+    return () => clearInterval(t);
+  }, [org?.id]);
   // "Localizza": centra la mappa sul mezzo e lo evidenzia per qualche secondo
   const mapRef = useRef<L.Map | null>(null);
   const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
@@ -689,14 +704,44 @@ export default function GameMap() {
       {/* Barra in alto: associazione e soldi */}
       <div className="fs-top">
         {org ? (
-          <button className="fs-pill" onClick={() => router.push("/associazione")} title="Modifica associazione">
+          <div style={{ position: "relative", minWidth: 0 }}>
+          <button className="fs-pill" onClick={() => setStatsOpen((o) => !o)} title="Andamento dell'associazione">
             <FactionEmblem type={org.type} size={34} logo={org.logo_url} />
             <span className="fs-pill-text">
               <span className="fs-name">{org.name}</span>
               {org.auto_enabled && <span className="fs-auto">🤖 AUTO</span>}
               <span className={`fs-money${fundsFlash ? " fs-money-flash" : ""}`}>💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
+              {stats && (
+                <span className="fs-chips">
+                  <span title="Entrate meno uscite nell'ultima ora" style={{ color: stats.net_1h >= 0 ? "#15803D" : "#DC2626" }}>
+                    {stats.net_1h >= 0 ? "📈" : "📉"} {stats.net_1h >= 0 ? "+" : "−"}{shortEuro(Math.abs(stats.net_1h))}/h
+                  </span>
+                  <span title="Servizi rubati nelle ultime 24 ore">🥷 {stats.stolen_24h}</span>
+                  <span title="Servizi persi nelle ultime 24 ore" style={{ color: "#B45309" }}>😤 {stats.lost_24h}</span>
+                </span>
+              )}
             </span>
           </button>
+          {statsOpen && stats && (
+            <div className="fs-stats-pop" onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>📊 Andamento</div>
+              <div className="fs-stat-row"><span>💚 Entrate ultima ora</span><strong style={{ color: "#15803D" }}>+{Number(stats.in_1h).toLocaleString("it-IT")} €</strong></div>
+              <div className="fs-stat-row"><span>❤️ Uscite ultima ora</span><strong style={{ color: "#DC2626" }}>−{Number(stats.out_1h).toLocaleString("it-IT")} €</strong></div>
+              <div className="fs-stat-row" style={{ borderTop: "1px solid #eee", paddingTop: 4 }}>
+                <span>{stats.net_1h >= 0 ? "📈 Sei in positivo" : "📉 Sei in negativo"}</span>
+                <strong style={{ color: stats.net_1h >= 0 ? "#15803D" : "#DC2626" }}>{stats.net_1h >= 0 ? "+" : "−"}{Math.abs(Number(stats.net_1h)).toLocaleString("it-IT")} €</strong>
+              </div>
+              <div className="fs-stat-row"><span>🚑 Servizi conclusi (1 ora)</span><strong>{stats.services_1h}</strong></div>
+              <div className="fs-stat-row"><span>🥷 Servizi rubati (24 ore)</span><strong style={{ color: "#15803D" }}>{stats.stolen_24h}</strong></div>
+              <div className="fs-stat-row"><span>😤 Servizi persi (24 ore)</span><strong style={{ color: "#B45309" }}>{stats.lost_24h}</strong></div>
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <button className="fs-stat-btn" onClick={() => router.push("/finanze")}>📊 Entrate e uscite</button>
+                <button className="fs-stat-btn" onClick={() => router.push("/classifica")}>🏆 Classifica</button>
+                <button className="fs-stat-btn" onClick={() => router.push("/associazione")}>🎨 Associazione</button>
+              </div>
+            </div>
+          )}
+          </div>
         ) : loggedIn === false ? (
           <button className="fs-pill" onClick={() => router.push("/login")} style={{ fontWeight: 700 }}>Accedi / Registrati</button>
         ) : null}
@@ -1240,6 +1285,11 @@ export default function GameMap() {
           padding: 6px 12px 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; text-align: left;
           max-width: 100%; font-family: inherit; }
         .fs-pill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+        .fs-chips { display: flex; gap: 8px; font-size: 11px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+        .fs-stats-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1300; background: #fff; color: #111; border-radius: 14px;
+          box-shadow: 0 8px 28px rgba(0,0,0,.3); padding: 12px; width: min(300px, 86vw); font-size: 13px; text-align: left; }
+        .fs-stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+        .fs-stat-btn { border: none; background: #f1f1ee; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
         .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; }
         .fs-money { font-size: 15px; font-weight: 700; color: #15803D; white-space: nowrap; transition: transform .2s; display: inline-block; }
         .fs-money-flash { animation: money-flash 1.8s ease-out; }

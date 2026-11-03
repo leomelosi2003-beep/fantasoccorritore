@@ -1,0 +1,1 @@
+-- Applicato via MCP: my_quick_stats() (entrate/uscite ultima ora, servizi rubati/persi 24 ore) + indici.
