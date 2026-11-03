@@ -1,0 +1,1 @@
+-- Applicato via MCP: call_helicopter non consuma più l'attivazione: per 10 minuti elicotteri illimitati.

@@ -263,7 +263,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   async function activateHeli() {
     if (!heli) return;
-    if (!window.confirm(`Attivare l'elisoccorso per ${Number(heli.price).toLocaleString("it-IT")} €?\n\nResta attivo 10 minuti e vale per UN servizio: arriva prima di tutti e vince a tavolino. Dopo va ripagato.`)) return;
+    if (!window.confirm(`Attivare l'elisoccorso per ${Number(heli.price).toLocaleString("it-IT")} €?\n\nPer 10 minuti puoi mandare tutti gli elicotteri che vuoi, su qualsiasi servizio: arrivano prima di tutti e vincono a tavolino. Poi va ripagato.`)) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("activate_heli");
     setBusy(false);
@@ -336,6 +336,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                 <div style={{ flex: 1 }}>
                   <strong>🚁 Elisoccorso Avincis</strong><br />
                   Velocissimo, va ovunque: arriva prima di tutti e <strong>vince a tavolino</strong>, porta il paziente in ospedale e torna alla sua base.
+                  Attivo per 10 minuti: in quel tempo <strong>tutti gli elicotteri Avincis sono tuoi</strong>, mandane quanti vuoi.
                 </div>
               </div>
               {left > 0 ? (
