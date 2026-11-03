@@ -71,8 +71,8 @@ const isBoat = (a: { vehicle_image?: string | null }) => /\/b-(marlin|sprint)/.t
 type HeliRow = { id: string; status: string; route: RoutePoint[] | null; arrives_at: string; route_ends_at: string; lat: number; lng: number;
   title: string; hospital: string | null; vehicle_image: string | null; org_name: string; org_type: string | null; call_sign: string; mine: boolean };
 const boatIcons = new Map<string, L.DivIcon>();
-function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: boolean) {
-  const k = `${img}|${facingRight}|${w}|${moving}`;
+function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: boolean, badge = "⛵ IN MARE") {
+  const k = `${img}|${facingRight}|${w}|${moving}|${badge}`;
   let ic = boatIcons.get(k);
   if (!ic) {
     const small = img.replace(/\.png$/, "-map.png");
@@ -83,7 +83,7 @@ function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: bool
                                background:radial-gradient(ellipse at center,rgba(255,255,255,.95),rgba(186,230,253,.4) 60%,transparent 70%);animation:boat-wake .8s ease-in-out infinite"></div>` : ""}
                <img src="${small}" style="width:${w}px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))" alt=""/>
                <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#0369A1;color:#fff;font:700 10px system-ui;
-                           padding:1px 5px;border-radius:999px;white-space:nowrap">⛵ IN MARE</div>
+                           padding:1px 5px;border-radius:999px;white-space:nowrap">${badge}</div>
              </div>`,
       iconSize: [w, Math.round(w * 0.4)], iconAnchor: [w / 2, Math.round(w * 0.2)],
     });
@@ -1158,7 +1158,9 @@ export default function GameMap() {
                     <Polyline key={`boat-${a.id}-${i}`} positions={seg}
                               pathOptions={{ color: "#0369A1", weight: i === 0 ? 4 : 3, opacity: i === 0 ? 0.85 : 0.45, dashArray: i === 0 ? undefined : "8 8" }} />
                   ))}
-                  <Marker position={[pos.lat, pos.lng]} icon={boatMoveIcon(img, ahead.lng > pos.lng, a.mine ? 72 : 58, pos.moving)} zIndexOffset={2500}>
+                  <Marker position={[pos.lat, pos.lng]} icon={boatMoveIcon(img, ahead.lng > pos.lng, a.mine ? 72 : 58, pos.moving,
+                          pos.moving ? (pos.text.startsWith("Rientro") ? "⛵ RIENTRA ALL'ORMEGGIO" : "⛵ IN NAVIGAZIONE")
+                          : pos.text.startsWith("In porto") ? "⚓ IN PORTO · ASPETTA L'AMBULANZA" : pos.text.startsWith("Soccorso") ? "🛟 SOCCORSO IN MARE" : "⛵ IN MARE")} zIndexOffset={2500}>
                     <Popup>
                       <strong>⛵ {a.call_sign}</strong>{a.mine ? "" : ` · ${a.org_name}`}<br />
                       {a.title}<br />{pos.text}

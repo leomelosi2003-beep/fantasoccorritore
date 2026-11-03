@@ -1,0 +1,1 @@
+-- Applicato via MCP: barche più lente da vedere (15 s/km diviso velocità, minimo 60 s per arrivare sul posto).
