@@ -25,16 +25,19 @@ function alongRoute(route: RoutePoint[], now: number) {
     if (now <= b.ms) {
       const f = (now - a.ms) / Math.max(1, b.ms - a.ms);
       const still = a.lat === b.lat && a.lng === b.lng;
+      // i punti "Rotta" della barca sono solo curve della rotta: il testo guarda la tappa vera
+      const la = a.label === "Rotta" ? ([...pts.slice(0, i + 1)].reverse().find((x) => x.label !== "Rotta")?.label ?? a.label) : a.label;
+      const lb = b.label === "Rotta" ? (pts.slice(i + 1).find((x) => x.label !== "Rotta")?.label ?? b.label) : b.label;
       const text = still
-        ? (a.label === "In mare" ? "Soccorso in mare" : a.label.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
-          : a.label.startsWith("Al porto") ? "Al porto: aspetta la barca e carica il paziente" : a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
-        : a.label === b.label ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
-        : b.label === "Ormeggio" ? "Rientro all'ormeggio"
-        : b.label.startsWith("Al porto") ? `In viaggio verso il porto (${b.label.replace("Al porto: ", "")})` : b.label === "In mare" ? "In navigazione verso il posto"
-        : b.label.startsWith("Approdo") ? `Porta il paziente in porto (${b.label.replace("Approdo: ", "")})`
-        : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
-        : a.label === "Sede" ? `In viaggio verso ${b.label}`
-        : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;
+        ? (la === "In mare" ? "Soccorso in mare" : la.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
+          : la.startsWith("Al porto") ? "Al porto: aspetta la barca e carica il paziente" : la === "Sul posto" ? "Soccorso in corso" : la === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${la}`)
+        : la === lb ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
+        : lb === "Ormeggio" ? "Rientro all'ormeggio"
+        : lb.startsWith("Al porto") ? `In viaggio verso il porto (${lb.replace("Al porto: ", "")})` : lb === "In mare" ? "In navigazione verso il posto"
+        : lb.startsWith("Approdo") ? `Porta il paziente in porto (${lb.replace("Approdo: ", "")})`
+        : lb === "Sede" ? "Rientro in sede" : lb === "Sul posto" ? "In viaggio verso il posto"
+        : la === "Sede" ? `In viaggio verso ${lb}`
+        : lb === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${lb}`;
       if (!still) {
         const road = getLeg(legKey(a, b));
         if (road) { const [lat, lng] = pointAt(road, f); return { lat, lng, moving: true, text, until: b.ms, leg: i, f }; }
@@ -47,7 +50,7 @@ function alongRoute(route: RoutePoint[], now: number) {
 }
 
 // tratti della barca: niente strade
-const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label.startsWith("Approdo");
+const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo");
 
 // Clic sulla mappa per scegliere il punto di ormeggio della barca
 function MooringPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {

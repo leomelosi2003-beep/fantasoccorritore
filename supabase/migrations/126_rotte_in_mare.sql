@@ -1,0 +1,5 @@
+-- Applicato via MCP. Rotte in mare che evitano la terra.
+-- sea_waypoints (33 punti al largo: costa da Viareggio all'Argentario, giro dell'Elba, Gorgona, Capraia) + sea_edges.
+-- sea_path(da, a): Dijkstra sui punti (partenza e arrivo collegati al punto più vicino; sotto 3 km linea dritta).
+-- sea_route_points(path, inizio, sec/km, etichetta): punti intermedi "Rotta" con orari.
+-- claim_mission/_as: la barca usa le rotte (7 s/km / velocità). automedica_handover trova gli "Approdo" per etichetta.
