@@ -1,0 +1,1 @@
+-- Applicato via MCP: my_assignments restituisce solo i servizi in corso, quelli finiti da meno di 10 minuti o ancora in rientro (prima includeva tutti gli annullati: oltre 1000 righe, la lista veniva tagliata e i mezzi sparivano dalla mappa).
