@@ -1,0 +1,5 @@
+-- Applicato via MCP. Bilanciamento.
+-- claim_mission/_as: carte rare meno decisive sui tempi (epica -5%, leggendaria -10%, massimo -25%; prima -10/-20%, max -50%);
+--   la velocità del modello conta anche nella durata compressa del servizio (fattore 1,05 / velocità, tra 0,8 e 1,25).
+-- complete_due_assignments: bonus premio carte rare epica +5%, leggendaria +12%, massimo +25% (prima +10/+25% senza limite);
+--   i premi dei servizi tornano con la voce "Servizi" nel registro (dal giro automatico finivano in "Altro").
