@@ -1,0 +1,1 @@
+-- Applicato via MCP: automedica_handover (barca): l'ambulanza aspetta al porto l'arrivo della barca (+1 min) e poi parte per l'ospedale (resto del percorso spostato); la barca torna all'ormeggio quando l'ambulanza riparte.

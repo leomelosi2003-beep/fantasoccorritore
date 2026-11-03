@@ -26,9 +26,11 @@ function alongRoute(route: RoutePoint[], now: number) {
       const f = (now - a.ms) / Math.max(1, b.ms - a.ms);
       const still = a.lat === b.lat && a.lng === b.lng;
       const text = still
-        ? (a.label === "In mare" ? "Soccorso in mare" : a.label.startsWith("Approdo") ? "In porto: aspetta l'ambulanza" : a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
+        ? (a.label === "In mare" ? "Soccorso in mare" : a.label.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
+          : a.label.startsWith("Al porto") ? "Al porto: aspetta la barca e carica il paziente" : a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
         : a.label === b.label ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
-        : b.label === "Ormeggio" ? "Rientro all'ormeggio" : b.label === "In mare" ? "In navigazione verso il posto"
+        : b.label === "Ormeggio" ? "Rientro all'ormeggio"
+        : b.label.startsWith("Al porto") ? `In viaggio verso il porto (${b.label.replace("Al porto: ", "")})` : b.label === "In mare" ? "In navigazione verso il posto"
         : b.label.startsWith("Approdo") ? `Porta il paziente in porto (${b.label.replace("Approdo: ", "")})`
         : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
         : a.label === "Sede" ? `In viaggio verso ${b.label}`
