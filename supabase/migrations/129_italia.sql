@@ -1,0 +1,5 @@
+-- Applicato via MCP. Servizi in tutta Italia con il criterio delle città.
+-- italy_cities (110 città, abitanti in migliaia, molte nell'area di Milano) e italy_spots (1 punto ogni 20.000 abitanti,
+-- raggio 1,2 km + 3*sqrt(abitanti) m). Ospedali principali di Milano, Roma, Napoli, Torino ecc. + uno per città senza ospedale vicino.
+-- generate_missions: 12% dei servizi (r >= 0.88) in Italia scelti in proporzione agli abitanti (+ Trentino); Toscana 0.80-0.88;
+-- punti italiani anche nel ramo "vicino alle sedi" (40 km).
