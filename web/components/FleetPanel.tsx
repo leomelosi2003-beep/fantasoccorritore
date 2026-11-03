@@ -38,6 +38,21 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
   onLocate?: (vehicleId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // manutenzione a tutti i mezzi fermi in sede
+  const [mq, setMq] = useState<{ vehicles: number; cost: number } | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    supabase.rpc("maintenance_all_quote").then(({ data }) => setMq(((data as { vehicles: number; cost: number }[]) ?? [])[0] ?? null));
+  }, [open, refreshKey]);
+  async function maintainAll() {
+    if (!mq || !mq.vehicles) return;
+    if (!window.confirm(`Mandare in officina ${mq.vehicles} mezzi fermi in sede per ${Number(mq.cost).toLocaleString("it-IT")} €?\n\nTornano come nuovi dopo pochi minuti.`)) return;
+    const { data, error } = await supabase.rpc("maintenance_all");
+    if (error) { onChanged("Errore: " + error.message); return; }
+    const r = ((data as { vehicles: number; cost: number }[]) ?? [])[0];
+    onChanged(r && r.vehicles ? `🔧 ${r.vehicles} mezzi in officina · ${Number(r.cost).toLocaleString("it-IT")} €` : "Nessun mezzo da riparare (o soldi insufficienti).");
+    setMq(null);
+  }
   const [picking, setPicking] = useState<string | null>(null); // id del servizio
   const [options, setOptions] = useState<HospitalOption[]>([]);
   const [busy, setBusy] = useState(false);
@@ -130,6 +145,15 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
       </button>
       {open && (
         <div className="fs-fleet-list">
+          {mq && mq.vehicles > 0 && (
+            <div style={{ padding: "8px 10px", borderBottom: "1px solid #f0f0f0" }}>
+              <button onClick={maintainAll}
+                      style={{ width: "100%", border: "none", background: "#6B7280", color: "#fff", borderRadius: 8, padding: "8px 10px",
+                               fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                🔧 Manutenzione a tutti · {mq.vehicles} mezzi in sede · {Number(mq.cost).toLocaleString("it-IT")} €
+              </button>
+            </div>
+          )}
           {rows.length === 0 && <div style={{ padding: 12, color: "#666", fontSize: 14 }}>Nessuna ambulanza: comprala nel Garage.</div>}
           {rows.map(({ v, color, text, timer, job }) => (
             <div key={v.id} style={{ borderTop: "1px solid #f0f0f0" }}>

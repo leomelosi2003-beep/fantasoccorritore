@@ -265,6 +265,19 @@ export default function Garage() {
     load();
   }
 
+  async function maintainAll() {
+    setMsg(null);
+    const q = await supabase.rpc("maintenance_all_quote");
+    const r0 = ((q.data as { vehicles: number; cost: number }[]) ?? [])[0];
+    if (!r0 || !r0.vehicles) { setMsg({ ok: true, text: "Nessun mezzo fermo in sede da riparare." }); return; }
+    if (!window.confirm(`Mandare in officina ${r0.vehicles} mezzi fermi in sede per ${euro(Number(r0.cost))}?`)) return;
+    const { data, error } = await supabase.rpc("maintenance_all");
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    const r = ((data as { vehicles: number; cost: number }[]) ?? [])[0];
+    setMsg({ ok: true, text: r && r.vehicles ? `🔧 ${r.vehicles} mezzi in officina per ${euro(Number(r.cost))}.` : "Soldi insufficienti per la manutenzione." });
+    load();
+  }
+
   async function maintain(v: Vehicle) {
     setMsg(null);
     const { error } = await supabase.rpc("start_maintenance", { p_vehicle_id: v.id });
@@ -309,6 +322,12 @@ export default function Garage() {
                   style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "#F97316", marginBottom: 14,
                            boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
             🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}
+          </button>
+        )}
+        {!shop && !firstVehicle && (
+          <button onClick={maintainAll}
+                  style={{ ...btn, width: "100%", padding: 12, fontSize: 15, background: "#6B7280", marginBottom: 14 }}>
+            🔧 Manutenzione a tutti i mezzi fermi in sede
           </button>
         )}
 

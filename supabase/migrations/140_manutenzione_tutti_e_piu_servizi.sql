@@ -1,0 +1,2 @@
+-- Applicato via MCP. maintenance_candidates / maintenance_all_quote / maintenance_all: officina per tutti i mezzi fermi in sede (usura >= 5).
+-- generate_missions: cap (30 + 4*sedi)*mult, creazione max(8, (5+sedi)*mult*1,5); task 'missions' ogni 120 s (più servizi vicino alle sedi).
