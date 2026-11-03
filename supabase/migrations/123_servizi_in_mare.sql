@@ -1,0 +1,11 @@
+-- Applicato via MCP. SERVIZI IN MARE.
+-- mission_category += 'mare'; ports (17 porti), sea_spots (105 punti al largo), ports_map().
+-- vehicle_models.boat; B-Marlin (idroambulanza). vehicles.moor_location (trigger boat_default_mooring: porto più vicino alla sede);
+-- set_boat_mooring(vehicle, lat, lng) entro 30 km da un porto. mission_assignments.port_id.
+-- generate_sea_missions(): max 5 aperti, 1-2 ogni 2 minuti (task 'sea' in game_tick).
+-- claim_mission/_as: in mare solo la barca (SEA_ONLY_BOAT), la barca solo in mare (BOAT_ONLY_SEA), equipaggio >=1 autista + >=1 soccorritore (BOAT_CREW),
+--   entro 40 km dall'ormeggio; percorso Ormeggio → In mare → Approdo: porto più vicino (attesa max 15 min) → Ormeggio.
+--   assignment.automedica = true per riusare attesa/cambio/tavolino. L'ambulanza del cambio va al porto (m.location = porto).
+-- automedica_handover: per la barca si libera 1 minuto dopo l'arrivo dell'ambulanza al porto.
+-- auto_dispatch_org ignora barche e servizi in mare; auto_medical manda le barche (parte 3) e l'ambulanza al porto (parte 1).
+-- buy_vehicle: barca senza barella. my_fleet.boat, moor_lat, moor_lng.

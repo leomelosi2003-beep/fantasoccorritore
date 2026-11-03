@@ -7,7 +7,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
-  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -73,6 +73,9 @@ function claimError(m: string) {
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
+  if (m.includes("SEA_ONLY_BOAT")) return "🌊 In mare ci va solo la barca: l'ambulanza può andare solo al porto a prendere il paziente della tua barca.";
+  if (m.includes("BOAT_ONLY_SEA")) return "⛵ La barca fa solo servizi in mare.";
+  if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono almeno 1 autista (pilota) e 1 soccorritore.";
   if (m.includes("MOTO_CREW")) return "🛵 Sulla moto vanno solo 1 o 2 soccorritori.";
   if (m.includes("AUTOMEDICA_CREW")) return "🩺 Sull'automedica servono esattamente 1 autista e 1 medico.";
   if (m.includes("AUTOMEDICA_ONLY_EMERGENCY")) return "🩺 L'automedica va solo su codici gialli e rossi.";
@@ -99,7 +102,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,moor_lat,moor_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -118,6 +121,19 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
     if (v.transfer_only && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
+    const sea = mission.category === "mare";
+    if (v.boat && !sea) return "solo servizi in mare";
+    if (sea && !v.boat && !waiting) return "in mare va solo la barca";
+    if (v.boat) {
+      if (v.moor_lat != null && v.moor_lng != null) {
+        const d = km(v.moor_lat, v.moor_lng, mission.lat, mission.lng);
+        if (d > 40) return `troppo lontana dall'ormeggio (${Math.round(d)} km)`;
+      }
+      if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
+      if (v.wear >= 80) return "da revisionare";
+      if ((v.fuel_liters ?? 99) < 5) return "senza carburante: fai il pieno";
+      return null;
+    }
     if (v.automedica && (mission.category !== "emergenza_118" || !["giallo", "rosso"].includes(mission.code) || mission.transport === "trasferimento"))
       return "automedica: solo gialli e rossi";
     if (v.automedica && waiting) return "la tua automedica è già qui: manda un'ambulanza";
@@ -153,7 +169,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   // mezzi ordinati: prima quelli disponibili, dal più vicino al più lontano
   // i mezzi solo-trasferimenti non compaiono nemmeno sui servizi di emergenza
   const sortedVehicles = vehicles.filter((v) => !v.transfer_only || mission.transport === "trasferimento").sort((a, b) =>
-    (vehicleProblem(a) ? 1 : 0) - (vehicleProblem(b) ? 1 : 0) || (a.automedica ? 1 : 0) - (b.automedica ? 1 : 0) || distOf(a) - distOf(b));
+    (vehicleProblem(a) ? 1 : 0) - (vehicleProblem(b) ? 1 : 0) || (a.boat ? 0 : 1) - (b.boat ? 0 : 1) || (a.automedica ? 1 : 0) - (b.automedica ? 1 : 0) || distOf(a) - distOf(b));
 
   // scegli automaticamente il mezzo disponibile più vicino (e cambia se quello scelto non è più disponibile)
   const [userPicked, setUserPicked] = useState(false);
@@ -171,8 +187,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const crewCards = cards.filter((c) => crew.includes(c.id));
   const isAm = !!vehicles.find((v) => v.id === vehicleId)?.automedica;
   const isMoto = !!vehicles.find((v) => v.id === vehicleId)?.moto;
+  const isBoat = !!vehicles.find((v) => v.id === vehicleId)?.boat;
   const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
-  const missing = isMoto
+  const missing = isBoat
+    ? [...(crewCards.some((c) => c.role === "autista") ? [] : ["1 autista (pilota)"]),
+       ...(crewCards.some((c) => c.role !== "autista" && RANK[c.role] >= 1) ? [] : ["1 soccorritore"])]
+    : isMoto
     ? [...(crewCards.length === 0 ? ["1 soccorritore"] : []), ...(crewCards.some((c) => !SOCC.includes(c.role)) ? ["solo soccorritori"] : [])]
     : isAm
     ? [...(crewCards.filter((c) => c.role === "autista").length !== 1 ? ["1 autista"] : []),
@@ -252,7 +272,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     const v = vehicles.find((x) => x.id === vehicleId);
     const arr = new Date((data as { arrives_at: string }).arrives_at);
-    onClaimed(`${v?.moto ? "🛵" : v?.automedica ? "🩺" : "🚑"} ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
+    onClaimed(`${v?.boat ? "⛵" : v?.moto ? "🛵" : v?.automedica ? "🩺" : "🚑"} ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
   }
 
   const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support || companion) && !full;
@@ -281,10 +301,21 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       </div>
 
       <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
-        {waiting && (
+        {waiting && mission.category !== "mare" && (
           <div style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
             🩺 <strong>La tua automedica è sul servizio e aspetta un&apos;ambulanza.</strong> Mandane una: entra anche se il servizio è pieno
             e prende metà premio. {mission.code === "rosso" ? "Poi l'automedica la segue in ospedale." : "Appena arriva, l'automedica si libera."}
+          </div>
+        )}
+        {isBoat && (
+          <div style={{ background: "#E0F2FE", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#0C4A6E" }}>
+            ⛵ <strong>Barca:</strong> parte dall&apos;ormeggio, recupera il paziente in mare e lo porta al porto più vicino,
+            dove aspetta una tua ambulanza (max 15 minuti, altrimenti niente premio). A bordo almeno 1 autista e 1 soccorritore.
+          </div>
+        )}
+        {mission.category === "mare" && waiting && (
+          <div style={{ background: "#E0F2FE", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#0C4A6E" }}>
+            🚑 La tua barca porta il paziente al porto: manda un&apos;ambulanza <strong>al porto</strong> a prenderlo.
           </div>
         )}
         {isAm && !waiting && (
@@ -356,7 +387,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
-                <strong>{v.moto ? "🛵 " : v.automedica ? "🩺 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
+                <strong>{v.boat ? "⛵ " : v.moto ? "🛵 " : v.automedica ? "🩺 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
                 <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : `${distOf(v) < 999 ? `${distOf(v).toFixed(1).replace(".", ",")} km` : "idoneo"}${i === 0 ? " · più vicina" : ""}`)}</span>
               </button>
             );

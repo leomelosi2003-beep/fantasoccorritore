@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase, livery, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
@@ -26,8 +26,10 @@ function alongRoute(route: RoutePoint[], now: number) {
       const f = (now - a.ms) / Math.max(1, b.ms - a.ms);
       const still = a.lat === b.lat && a.lng === b.lng;
       const text = still
-        ? (a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
+        ? (a.label === "In mare" ? "Soccorso in mare" : a.label.startsWith("Approdo") ? "In porto: aspetta l'ambulanza" : a.label === "Sul posto" ? "Soccorso in corso" : a.label === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${a.label}`)
         : a.label === b.label ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
+        : b.label === "Ormeggio" ? "Rientro all'ormeggio" : b.label === "In mare" ? "In navigazione verso il posto"
+        : b.label.startsWith("Approdo") ? `Porta il paziente in porto (${b.label.replace("Approdo: ", "")})`
         : b.label === "Sede" ? "Rientro in sede" : b.label === "Sul posto" ? "In viaggio verso il posto"
         : a.label === "Sede" ? `In viaggio verso ${b.label}`
         : b.label === "A casa del paziente" ? "Riporta il paziente a casa" : `Trasporto verso ${b.label}`;
@@ -42,6 +44,31 @@ function alongRoute(route: RoutePoint[], now: number) {
   return { lat: last.lat, lng: last.lng, moving: false, text: "In sede", until: last.ms, leg: pts.length, f: 1 };
 }
 
+// tratti della barca: niente strade
+const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label.startsWith("Approdo");
+
+// Clic sulla mappa per scegliere il punto di ormeggio della barca
+function MooringPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: (e) => onPick(e.latlng.lat, e.latlng.lng) });
+  return null;
+}
+type Boat = { id: string; call_sign: string; status: string; moor_lat: number | null; moor_lng: number | null; vehicle_image: string | null };
+type Port = { id: number; name: string; lat: number; lng: number };
+const portIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:22px;height:22px;border-radius:6px;background:#E0F2FE;border:2px solid #0369A1;display:flex;
+         align-items:center;justify-content:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.35)">⚓</div>`,
+  iconSize: [22, 22], iconAnchor: [11, 11],
+});
+function boatIcon(img: string | null) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="position:relative"><img src="${(img ?? "/vehicles/b-marlin.png").replace(/\.png$/, "-map.png")}" style="width:54px;height:auto;display:block" alt=""/>
+           <span style="position:absolute;right:-4px;top:-6px;background:#0369A1;color:#fff;border-radius:999px;font-size:10px;padding:0 4px">⚓</span></div>`,
+    iconSize: [54, 34], iconAnchor: [27, 30],
+  });
+}
+
 // Strada ancora da fare: resto del tratto attuale + tratti successivi
 function remainingPath(route: RoutePoint[], leg: number, f: number): LatLng[][] {
   const out: LatLng[][] = [];
@@ -49,6 +76,7 @@ function remainingPath(route: RoutePoint[], leg: number, f: number): LatLng[][] 
     const a = route[i], b = route[i + 1];
     if (a.lat === b.lat && a.lng === b.lng) continue;
     const from = i === leg ? f : 0;
+    if (isSea(a) || isSea(b)) { out.push([[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]); continue; }
     const road = getLeg(legKey(a, b));
     out.push(road ? slice(road, from) : [[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]);
   }
@@ -319,6 +347,29 @@ export default function GameMap() {
   const [now, setNow] = useState(Date.now());
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [ports, setPorts] = useState<Port[]>([]);
+  const [boats, setBoats] = useState<Boat[]>([]);
+  const [mooring, setMooring] = useState<Boat | null>(null);
+  useEffect(() => {
+    supabase.rpc("ports_map").then(({ data }) => setPorts((data as Port[]) ?? []));
+  }, []);
+  useEffect(() => {
+    if (!org?.id) return;
+    const load = () => supabase.from("my_fleet").select("id,call_sign,status,moor_lat,moor_lng,vehicle_image").eq("boat", true)
+      .then(({ data }) => setBoats((data as Boat[]) ?? []));
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
+    return () => clearInterval(t);
+  }, [org?.id]);
+  async function moorAt(lat: number, lng: number) {
+    if (!mooring) return;
+    const b = mooring; setMooring(null);
+    const { error } = await supabase.rpc("set_boat_mooring", { p_vehicle: b.id, p_lat: lat, p_lng: lng });
+    if (error) { setToast(error.message.includes("TOO_FAR_FROM_PORT") ? "⚓ Troppo lontano dalla costa: ormeggia entro 30 km da un porto."
+                          : error.message.includes("VEHICLE_BUSY") ? "⚓ La barca è in servizio: spostala quando è libera." : error.message); return; }
+    setBoats((all) => all.map((x) => (x.id === b.id ? { ...x, moor_lat: lat, moor_lng: lng } : x)));
+    setToast(`⚓ ${b.call_sign} ormeggiata qui.`);
+  }
 
   useEffect(() => {
     supabase.from("hospitals_map").select("*").then(({ data, error }) => { if (!error) setHospitals((data as Hospital[]) ?? []); });
@@ -463,6 +514,7 @@ export default function GameMap() {
         const p = a.route[i], q = a.route[i + 1];
         if (new Date(q.t).getTime() < tNow) continue; // tratto già percorso: non serve
         if (p.lat === q.lat && p.lng === q.lng) continue;
+        if (isSea(p) || isSea(q)) continue; // la barca va in linea dritta sul mare
         fetchLeg(p, q, Math.min(2, ahead++)).then(() => setRoadsLoaded((n) => n + 1));
       }
     }
@@ -697,10 +749,36 @@ export default function GameMap() {
                       color: "#900", border: "1px solid #e99", padding: "10px 14px", borderRadius: 8 }}>{error}</div>
       )}
 
+      {mooring && (
+        <div style={{ position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)", zIndex: 1000, background: "#0369A1",
+                      color: "#fff", padding: "10px 14px", borderRadius: 10, fontWeight: 700, boxShadow: "0 2px 10px rgba(0,0,0,.3)",
+                      display: "flex", gap: 10, alignItems: "center", maxWidth: "92vw" }}>
+          ⚓ Tocca il mare dove ormeggiare {mooring.call_sign}
+          <button onClick={() => setMooring(null)} style={{ border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>Annulla</button>
+        </div>
+      )}
       <MapContainer center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
+        {mooring && <MooringPicker onPick={moorAt} />}
+        {ports.map((p) => (
+          <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
+            <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
+          </Marker>
+        ))}
+        {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status === "disponibile").map((b) => (
+          <Marker key={`boat-${b.id}`} position={[b.moor_lat!, b.moor_lng!]} icon={boatIcon(livery(b.vehicle_image, org?.type))}>
+            <Popup>
+              <strong>⛵ {b.call_sign}</strong><br />Ormeggiata, pronta per i servizi in mare (entro 40 km).
+              <div style={{ marginTop: 8 }}>
+                <button onClick={() => setMooring(b)}
+                        style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                 background: "#0369A1", color: "#fff", fontWeight: 700 }}>⚓ Sposta ormeggio</button>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
         {hospitals.map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
             <Popup>
@@ -817,11 +895,13 @@ export default function GameMap() {
           <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={m.contestable ? 12 : 10}
                         pathOptions={m.contestable
                           ? { color: "#111", weight: 3, dashArray: "4 4", fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
+                          : m.category === "mare" ? { color: "#0369A1", weight: 4, fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
                           : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
             <Popup>
               <strong>{m.title}</strong><br />
+              {m.category === "mare" && <div style={{ fontSize: 12, color: "#0369A1", fontWeight: 700 }}>🌊 Servizio in mare: ci va solo la barca, poi un&apos;ambulanza prende il paziente al porto.</div>}
               {m.slots_taken > 0 && (
                 <div style={{ margin: "6px 0", background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12 }}>
                   <div style={{ fontWeight: 800, marginBottom: 2 }}>🏁 Ordine di arrivo</div>

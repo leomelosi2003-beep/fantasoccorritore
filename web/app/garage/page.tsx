@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -85,7 +85,7 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
-  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto">("gasolio");
+  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto" | "barca">("gasolio");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -128,13 +128,13 @@ export default function Garage() {
 
   const model = models.find((m) => m.id === modelId);
   const builder = builders.find((b) => b.id === builderId);
-  const pickedCodes = (Object.entries(picked).filter(([k, v]) => !!v && !(k === "barella" && models.find((m) => m.id === modelId)?.automedica))
+  const pickedCodes = (Object.entries(picked).filter(([k, v]) => !!v && !(k === "barella" && (models.find((m) => m.id === modelId)?.automedica || models.find((m) => m.id === modelId)?.boat)))
     .map(([, v]) => v)) as string[];
   const firstVehicle = vehicles.length === 0;
   const priceOf = (e: Equip) => (firstVehicle && e.starter ? 0 : e.cost);
   const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
   const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
-  const isAm = !!model?.automedica; // l'automedica non ha la barella
+  const isAm = !!model?.automedica || !!model?.boat; // automedica, moto e barca non hanno la barella
   const ready = !!model && !!builder && !!picked.monitor && (isAm || !!picked.barella);
   // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
   const step: number = !model ? 1 : !builder ? 2 : 4;
@@ -342,9 +342,9 @@ export default function Garage() {
 
             <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"]] as const).map(([k, l]) => (
+              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"], ["barca", "⛵ Barca"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setPower(k); setModelId(null); }}
-                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : "#111") : "#e5e5e0",
+                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : k === "barca" ? "#0369A1" : "#111") : "#e5e5e0",
                                  color: power === k ? "#fff" : "#111" }}>{l}</button>
               ))}
             </div>
@@ -369,8 +369,16 @@ export default function Garage() {
                 Si possono avere <strong>al massimo 2 moto per sede</strong>.
               </div>
             )}
+            {power === "barca" && (
+              <div style={{ fontSize: 13, background: "#E0F2FE", color: "#0C4A6E", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                ⛵ <strong>Idroambulanza:</strong> l&apos;unico mezzo che può fare i <strong>servizi in mare</strong> (cerchi con il bordo blu sulla mappa).
+                Resta <strong>ormeggiata dove vuoi in mare</strong> (sulla mappa: tocca la barca → «Sposta ormeggio») e parte per i servizi entro 40 km.
+                Porta il paziente al <strong>porto più vicino</strong> e aspetta una tua ambulanza che lo carica (anche a servizio pieno).
+                A bordo: almeno 1 autista (pilota) e 1 soccorritore.
+              </div>
+            )}
             <div style={grid}>
-              {models.filter((m) => power === "moto" ? !!m.moto : power === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
+              {models.filter((m) => power === "barca" ? !!m.boat : m.boat ? false : power === "moto" ? !!m.moto : power === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
                 <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
