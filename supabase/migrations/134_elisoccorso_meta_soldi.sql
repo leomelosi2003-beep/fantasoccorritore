@@ -1,0 +1,1 @@
+-- Applicato via MCP: heli_price_org = max(3M, metà dei soldi in cassa).
