@@ -54,6 +54,8 @@ function alongRoute(route: RoutePoint[], now: number) {
 }
 
 const isHeli = (a: { vehicle_image?: string | null }) => !!a.vehicle_image?.includes("h-pegaso");
+type HeliRow = { id: string; status: string; route: RoutePoint[] | null; arrives_at: string; route_ends_at: string; lat: number; lng: number;
+  title: string; hospital: string | null; vehicle_image: string | null; org_name: string; mine: boolean };
 
 // tratti della barca: niente strade
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
@@ -274,6 +276,14 @@ function heliIconHtml(img: string, facingRight: boolean, w: number) {
             <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#EA580C;color:#fff;font:700 10px system-ui;
                         padding:1px 5px;border-radius:999px;white-space:nowrap">🚁 ELISOCCORSO</div>
           </div>`;
+}
+
+const heliIcons = new Map<string, L.DivIcon>();
+function heliMarkerIcon(facingRight: boolean, w: number) {
+  const k = `${facingRight}|${w}`;
+  let ic = heliIcons.get(k);
+  if (!ic) { ic = L.divIcon({ className: "", html: heliIconHtml("/vehicles/h-pegaso.png", facingRight, w), iconSize: [w, Math.round(w * 0.37)], iconAnchor: [w / 2, Math.round(w * 0.18)] }); heliIcons.set(k, ic); }
+  return ic;
 }
 
 // Ambulanza vista di profilo (immagine del modello), girata verso dove sta andando
@@ -1039,7 +1049,7 @@ export default function GameMap() {
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
-        {onTheRoad(others, now).filter((a) => !onScene(a, now) || isHeli(a)).map((a) => {
+        {onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1065,7 +1075,36 @@ export default function GameMap() {
           );
         })}
 
-        {onTheRoad(assignments, now).map((a) => {
+        {/* Elisoccorso: livello dedicato, posizione ricalcolata ogni secondo, sempre visibile dal decollo al rientro */}
+        {([...assignments.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
+                lat: x.lat, lng: x.lng, title: x.title, hospital: x.hospital, vehicle_image: x.vehicle_image, org_name: "", mine: true })),
+           ...others.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
+                lat: (x as unknown as { lat: number }).lat, lng: (x as unknown as { lng: number }).lng, title: x.title, hospital: x.hospital,
+                vehicle_image: x.vehicle_image, org_name: x.org_name, mine: false }))] as HeliRow[])
+          .filter((a) => isHeli(a) && a.route?.length && a.status !== "annullata" && now < new Date(a.route_ends_at).getTime())
+          .map((a) => {
+            const r = a.route as RoutePoint[];
+            const pos = alongRoute(r, now);
+            const ahead = alongRoute(r, now + 3000);
+            const toScene = now < new Date(a.arrives_at).getTime();
+            const secs = Math.max(0, Math.round((new Date(a.arrives_at).getTime() - now) / 1000));
+            return (
+              <Fragment key={`heli-${a.id}`}>
+                {toScene && <Polyline positions={[[pos.lat, pos.lng], [a.lat, a.lng]]} pathOptions={{ color: "#EA580C", weight: 3, dashArray: "6 6", opacity: 0.9 }} />}
+                {toScene && <CircleMarker center={[a.lat, a.lng]} radius={16} pathOptions={{ color: "#EA580C", weight: 3, fillOpacity: 0.1 }} />}
+                <Marker position={[pos.lat, pos.lng]} icon={heliMarkerIcon(ahead.lng > pos.lng, a.mine ? 96 : 80)} zIndexOffset={3000}>
+                  <Popup>
+                    <strong>🚁 Elisoccorso{a.mine ? "" : ` · ${a.org_name}`}</strong><br />
+                    {a.title}<br />
+                    {pos.text}{toScene ? ` · arriva tra ${secs} s` : ""}
+                    {a.hospital && <><br />Ospedale: {a.hospital}</>}
+                  </Popup>
+                </Marker>
+              </Fragment>
+            );
+          })}
+
+        {onTheRoad(assignments, now).filter((a) => !isHeli(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1083,7 +1122,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {(!onScene(a, now) || isHeli(a)) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} zIndexOffset={isHeli(a) ? 1000 : undefined}
+            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
