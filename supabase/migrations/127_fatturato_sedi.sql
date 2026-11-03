@@ -1,0 +1,1 @@
+-- Applicato via MCP: my_base_revenue(p_hours): fatturato per sede (servizi conclusi, premi lordi, codici, mezzi, mezzo migliore).

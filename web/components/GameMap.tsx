@@ -731,6 +731,7 @@ export default function GameMap() {
               ["🏷️", "Usato e aste", "#B45309", "/usate"],
               ["🏠", "Sedi", "#9333EA", "/sedi"],
               ["📊", "Entrate e uscite", "#166534", "/finanze"],
+              ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
               ["🏆", "Classifica", "#B45309", "/classifica"],
               ["🎨", "Associazione", "#DB2777", "/associazione"],
               ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
