@@ -10,6 +10,7 @@ import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
+import AcquisitionModal from "@/components/AcquisitionModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
@@ -1174,6 +1175,7 @@ export default function GameMap() {
                       }, 300); }} />
       )}
 
+      {org && <AcquisitionModal onDone={(t) => setToast(t)} />}
       {toast && (
         <div className="fs-toast" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 1200,
                       background: "#111", color: "#fff", padding: "12px 18px", borderRadius: 12, fontWeight: 600,

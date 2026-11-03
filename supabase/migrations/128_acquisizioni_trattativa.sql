@@ -1,0 +1,6 @@
+-- Applicato via MCP. Acquisizioni con trattativa.
+-- acquisition_offers: turn (seller|buyer), first_price, rounds.
+-- acquisition_execute(id): passaggio (sedi, mezzi, metà comuni al compratore); i servizi in corso del venditore si annullano
+--   invece di bloccare la vendita (prima SELLER_BUSY bloccava quasi sempre). Modalità automatica del venditore spenta.
+-- answer_acquisition_offer: risponde chi ha il turno (venditore all'offerta, compratore alla controfferta).
+-- counter_acquisition_offer(id, prezzo): rilancio, max 6. acquisition_offer_details(id), my_pending_offers().

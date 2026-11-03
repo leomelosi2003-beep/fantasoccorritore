@@ -10,7 +10,7 @@ type Org = Pick<Organization, "id" | "name" | "type" | "logo_url">;
 type Alliance = { id: string; name: string; founder_org: string };
 type Member = { org_id: string; alliance_id: string };
 type Invite = { id: string; alliance_id: string; org_id: string };
-type Offer = { id: string; buyer_org: string; seller_org: string; price: number; status: string; created_at: string };
+type Offer = { id: string; buyer_org: string; seller_org: string; price: number; status: string; created_at: string; turn?: string };
 type Loan = { id: string; from_org: string; to_org: string; ends_at: string; returned_at: string | null; vehicle_id?: string; card_id?: string };
 type Fleet = { id: string; call_sign: string; status: string; mine: boolean; lent_to: string | null; lent_from: string | null };
 
@@ -122,7 +122,7 @@ export default function AlleanzaPage() {
   const free = orgs.filter((x) => x.id !== me.id && !members.some((m) => m.org_id === x.id));
   const myInvites = invites.filter((i) => i.org_id === me.id);
   const sentInvites = invites.filter((i) => i.alliance_id === myAlliance);
-  const offersIn = offers.filter((o) => o.seller_org === me.id);
+  const offersIn = offers.filter((o) => o.seller_org === me.id && (o.turn ?? "seller") === "seller");
   const offersOut = offers.filter((o) => o.buyer_org === me.id);
   const myVehicles = fleet.filter((v) => v.mine);
   const myCards = cards.filter((c) => !c.lent_from);
@@ -318,7 +318,7 @@ export default function AlleanzaPage() {
           </div>
           {offersOut.map((o) => (
             <div key={o.id} style={{ ...row, background: "#FFFBEB" }}>
-              <span style={{ flex: 1 }}>Offerta a <strong>{orgById(o.seller_org)?.name}</strong>: {euro(o.price)} · in attesa</span>
+              <span style={{ flex: 1 }}>Offerta a <strong>{orgById(o.seller_org)?.name}</strong>: {euro(o.price)} · {o.turn === "buyer" ? "🤝 ha contrattato: rispondi dalla mappa" : "in attesa"}</span>
               <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }}
                       onClick={() => call("cancel_acquisition_offer", { p_id: o.id }, "Offerta ritirata.")}>Ritira</button>
             </div>
