@@ -1,0 +1,1 @@
+-- Applicato via MCP: server_now() per sincronizzare l'orologio della mappa.

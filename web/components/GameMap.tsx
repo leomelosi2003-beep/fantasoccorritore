@@ -17,6 +17,19 @@ import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/compone
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
 type Hospital = { id: string; name: string; capabilities: string[]; lat: number; lng: number };
 
+// Orologio del server: se l'orologio del telefono è avanti o indietro, i mezzi veloci (barca, elisoccorso)
+// sembrerebbero già arrivati o fermi. Tutte le animazioni usano l'ora del server.
+let clockOffset = 0;
+const serverNow = () => Date.now() + clockOffset;
+async function syncClock() {
+  try {
+    const t0 = Date.now();
+    const { data } = await supabase.rpc("server_now");
+    const t1 = Date.now();
+    if (data) clockOffset = new Date(data as string).getTime() - (t0 + t1) / 2;
+  } catch { /* rete assente: resta l'ora del telefono */ }
+}
+
 // Posizione dell'ambulanza lungo il percorso (sede → posto → ospedale → sede) e cosa sta facendo
 function alongRoute(route: RoutePoint[], now: number) {
   const pts = route.map((p) => ({ ...p, ms: new Date(p.t).getTime() }));
@@ -229,7 +242,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
   const routeRef = useRef(route); routeRef.current = route;
   const makeRef = useRef(makeIcon); makeRef.current = makeIcon;
   const [start] = useState(() => {
-    const t = Date.now(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
+    const t = serverNow(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
     return { pos: [p.lat, p.lng] as [number, number], key: `${!sirens(code, p)}|${ah.lng > p.lng}`,
              icon: makeIcon(!sirens(code, p), ah.lng > p.lng) };
   });
@@ -241,7 +254,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
       if (ts - last < 33) return; // ~30 fotogrammi al secondo bastano e risparmiano batteria
       last = ts;
       const m = ref.current; if (!m) return;
-      const t = Date.now();
+      const t = serverNow();
       const p = alongRoute(routeRef.current, t);
       m.setLatLng([p.lat, p.lng]);
       const ah = alongRoute(routeRef.current, t + 4000);
@@ -416,7 +429,8 @@ export default function GameMap() {
   const [elec, setElec] = useState<{ n: number; pct: number; charging: number; empty: number } | null>(null);
   const [, setRoadsLoaded] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(serverNow());
+  const fastRef = useRef(false);
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [ports, setPorts] = useState<Port[]>([]);
@@ -521,6 +535,7 @@ export default function GameMap() {
         }
       }
       prev = new Map(list.map((a) => [a.id, a.status]));
+      fastRef.current = list.some((a) => (isBoat(a) || isHeli(a)) && serverNow() < new Date(a.route_ends_at).getTime());
       setAssignments(list);
       setFleetKey((k) => k + 1);
       // ambulanze degli altri giocatori
@@ -530,8 +545,12 @@ export default function GameMap() {
     loadAssignments();
     reloadRef.current = loadAssignments;
     const t1 = setInterval(() => { if (document.visibilityState === "visible") loadAssignments(); }, 25_000);
-    const t2 = setInterval(() => setNow(Date.now()), 1000);
-    return () => { clearInterval(t1); clearInterval(t2); };
+    syncClock().then(() => setNow(serverNow()));
+    const t2 = setInterval(() => setNow(serverNow()), 1000);
+    const t3 = setInterval(syncClock, 300_000);
+    // con barche o elisoccorso in giro si aggiorna più spesso, per vederli partire subito
+    const t4 = setInterval(() => { if (fastRef.current && document.visibilityState === "visible") loadAssignments(); }, 8_000);
+    return () => { clearInterval(t1); clearInterval(t2); clearInterval(t3); clearInterval(t4); };
   }, []);
 
   // I soldi in alto salgono contando, con un lampo verde quando entrano
@@ -580,7 +599,7 @@ export default function GameMap() {
 
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
-    const tNow = Date.now();
+    const tNow = serverNow();
     for (const a of [...assignments, ...others]) {
       if (a.status === "conclusa" || !a.route?.length) continue;
       let ahead = 0;
