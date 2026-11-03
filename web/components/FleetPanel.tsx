@@ -12,7 +12,7 @@ type Job = { id: string; vehicle_id: string; title: string; status: string; assi
   route: { lat: number; lng: number; t: string; label: string }[] | null };
 type LentInfo = { vehicle_id: string; borrower: string; ends_at: string; earned: number; services: number;
   last_amount: number | null; last_at: string | null; job_title: string | null; job_completes_at: string | null; job_reward: number | null };
-type Row = { v: Vehicle; color: string; text: string; timer: string | null; order: number; job?: Job };
+type Row = { v: Vehicle; color: string; text: string; timer: string | null; order: number; job?: Job; away?: boolean };
 type HospitalOption = { id: string; name: string; minutes: number; current: boolean; specialized: boolean };
 
 // Si può cambiare ospedale finché l'ambulanza non è arrivata in ospedale
@@ -110,7 +110,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
       return { v, color: "#DC2626", text: j.title.split(" — ")[0] + (j.hospital ? ` → ${j.hospital}` : ""),
                timer: countdown(freeAt - now), order: 0, job: j };
     if (j && homeAt > now)
-      return { v, color: "#15803D", text: `✅ Libera · in rientro (${countdown(homeAt - now)})`, timer: null, order: 1 };
+      return { v, color: "#15803D", text: `↩️ Libera ma ancora fuori · rientra tra ${countdown(homeAt - now)}`, timer: null, order: 1, away: true };
     if (v.wear >= 80) return { v, color: "#B45309", text: "⚠️ Da revisionare", timer: null, order: 2 };
     if (!v.electric && (v.fuel_liters ?? 99) < 5) return { v, color: "#DC2626", text: "⛽ Senza gasolio: non parte, fai il pieno", timer: null, order: 2 };
     if (v.electric && Number(v.battery_pct ?? 100) < 100)
@@ -119,11 +119,14 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
   }).sort((a, b) => a.order - b.order || (a.v.call_sign > b.v.call_sign ? 1 : -1));
 
   const inService = rows.filter((r) => r.order === 0).length;
+  // liberi davvero: fermi in sede (o all'ormeggio) e pronti a partire
+  const atBase = rows.filter((r) => r.order === 1 && !r.away).length;
+  const away = rows.filter((r) => r.order === 1 && r.away).length;
 
   return (
     <div className="fs-fleet">
       <button className="fs-fleet-btn" onClick={() => setOpen(!open)}>
-        🚑 Mezzi <strong>{rows.length - inService}</strong>/{rows.length} liberi {open ? "▲" : "▼"}
+        🚑 Mezzi <strong>{atBase}</strong>/{rows.length} in sede{away ? ` · ${away} in rientro` : ""}{inService ? ` · ${inService} in servizio` : ""} {open ? "▲" : "▼"}
       </button>
       {open && (
         <div className="fs-fleet-list">

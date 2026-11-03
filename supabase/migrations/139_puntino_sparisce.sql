@@ -1,0 +1,1 @@
+-- Applicato via MCP: mission_scene_until(missione); missions_map nasconde i servizi pieni/chiusi quando tutti i mezzi hanno lasciato il posto.
