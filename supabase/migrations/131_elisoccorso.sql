@@ -1,0 +1,7 @@
+-- Applicato via MCP. ELISOCCORSO AVINCIS.
+-- heli_bases (41 basi in Italia), heli_bases_map(). organizations.heli_until, mission_assignments.heli.
+-- heli_price(funds) = max(3.000.000, metà dei soldi). activate_heli(): paga e resta attivo 10 minuti (un solo servizio).
+-- call_helicopter(missione): ovunque, solo emergenze/mare, se nessuno è ancora arrivato; arriva prima di tutti
+--   (12-60 s o 2 s prima del primo in viaggio), 2 min sul posto, ospedale più adatto, rientro alla base Avincis più vicina.
+--   Usato -> heli_until = null (va ripagato). automedica_lock_org vale anche per l'elisoccorso (vince a tavolino).
+-- complete_due_assignments: elisoccorso senza mezzo, premio pieno. my_assignments / live_ambulances / mission_race2 con LEFT JOIN.

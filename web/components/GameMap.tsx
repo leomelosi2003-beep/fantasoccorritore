@@ -30,9 +30,12 @@ function alongRoute(route: RoutePoint[], now: number) {
       const la = a.label === "Rotta" ? ([...pts.slice(0, i + 1)].reverse().find((x) => x.label !== "Rotta")?.label ?? a.label) : a.label;
       const lb = b.label === "Rotta" ? (pts.slice(i + 1).find((x) => x.label !== "Rotta")?.label ?? b.label) : b.label;
       const text = still
-        ? (la === "In mare" ? "Soccorso in mare" : la.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
+        ? (la === "Elisoccorso sul posto" ? "🚁 Elisoccorso: soccorso sul posto" : la.startsWith("Eliporto") ? `🚁 Consegna il paziente · ${la.replace("Eliporto: ", "")}`
+          : la === "In mare" ? "Soccorso in mare" : la.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
           : la.startsWith("Al porto") ? "Al porto: aspetta la barca e carica il paziente" : la === "Sul posto" ? "Soccorso in corso" : la === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${la}`)
         : la === lb ? (i > 0 && pts[i - 1].lat === a.lat && pts[i - 1].lng === a.lng ? "Esce dall'ospedale" : "Entra al Pronto Soccorso")
+        : lb === "Elisoccorso sul posto" ? "🚁 In volo verso il posto" : lb.startsWith("Eliporto") ? `🚁 In volo verso ${lb.replace("Eliporto: ", "")}`
+        : lb.startsWith("Elibase") ? `🚁 Rientro alla base ${lb.replace("Elibase: ", "")}`
         : lb === "Ormeggio" ? "Rientro all'ormeggio"
         : lb.startsWith("Al porto") ? `In viaggio verso il porto (${lb.replace("Al porto: ", "")})` : lb === "In mare" ? "In navigazione verso il posto"
         : lb.startsWith("Approdo") ? `Porta il paziente in porto (${lb.replace("Approdo: ", "")})`
@@ -51,7 +54,14 @@ function alongRoute(route: RoutePoint[], now: number) {
 }
 
 // tratti della barca: niente strade
-const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo");
+const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
+  || p.label.startsWith("Eli"); // anche l'elisoccorso vola in linea retta
+const heliIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:24px;height:24px;border-radius:999px;background:#FFF7ED;border:2px solid #EA580C;display:flex;
+         align-items:center;justify-content:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.35)">🚁</div>`,
+  iconSize: [24, 24], iconAnchor: [12, 12],
+});
 
 // Clic sulla mappa per scegliere il punto di ormeggio della barca
 function MooringPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
@@ -171,8 +181,9 @@ function sceneBadge(orgs: SceneOrg[]) {
 function onTheRoad<T extends { vehicle_id: string; assigned_at: string; route_ends_at: string }>(list: T[], now: number) {
   const latest = new Map<string, T>();
   for (const a of list) {
-    const cur = latest.get(a.vehicle_id);
-    if (!cur || a.assigned_at > cur.assigned_at) latest.set(a.vehicle_id, a);
+    const key = a.vehicle_id ?? String((a as { id?: string }).id ?? ""); // l'elisoccorso non ha un mezzo nel garage
+    const cur = latest.get(key);
+    if (!cur || a.assigned_at > cur.assigned_at) latest.set(key, a);
   }
   return Array.from(latest.values()).filter((a) => now < new Date(a.route_ends_at).getTime() + 10_000);
 }
@@ -354,10 +365,12 @@ export default function GameMap() {
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [ports, setPorts] = useState<Port[]>([]);
+  const [heliBases, setHeliBases] = useState<Port[]>([]);
   const [boats, setBoats] = useState<Boat[]>([]);
   const [mooring, setMooring] = useState<Boat | null>(null);
   useEffect(() => {
     supabase.rpc("ports_map").then(({ data }) => setPorts((data as Port[]) ?? []));
+    supabase.rpc("heli_bases_map").then(({ data }) => setHeliBases((data as Port[]) ?? []));
   }, []);
   useEffect(() => {
     if (!org?.id) return;
@@ -769,6 +782,11 @@ export default function GameMap() {
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {mooring && <MooringPicker onPick={moorAt} />}
+        {heliBases.map((p) => (
+          <Marker key={`heli-${p.id}`} position={[p.lat, p.lng]} icon={heliIcon}>
+            <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
+          </Marker>
+        ))}
         {ports.map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
@@ -963,6 +981,14 @@ export default function GameMap() {
                   <button onClick={() => setSelected(m)}
                           style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
                                    background: CODE_COLOR[m.code], color: "#fff", fontWeight: 700 }}>🚨 Prendi servizio</button>
+                </div>
+              )}
+              {org && (m.category === "emergenza_118" || m.category === "mare") && !m.won_by_automedica
+                && !(m.first_arrival && new Date(m.first_arrival).getTime() <= now) && (
+                <div style={{ marginTop: 6 }}>
+                  <button onClick={() => setSelected(m)}
+                          style={{ width: "100%", border: "2px solid #EA580C", borderRadius: 8, padding: "6px 10px", cursor: "pointer",
+                                   background: "#FFF7ED", color: "#9A3412", fontWeight: 800 }}>🚁 Elisoccorso (vinci a tavolino)</button>
                 </div>
               )}
               {org && m.my_automedica_waiting && (

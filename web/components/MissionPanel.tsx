@@ -76,6 +76,10 @@ function claimError(m: string) {
   if (m.includes("SEA_ONLY_BOAT")) return "🌊 In mare ci va solo la barca: l'ambulanza può andare solo al porto a prendere il paziente della tua barca.";
   if (m.includes("BOAT_ONLY_SEA")) return "⛵ La barca fa solo servizi in mare.";
   if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono almeno 1 autista (pilota) e 1 soccorritore.";
+  if (m.includes("HELI_NOT_ACTIVE")) return "🚁 L'elisoccorso non è attivo: attivalo pagando (resta attivo 10 minuti).";
+  if (m.includes("HELI_ALREADY_ACTIVE")) return "🚁 L'elisoccorso è già attivo: mandalo su un servizio.";
+  if (m.includes("HELI_ONLY_EMERGENCY")) return "🚁 L'elisoccorso va solo sulle emergenze (anche in mare).";
+  if (m.includes("TOO_LATE")) return "🚁 Troppo tardi: qualcuno è già arrivato sul posto.";
   if (m.includes("MOTO_CREW")) return "🛵 Sulla moto vanno solo 1 o 2 soccorritori.";
   if (m.includes("AUTOMEDICA_CREW")) return "🩺 Sull'automedica servono esattamente 1 autista e 1 medico.";
   if (m.includes("AUTOMEDICA_ONLY_EMERGENCY")) return "🩺 L'automedica va solo su codici gialli e rossi.";
@@ -96,6 +100,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const [now, setNow] = useState(Date.now());
 
   const reloadRef = useRef<() => Promise<void>>(async () => {});
+  // elisoccorso a pagamento: si attiva per 10 minuti, vale per un solo servizio
+  const [heli, setHeli] = useState<{ price: number; active_until: string | null; funds: number } | null>(null);
+  const loadHeli = () => supabase.rpc("heli_status").then(({ data }) => setHeli(((data as { price: number; active_until: string | null; funds: number }[]) ?? [])[0] ?? null));
+  useEffect(() => { loadHeli(); }, []);
   // la mia automedica è sul servizio e aspetta un'ambulanza: posso mandarla anche a servizio pieno
   const waiting = !!mission.my_automedica_waiting;
   useEffect(() => {
@@ -253,6 +261,24 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     setCrew(chosen.map((c) => c.id));
   }
 
+  async function activateHeli() {
+    if (!heli) return;
+    if (!window.confirm(`Attivare l'elisoccorso per ${Number(heli.price).toLocaleString("it-IT")} €?\n\nResta attivo 10 minuti e vale per UN servizio: arriva prima di tutti e vince a tavolino. Dopo va ripagato.`)) return;
+    setBusy(true); setError(null);
+    const { error } = await supabase.rpc("activate_heli");
+    setBusy(false);
+    if (error) { setError(error.message.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza soldi per l'elisoccorso." : claimError(error.message)); return; }
+    loadHeli();
+  }
+  async function sendHeli() {
+    setBusy(true); setError(null);
+    const { data, error } = await supabase.rpc("call_helicopter", { p_mission: mission.id });
+    setBusy(false);
+    if (error) { setError(claimError(error.message)); return; }
+    const arr = new Date((data as { arrives_at: string }).arrives_at);
+    onClaimed(`🚁 Elisoccorso in volo! Sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}: il servizio è tuo.`);
+  }
+
   async function claim() {
     if (!vehicleId) return;
     setBusy(true); setError(null);
@@ -301,6 +327,31 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       </div>
 
       <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
+        {(mission.category === "emergenza_118" || mission.category === "mare") && heli && (() => {
+          const left = heli.active_until ? Math.max(0, Math.floor((new Date(heli.active_until).getTime() - now) / 1000)) : 0;
+          return (
+            <div style={{ background: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", border: "2px solid #EA580C", borderRadius: 12, padding: 10, marginBottom: 12, fontSize: 13 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <img src="/vehicles/h-pegaso-map.png" alt="" style={{ width: 64, height: "auto" }} />
+                <div style={{ flex: 1 }}>
+                  <strong>🚁 Elisoccorso Avincis</strong><br />
+                  Velocissimo, va ovunque: arriva prima di tutti e <strong>vince a tavolino</strong>, porta il paziente in ospedale e torna alla sua base.
+                </div>
+              </div>
+              {left > 0 ? (
+                <button disabled={busy} onClick={sendHeli}
+                        style={{ ...btn, width: "100%", marginTop: 8, background: "#EA580C" }}>
+                  🚁 Manda l&apos;elisoccorso qui · attivo ancora {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
+                </button>
+              ) : (
+                <button disabled={busy || Number(heli.funds) < Number(heli.price)} onClick={activateHeli}
+                        style={{ ...btn, width: "100%", marginTop: 8, background: "#9A3412", opacity: Number(heli.funds) < Number(heli.price) ? 0.5 : 1 }}>
+                  Attiva per 10 minuti · {Number(heli.price).toLocaleString("it-IT")} € (metà dei tuoi soldi)
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {waiting && mission.category !== "mare" && (
           <div style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
             🩺 <strong>La tua automedica è sul servizio e aspetta un&apos;ambulanza.</strong> Mandane una: entra anche se il servizio è pieno
