@@ -54,8 +54,30 @@ function alongRoute(route: RoutePoint[], now: number) {
 }
 
 const isHeli = (a: { vehicle_image?: string | null }) => !!a.vehicle_image?.includes("h-pegaso");
+const isBoat = (a: { vehicle_image?: string | null }) => /\/b-(marlin|sprint)/.test(a.vehicle_image ?? "");
 type HeliRow = { id: string; status: string; route: RoutePoint[] | null; arrives_at: string; route_ends_at: string; lat: number; lng: number;
-  title: string; hospital: string | null; vehicle_image: string | null; org_name: string; mine: boolean };
+  title: string; hospital: string | null; vehicle_image: string | null; org_name: string; org_type: string | null; call_sign: string; mine: boolean };
+const boatIcons = new Map<string, L.DivIcon>();
+function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: boolean) {
+  const k = `${img}|${facingRight}|${w}|${moving}`;
+  let ic = boatIcons.get(k);
+  if (!ic) {
+    const small = img.replace(/\.png$/, "-map.png");
+    ic = L.divIcon({
+      className: "",
+      html: `<div style="position:relative;width:${w}px">
+               ${moving ? `<div style="position:absolute;bottom:-4px;${facingRight ? "left" : "right"}:-14px;width:30px;height:8px;border-radius:50%;
+                               background:radial-gradient(ellipse at center,rgba(255,255,255,.95),rgba(186,230,253,.4) 60%,transparent 70%);animation:boat-wake .8s ease-in-out infinite"></div>` : ""}
+               <img src="${small}" style="width:${w}px;height:auto;display:block;transform:scaleX(${facingRight ? -1 : 1});filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))" alt=""/>
+               <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#0369A1;color:#fff;font:700 10px system-ui;
+                           padding:1px 5px;border-radius:999px;white-space:nowrap">⛵ IN MARE</div>
+             </div>`,
+      iconSize: [w, Math.round(w * 0.4)], iconAnchor: [w / 2, Math.round(w * 0.2)],
+    });
+    boatIcons.set(k, ic);
+  }
+  return ic;
+}
 
 // tratti della barca: niente strade
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
@@ -826,7 +848,8 @@ export default function GameMap() {
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
         ))}
-        {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status === "disponibile").map((b) => (
+        {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status === "disponibile"
+            && !assignments.some((x) => x.vehicle_id === b.id && now < new Date(x.route_ends_at).getTime())).map((b) => (
           <Marker key={`boat-${b.id}`} position={[b.moor_lat!, b.moor_lng!]} icon={boatIcon(livery(b.vehicle_image, org?.type))}>
             <Popup>
               <strong>⛵ {b.call_sign}</strong><br />Ormeggiata, pronta per i servizi in mare (entro 40 km).
@@ -1049,7 +1072,7 @@ export default function GameMap() {
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
-        {onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a)).map((a) => {
+        {onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1077,12 +1100,35 @@ export default function GameMap() {
 
         {/* Elisoccorso: livello dedicato, posizione ricalcolata ogni secondo, sempre visibile dal decollo al rientro */}
         {([...assignments.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
-                lat: x.lat, lng: x.lng, title: x.title, hospital: x.hospital, vehicle_image: x.vehicle_image, org_name: "", mine: true })),
+                lat: x.lat, lng: x.lng, title: x.title, hospital: x.hospital, vehicle_image: x.vehicle_image, org_name: "", org_type: org?.type ?? null,
+                call_sign: x.call_sign, mine: true })),
            ...others.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
                 lat: (x as unknown as { lat: number }).lat, lng: (x as unknown as { lng: number }).lng, title: x.title, hospital: x.hospital,
-                vehicle_image: x.vehicle_image, org_name: x.org_name, mine: false }))] as HeliRow[])
-          .filter((a) => isHeli(a) && a.route?.length && a.status !== "annullata" && now < new Date(a.route_ends_at).getTime())
+                vehicle_image: x.vehicle_image, org_name: x.org_name, org_type: x.org_type, call_sign: x.call_sign, mine: false }))] as HeliRow[])
+          .filter((a) => (isHeli(a) || isBoat(a)) && a.route?.length && (isBoat(a) || a.status !== "annullata") && now < new Date(a.route_ends_at).getTime())
           .map((a) => {
+            if (isBoat(a)) {
+              // barca: livello dedicato come l'elisoccorso, con la rotta in mare ancora da fare
+              const r = a.route as RoutePoint[];
+              const pos = alongRoute(r, now);
+              const ahead = alongRoute(r, now + 3000);
+              const path = remainingPath(r, pos.leg, pos.f);
+              const img = livery(a.vehicle_image, a.org_type) ?? "/vehicles/b-marlin.png";
+              return (
+                <Fragment key={`boat-${a.id}`}>
+                  {a.mine && path.map((seg, i) => (
+                    <Polyline key={`boat-${a.id}-${i}`} positions={seg}
+                              pathOptions={{ color: "#0369A1", weight: i === 0 ? 4 : 3, opacity: i === 0 ? 0.85 : 0.45, dashArray: i === 0 ? undefined : "8 8" }} />
+                  ))}
+                  <Marker position={[pos.lat, pos.lng]} icon={boatMoveIcon(img, ahead.lng > pos.lng, a.mine ? 72 : 58, pos.moving)} zIndexOffset={2500}>
+                    <Popup>
+                      <strong>⛵ {a.call_sign}</strong>{a.mine ? "" : ` · ${a.org_name}`}<br />
+                      {a.title}<br />{pos.text}
+                    </Popup>
+                  </Marker>
+                </Fragment>
+              );
+            }
             const r = a.route as RoutePoint[];
             const pos = alongRoute(r, now);
             const ahead = alongRoute(r, now + 3000);
@@ -1104,7 +1150,7 @@ export default function GameMap() {
             );
           })}
 
-        {onTheRoad(assignments, now).filter((a) => !isHeli(a)).map((a) => {
+        {onTheRoad(assignments, now).filter((a) => !isHeli(a) && !isBoat(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1253,6 +1299,7 @@ export default function GameMap() {
           .fs-pill { padding: 5px 10px 5px 6px; }
         }
         @keyframes amb-blink { 0% { filter: drop-shadow(0 0 6px #3b82f6) } 50% { filter: drop-shadow(0 0 6px #ef4444) } }
+        @keyframes boat-wake { 0%,100% { opacity: .9; transform: scaleX(1) } 50% { opacity: .5; transform: scaleX(1.3) } }
         @keyframes heli-rotor { 0% { transform: scaleX(1) } 50% { transform: scaleX(.15) } 100% { transform: scaleX(1) } }
         @keyframes heli-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
         @keyframes amb-light-a { 0% { background: #60a5fa; box-shadow: 0 0 5px 2px rgba(59,130,246,.9) } 50% { background: transparent; box-shadow: none } }
