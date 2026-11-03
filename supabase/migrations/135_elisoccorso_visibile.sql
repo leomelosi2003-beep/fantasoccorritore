@@ -1,0 +1,1 @@
+-- Applicato via MCP: call_helicopter volo minimo 20 s (0,5 s/km, max 75 s all'andata).

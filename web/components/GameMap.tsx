@@ -53,6 +53,8 @@ function alongRoute(route: RoutePoint[], now: number) {
   return { lat: last.lat, lng: last.lng, moving: false, text: "In sede", until: last.ms, leg: pts.length, f: 1 };
 }
 
+const isHeli = (a: { vehicle_image?: string | null }) => !!a.vehicle_image?.includes("h-pegaso");
+
 // tratti della barca: niente strade
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
   || p.label.startsWith("Eli"); // anche l'elisoccorso vola in linea retta
@@ -616,8 +618,9 @@ export default function GameMap() {
     const o = cur.orgs.get(orgId) ?? { type, logo, n: 0 };
     o.n += 1; cur.orgs.set(orgId, o); sceneCount.set(k, cur);
   };
-  if (org) for (const a of onTheRoad(assignments, now)) if (onScene(a, now)) addScene(a.lat, a.lng, org.id, org.type, org.logo_url ?? null);
-  for (const a of onTheRoad(others, now)) if (onScene(a, now)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
+  // l'elisoccorso resta sempre visibile (anche quando è sul posto), non entra nel conteggio dei mezzi sul posto
+  if (org) for (const a of onTheRoad(assignments, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, org.id, org.type, org.logo_url ?? null);
+  for (const a of onTheRoad(others, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
 
   return (
     <div style={{ position: "relative", fontFamily: "system-ui, sans-serif" }}>
@@ -1036,7 +1039,7 @@ export default function GameMap() {
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
-        {onTheRoad(others, now).filter((a) => !onScene(a, now)).map((a) => {
+        {onTheRoad(others, now).filter((a) => !onScene(a, now) || isHeli(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1080,7 +1083,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
+            {(!onScene(a, now) || isHeli(a)) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} zIndexOffset={isHeli(a) ? 1000 : undefined}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
               <Popup>
                 <strong>{a.call_sign}</strong> · {a.title}<br />
