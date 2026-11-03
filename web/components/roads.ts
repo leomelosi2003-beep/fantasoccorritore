@@ -2,8 +2,9 @@
 export type LatLng = [number, number];
 export type Leg = { pts: LatLng[]; cum: number[] }; // punti e distanza cumulata (metri)
 
-const mem = new Map<string, Leg | "loading" | "fail">();
+const mem = new Map<string, Leg | "loading" | number>(); // number = momento del fallimento (si riprova dopo un po')
 const KEY = "fs-roads-v1";
+const RETRY_MS = 45_000;
 
 function loadStore(): Record<string, LatLng[]> {
   try { return JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { return {}; }
@@ -13,7 +14,7 @@ function saveStore(k: string, pts: LatLng[]) {
     const s = loadStore();
     s[k] = pts;
     const keys = Object.keys(s);
-    for (const old of keys.slice(0, Math.max(0, keys.length - 150))) delete s[old]; // tieni gli ultimi 150
+    for (const old of keys.slice(0, Math.max(0, keys.length - 400))) delete s[old]; // tieni gli ultimi 400
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch { /* storage non disponibile */ }
 }
@@ -40,32 +41,68 @@ export function getLeg(k: string): Leg | null {
   return v && typeof v === "object" ? v : null;
 }
 
-// Scarica il tratto su strada (una richiesta alla volta per rispettare il servizio gratuito)
-let queue: Promise<void> = Promise.resolve();
-export function fetchLeg(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<void> {
+// Due server OSRM gratuiti: se uno è lento o rifiuta, si usa l'altro
+const SERVERS = [
+  "https://router.project-osrm.org/route/v1/driving/",
+  "https://routing.openstreetmap.de/routed-car/route/v1/driving/",
+];
+let srv = 0;
+
+type Job = { k: string; a: { lat: number; lng: number }; b: { lat: number; lng: number }; prio: number; done: (() => void)[] };
+const jobs = new Map<string, Job>();
+let running = false;
+
+async function download(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<LatLng[] | null> {
+  for (let tries = 0; tries < SERVERS.length; tries++) {
+    const base = SERVERS[srv];
+    try {
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 8000);
+      const r = await fetch(`${base}${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`, { signal: ctl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error(String(r.status));
+      const j = await r.json();
+      const coords: [number, number][] = j?.routes?.[0]?.geometry?.coordinates ?? [];
+      if (!coords.length) return null;
+      return coords.map(([lng, lat]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5]);
+    } catch {
+      srv = (srv + 1) % SERVERS.length; // prova l'altro server
+    }
+  }
+  return null;
+}
+
+// Scarica i tratti uno alla volta, prima quelli più urgenti (il tratto che il mezzo sta percorrendo adesso)
+async function worker() {
+  if (running) return;
+  running = true;
+  while (jobs.size) {
+    const job = Array.from(jobs.values()).sort((x, y) => x.prio - y.prio)[0];
+    jobs.delete(job.k);
+    const pts = await download(job.a, job.b);
+    if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); } else mem.set(job.k, Date.now());
+    job.done.forEach((f) => f());
+    await new Promise((res) => setTimeout(res, 350));
+  }
+  running = false;
+}
+
+// prio: 0 = tratto in corso, 1 = prossimo, 2 = più avanti
+export function fetchLeg(a: { lat: number; lng: number }, b: { lat: number; lng: number }, prio = 1): Promise<void> {
   const k = legKey(a, b);
-  if (mem.has(k)) return Promise.resolve();
+  const cur = mem.get(k);
+  if (cur && typeof cur === "object") return Promise.resolve();
+  if (typeof cur === "number" && Date.now() - cur < RETRY_MS) return Promise.resolve();
   // tratti cortissimi (dentro l'ospedale): linea dritta
   if (meters([a.lat, a.lng], [b.lat, b.lng]) < 250) { mem.set(k, makeLeg([[a.lat, a.lng], [b.lat, b.lng]])); return Promise.resolve(); }
   const stored = loadStore()[k];
   if (stored) { mem.set(k, makeLeg(stored)); return Promise.resolve(); }
-  mem.set(k, "loading");
-  queue = queue.then(async () => {
-    try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`;
-      const r = await fetch(url);
-      const j = await r.json();
-      const coords: [number, number][] = j?.routes?.[0]?.geometry?.coordinates ?? [];
-      if (!coords.length) throw new Error("no route");
-      const pts: LatLng[] = coords.map(([lng, lat]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5]);
-      mem.set(k, makeLeg(pts));
-      saveStore(k, pts);
-    } catch {
-      mem.set(k, "fail");
-    }
-    await new Promise((res) => setTimeout(res, 400));
+  return new Promise((res) => {
+    const j = jobs.get(k);
+    if (j) { j.prio = Math.min(j.prio, prio); j.done.push(res); }
+    else { mem.set(k, "loading"); jobs.set(k, { k, a, b, prio, done: [res] }); }
+    worker();
   });
-  return queue;
 }
 
 // Punto a una certa frazione (0..1) della strada

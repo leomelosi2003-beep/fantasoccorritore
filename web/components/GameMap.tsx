@@ -455,12 +455,15 @@ export default function GameMap() {
 
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
+    const tNow = Date.now();
     for (const a of [...assignments, ...others]) {
       if (a.status === "conclusa" || !a.route?.length) continue;
+      let ahead = 0;
       for (let i = 0; i < a.route.length - 1; i++) {
         const p = a.route[i], q = a.route[i + 1];
+        if (new Date(q.t).getTime() < tNow) continue; // tratto già percorso: non serve
         if (p.lat === q.lat && p.lng === q.lng) continue;
-        fetchLeg(p, q).then(() => setRoadsLoaded((n) => n + 1));
+        fetchLeg(p, q, Math.min(2, ahead++)).then(() => setRoadsLoaded((n) => n + 1));
       }
     }
   }, [assignments, others]);
