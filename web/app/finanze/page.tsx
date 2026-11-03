@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 type Row = { reason: string; income: number; expense: number; moves: number };
 type Move = { id: number; amount: number; balance: number; reason: string; created_at: string };
 type Tax = { tax_hour: number; wealth: number; members: number };
+type PTax = { wealth: number; funds: number; wealth_tax_hour: number; income_rate: number; fund: number };
 
 const PERIODS = [
   { h: 1, label: "Ultima ora" },
@@ -17,7 +18,7 @@ const PERIODS = [
 const ICON: Record<string, string> = {
   "Servizi": "🚑", "Acquisto ambulanze": "🛒", "Presidi": "🧰", "Potenziamenti": "⚡", "Officina": "🔧", "Officina (automatica)": "🔧",
   "Sedi": "🏠", "Gasolio": "⛽", "Elettricità": "🔌", "Volontari": "👥", "Ricarica volontari": "🔋", "Ricarica volontari (automatica)": "🔋",
-  "Formazione": "🎓", "Modalità automatica": "🤖", "Alleanza": "🤝", "Tassa alleanza": "🏛️", "Beneficenza alleanza": "💝", "Altro": "💶",
+  "Formazione": "🎓", "Modalità automatica": "🤖", "Alleanza": "🤝", "Tassa alleanza": "🏛️", "Beneficenza alleanza": "💝", "Tassa patrimoniale": "⚖️", "Tassa progressiva sui servizi": "⚖️", "Fondo di solidarietà": "🤲", "Altro": "💶",
 };
 
 const euro = (n: number) => `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("it-IT")} €`;
@@ -31,21 +32,24 @@ export default function Finanze() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [moves, setMoves] = useState<Move[]>([]);
   const [tax, setTax] = useState<Tax | null>(null);
+  const [ptax, setPtax] = useState<PTax | null>(null);
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/"); return; }
-      const [s, m, t] = await Promise.all([
+      const [s, m, t, p] = await Promise.all([
         supabase.rpc("my_ledger_summary", { p_hours: hours }),
         supabase.from("org_ledger").select("id,amount,balance,reason,created_at").order("id", { ascending: false }).limit(40),
         supabase.rpc("alliance_tax_preview"),
+        supabase.rpc("my_tax_preview"),
       ]);
       if (!alive) return;
       setRows((s.data as Row[]) ?? []);
       setMoves((m.data as Move[]) ?? []);
       setTax(((t.data as Tax[]) ?? [])[0] ?? null);
+      setPtax(((p.data as PTax[]) ?? [])[0] ?? null);
     };
     load();
     const id = setInterval(load, 15_000);
@@ -114,6 +118,31 @@ export default function Finanze() {
             </div>
           ))}
         </div>
+
+        {ptax && (
+          <div style={card}>
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>⚖️ Tasse progressive</div>
+            <div style={{ fontSize: 13, color: "#555" }}>
+              Per tenere il gioco equilibrato chi ha più soldi paga di più. Tutto finisce nel <strong>fondo di solidarietà</strong>,
+              che ogni ora viene diviso tra le associazioni piccole (patrimonio sotto i 2 milioni) attive negli ultimi 3 giorni.
+            </div>
+            <table style={{ width: "100%", fontSize: 13, margin: "8px 0", borderCollapse: "collapse" }}>
+              <thead><tr style={{ textAlign: "left", color: "#666" }}><th>Soldi in cassa / patrimonio</th><th>Sui servizi</th><th>Patrimoniale all&apos;ora</th></tr></thead>
+              <tbody>
+                <tr><td>fino a 1 milione</td><td>0%</td><td>0%</td></tr>
+                <tr><td>1 – 5 milioni</td><td>15%</td><td>0,2% della parte oltre 1 mln</td></tr>
+                <tr><td>5 – 20 milioni</td><td>35%</td><td>0,5% della parte oltre 5 mln</td></tr>
+                <tr><td>oltre 20 milioni</td><td>55%</td><td>1% della parte oltre 20 mln</td></tr>
+              </tbody>
+            </table>
+            <div style={{ fontSize: 14 }}>
+              Patrimonio: <strong>{Number(ptax.wealth).toLocaleString("it-IT")} €</strong> · sui servizi trattieni il{" "}
+              <strong style={{ color: Number(ptax.income_rate) > 0 ? "#DC2626" : "#166534" }}>{Math.round(Number(ptax.income_rate) * 100)}%</strong>
+              {" "}· patrimoniale <strong style={{ color: Number(ptax.wealth_tax_hour) > 0 ? "#DC2626" : "#166534" }}>{Number(ptax.wealth_tax_hour).toLocaleString("it-IT")} € all&apos;ora</strong>
+              <br /><span style={{ color: "#666" }}>Nel fondo di solidarietà ora: {Number(ptax.fund).toLocaleString("it-IT")} €</span>
+            </div>
+          </div>
+        )}
 
         {tax && (
           <div style={card}>

@@ -1,0 +1,5 @@
+-- Applicato via MCP. Tasse progressive + fondo di solidarietà.
+-- income_tax_rate(funds): trattenuta sui premi 0/15/35/55% (soglie 1M, 5M, 20M di cassa), in complete_due_assignments.
+-- wealth_tax_hour(patrimonio): 0,2% tra 1-5M, 0,5% tra 5-20M, 1% oltre 20M, ogni ora (task 'wealth' in game_tick).
+-- solidarity_fund: diviso ogni ora fra le associazioni con patrimonio < 2M attive negli ultimi 3 giorni (max 150.000 € a testa).
+-- my_tax_preview() per la pagina Entrate e uscite.
