@@ -1,0 +1,4 @@
+-- Applicato via MCP.
+-- resolve_races: la barca che perde la corsa torna all'ormeggio per mare (sea_path), non in sede per strada; corrette le barche già in rientro.
+-- italy_cities: +106 città (Sicilia, Sardegna, Ischia, Capri, Procida, Lampedusa, Lipari, Pantelleria, Sud, Lazio, Nord): 216 città, 1224 punti.
+-- generate_missions: Italia 22% (r >= 0.78), Toscana 7%, Rosignano 3%, Grosseto 3%.

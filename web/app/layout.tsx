@@ -1,4 +1,5 @@
 import { DARK_CSS } from "@/lib/darkTheme";
+import VersionCheck from "@/components/VersionCheck";
 import Heartbeat from "@/components/Heartbeat";
 
 export const metadata = { title: "FantaSoccorritore" };
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style dangerouslySetInnerHTML={{ __html: DARK_CSS }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
-      <body style={{ margin: 0 }}><Heartbeat />{children}</body>
+      <body style={{ margin: 0 }}><Heartbeat /><VersionCheck />{children}</body>
     </html>
   );
 }

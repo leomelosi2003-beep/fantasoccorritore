@@ -3,7 +3,7 @@ export type LatLng = [number, number];
 export type Leg = { pts: LatLng[]; cum: number[] }; // punti e distanza cumulata (metri)
 
 const mem = new Map<string, Leg | "loading" | number>(); // number = momento del fallimento (si riprova dopo un po')
-const KEY = "fs-roads-v1";
+const KEY = "fs-roads-v2";
 const RETRY_MS = 45_000;
 
 function loadStore(): Record<string, LatLng[]> {
