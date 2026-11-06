@@ -31,6 +31,8 @@ export default function Automatico() {
   const [paidUntil, setPaidUntil] = useState<string | null>(null);
   const [hourCost, setHourCost] = useState<number | null>(null);
   const [fleet, setFleet] = useState(0);
+  const [bases, setBases] = useState<{ id: string; name: string; is_headquarters: boolean }[]>([]);
+  const [autoBases, setAutoBases] = useState<string[]>([]);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -45,12 +47,17 @@ export default function Automatico() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/"); return; }
-      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve,auto_steal_red,auto_max_km,auto_refill,auto_paid_until")
+      const { data: o } = await supabase.from("organizations").select("id,auto_enabled,auto_codes,auto_reserve,auto_steal_red,auto_max_km,auto_refill,auto_paid_until,auto_base_ids")
         .eq("owner_id", session.user.id).maybeSingle();
       if (o) {
         setEnabled(!!o.auto_enabled); setCodes(o.auto_codes ?? []); setReserve(o.auto_reserve ?? 0); setSteal(!!o.auto_steal_red); setMaxKm(o.auto_max_km ?? 10); setRefill(!!o.auto_refill); setPaidUntil(o.auto_paid_until ?? null);
-        const { count } = await supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", o.id);
+        setAutoBases(o.auto_base_ids ?? []);
+        const [{ count }, { data: bs }] = await Promise.all([
+          supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", o.id),
+          supabase.from("bases").select("id,name,is_headquarters").eq("org_id", o.id).order("is_headquarters", { ascending: false }).order("name"),
+        ]);
         setFleet(count ?? 0);
+        setBases(bs ?? []);
       }
       supabase.rpc("my_auto_hour_cost").then(({ data }) => setHourCost(typeof data === "number" ? data : null));
       setLoaded(true);
@@ -77,6 +84,17 @@ export default function Automatico() {
   }
 
   const toggleCode = (k: string) => save({ codes: codes.includes(k) ? codes.filter((x) => x !== k) : [...codes, k] });
+
+  async function toggleBase(id: string) {
+    const prev = autoBases;
+    const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    if (next.length > 2) { setMsg({ ok: false, text: "Puoi scegliere al massimo 2 sedi: togline una prima." }); return; }
+    setAutoBases(next); setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("set_auto_bases", { p_bases: next });
+    setBusy(false);
+    if (error) { setAutoBases(prev); setMsg({ ok: false, text: "Non riesco a salvare, riprova." }); return; }
+    setMsg({ ok: true, text: next.length ? `🏠 Modalità automatica su ${next.length === 1 ? "1 sede" : "2 sedi"}.` : "Nessuna sede scelta: la modalità automatica non manderà mezzi." });
+  }
 
   return (
     <main style={shell}>
@@ -114,6 +132,33 @@ export default function Automatico() {
                 </button>
               </div>
               {msg && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
+            </div>
+
+            <div style={{ ...card, border: enabled && autoBases.length === 0 ? "2px solid #DC2626" : undefined }}>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>🏠 Sedi in automatico (massimo 2)</div>
+              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
+                La modalità automatica usa solo i mezzi di queste sedi: ambulanze, automediche, barche, officina e ricarica dei volontari.
+                I mezzi delle altre sedi restano a te, da usare a mano.
+              </div>
+              {enabled && autoBases.length === 0 && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Scegli almeno una sede, altrimenti non parte nessun mezzo.</div>}
+              <div style={{ display: "grid", gap: 8 }}>
+                {bases.map((b) => {
+                  const on = autoBases.includes(b.id);
+                  const full = !on && autoBases.length >= 2;
+                  return (
+                    <button key={b.id} disabled={busy || full} onClick={() => toggleBase(b.id)}
+                            style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "10px 12px", borderRadius: 12,
+                                     cursor: full ? "not-allowed" : "pointer", font: "inherit", border: on ? "2px solid #0F766E" : "1px solid #ddd",
+                                     background: on ? "#f0fdfa" : "#fff", color: full ? "#999" : "#111" }}>
+                      <span style={{ flex: 1 }}>
+                        <strong>{b.name}</strong>
+                        {b.is_headquarters && <span style={{ fontSize: 12, color: "#666" }}> · sede principale</span>}
+                      </span>
+                      <span style={{ fontSize: 20 }}>{on ? "✅" : "⬜"}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={card}>
