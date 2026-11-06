@@ -49,6 +49,8 @@ function roleCheck(required: Record<string, number>, crew: Card[]) {
     const have = ranks.filter((x) => x >= k).length;
     if (have < need) missing.push(k === 3 ? "caposervizio" : k === 2 ? "soccorritore_avanzato" : "soccorritore_base");
   }
+  // se il servizio chiede il medico serve proprio un medico (non basta un caposervizio)
+  if (crew.filter((c) => c.role === "medico").length < (required.medico ?? 0)) missing.push("medico");
   return Array.from(new Set(missing));
 }
 
@@ -63,6 +65,7 @@ function claimError(m: string) {
   if (m.includes("CARD_RESTING")) return "Qualcuno dell'equipaggio è ancora a riposo.";
   if (m.includes("CARD_BUSY")) return "Qualcuno dell'equipaggio è già in servizio.";
   if (m.includes("CARD_EXPIRED")) return "Qualcuno dell'equipaggio ha il contratto scaduto.";
+  if (m.includes("MISSING_ROLE:medico")) return "Questo servizio richiede un medico nell'equipaggio.";
   if (m.includes("MISSING_ROLE")) return "Mancano dei ruoli nell'equipaggio.";
   if (m.includes("MISSING_EQUIPMENT")) return "Il mezzo non ha i presidi richiesti.";
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
@@ -245,7 +248,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       if (needAdv) take((c) => c.role === "autista" && !!c.avanzato);
       if (chosen.length <= i) take((c) => c.role === "autista");
     }
-    const slots = Object.entries(required).filter(([r]) => r !== "autista")
+    // prima i medici richiesti (un caposervizio non basta)
+    for (let i = 0; i < (required.medico ?? 0); i++) take((c) => c.role === "medico");
+    const slots = Object.entries(required).filter(([r]) => r !== "autista" && r !== "medico")
       .flatMap(([r, n]) => Array(n).fill(RANK[r])).sort((a, b) => b - a);
     // ogni autista avanzato copre un posto da avanzato
     for (const c of chosen) if (c.avanzato) { const j = slots.lastIndexOf(2); if (j >= 0) slots.splice(j, 1); }

@@ -34,6 +34,7 @@ export default function Automatico() {
   const [fleet, setFleet] = useState(0);
   const [bases, setBases] = useState<{ id: string; name: string; is_headquarters: boolean }[]>([]);
   const [autoBases, setAutoBases] = useState<string[]>([]);
+  const [ambulances, setAmbulances] = useState<{ id: string; call_sign: string; base_name: string | null; only: boolean }[]>([]);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -59,6 +60,15 @@ export default function Automatico() {
         ]);
         setFleet(count ?? 0);
         setBases(bs ?? []);
+        const [{ data: fl }, { data: flags }] = await Promise.all([
+          supabase.from("my_fleet").select("id,call_sign,base_name,mine,automedica,boat,transfer_only").eq("org_id", o.id),
+          supabase.from("vehicles").select("id,auto_transport_only").eq("org_id", o.id),
+        ]);
+        const only = new Set((flags ?? []).filter((f) => f.auto_transport_only).map((f) => f.id as string));
+        setAmbulances((fl ?? [])
+          .filter((v) => v.mine !== false && !v.automedica && !v.boat && !v.transfer_only)
+          .map((v) => ({ id: v.id as string, call_sign: v.call_sign as string, base_name: (v.base_name as string) ?? null, only: only.has(v.id as string) }))
+          .sort((a, b) => (a.base_name ?? "").localeCompare(b.base_name ?? "") || a.call_sign.localeCompare(b.call_sign)));
       }
       supabase.rpc("my_auto_hour_cost").then(({ data }) => setHourCost(typeof data === "number" ? data : null));
       setLoaded(true);
@@ -85,6 +95,22 @@ export default function Automatico() {
   }
 
   const toggleCode = (k: string) => save({ codes: codes.includes(k) ? codes.filter((x) => x !== k) : [...codes, k] });
+
+  async function toggleTransportOnly(id: string) {
+    const v = ambulances.find((a) => a.id === id);
+    if (!v) return;
+    const on = !v.only;
+    setAmbulances((list) => list.map((a) => (a.id === id ? { ...a, only: on } : a)));
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("set_vehicle_transport_only", { p_vehicle: id, p_on: on });
+    setBusy(false);
+    if (error) {
+      setAmbulances((list) => list.map((a) => (a.id === id ? { ...a, only: !on } : a)));
+      setMsg({ ok: false, text: "Non riesco a salvare, riprova." });
+      return;
+    }
+    setMsg({ ok: true, text: on ? `🚐 ${v.call_sign}: solo dimissioni e trasferimenti.` : `🚑 ${v.call_sign}: di nuovo su tutti i servizi.` });
+  }
 
   async function toggleBase(id: string) {
     const prev = autoBases;
@@ -159,6 +185,29 @@ export default function Automatico() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            <div style={card}>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>🚐 Ambulanze solo per dimissioni e trasferimenti</div>
+              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
+                Le ambulanze segnate qui, in automatico, prendono solo dialisi, dimissioni e trasferimenti (anche quelli urgenti):
+                mai le emergenze. A mano puoi sempre usarle come vuoi.
+              </div>
+              {ambulances.length === 0 && <div style={{ fontSize: 13, color: "#888" }}>Nessuna ambulanza.</div>}
+              <div style={{ display: "grid", gap: 6 }}>
+                {ambulances.map((a) => (
+                  <button key={a.id} disabled={busy} onClick={() => toggleTransportOnly(a.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "8px 12px", borderRadius: 12,
+                                   cursor: "pointer", font: "inherit", border: a.only ? "2px solid #0E7490" : "1px solid #ddd",
+                                   background: a.only ? "#ecfeff" : "#fff", color: "#111" }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <strong>{a.call_sign}</strong>
+                      {a.base_name && <span style={{ fontSize: 12, color: "#666" }}> · {a.base_name}</span>}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: a.only ? "#0E7490" : "#999" }}>{a.only ? "solo dimissioni e trasferimenti" : "tutti i servizi"}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
