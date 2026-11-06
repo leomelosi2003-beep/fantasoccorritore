@@ -13,6 +13,7 @@ const CODES = [
   { key: "ordinari", label: "Servizi ordinari", hint: "Dialisi e dimissioni", color: "#3B82F6" },
   { key: "trasferimenti", label: "Trasferimenti", hint: "Tra ospedali, anche fuori regione", color: "#0E7490" },
 ];
+const MAX_AUTO_BASES = 4; // uguale al limite in set_auto_bases (migrazione 147)
 const CODE_DOT: Record<string, string> = { rosso: "#DC2626", giallo: "#CA8A04", verde: "#16A34A", nessuno: "#3B82F6" };
 const STATUS: Record<string, string> = { in_viaggio: "🚑 in viaggio", sul_posto: "📍 sul posto", conclusa: "✅ concluso", annullata: "↩️ annullato" };
 
@@ -88,12 +89,12 @@ export default function Automatico() {
   async function toggleBase(id: string) {
     const prev = autoBases;
     const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-    if (next.length > 2) { setMsg({ ok: false, text: "Puoi scegliere al massimo 2 sedi: togline una prima." }); return; }
+    if (next.length > MAX_AUTO_BASES) { setMsg({ ok: false, text: `Puoi scegliere al massimo ${MAX_AUTO_BASES} sedi: togline una prima.` }); return; }
     setAutoBases(next); setBusy(true); setMsg(null);
     const { error } = await supabase.rpc("set_auto_bases", { p_bases: next });
     setBusy(false);
     if (error) { setAutoBases(prev); setMsg({ ok: false, text: "Non riesco a salvare, riprova." }); return; }
-    setMsg({ ok: true, text: next.length ? `🏠 Modalità automatica su ${next.length === 1 ? "1 sede" : "2 sedi"}.` : "Nessuna sede scelta: la modalità automatica non manderà mezzi." });
+    setMsg({ ok: true, text: next.length ? `🏠 Modalità automatica su ${next.length === 1 ? "1 sede" : `${next.length} sedi`}.` : "Nessuna sede scelta: la modalità automatica non manderà mezzi." });
   }
 
   return (
@@ -135,7 +136,7 @@ export default function Automatico() {
             </div>
 
             <div style={{ ...card, border: enabled && autoBases.length === 0 ? "2px solid #DC2626" : undefined }}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>🏠 Sedi in automatico (massimo 2)</div>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>🏠 Sedi in automatico (massimo {MAX_AUTO_BASES})</div>
               <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
                 La modalità automatica usa solo i mezzi di queste sedi: ambulanze, automediche, barche, officina e ricarica dei volontari.
                 I mezzi delle altre sedi restano a te, da usare a mano.
@@ -144,7 +145,7 @@ export default function Automatico() {
               <div style={{ display: "grid", gap: 8 }}>
                 {bases.map((b) => {
                   const on = autoBases.includes(b.id);
-                  const full = !on && autoBases.length >= 2;
+                  const full = !on && autoBases.length >= MAX_AUTO_BASES;
                   return (
                     <button key={b.id} disabled={busy || full} onClick={() => toggleBase(b.id)}
                             style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "10px 12px", borderRadius: 12,
