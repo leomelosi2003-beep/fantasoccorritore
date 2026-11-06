@@ -1,4 +1,4 @@
-# FantaSoccorritore — note per Claude
+﻿# FantaSoccorritore â€” note per Claude
 
 Gioco web gestionale di associazioni di soccorso (ambulanze 118). Proprietario: Leonardo (admin, associazione "Croce Verde Livorno").
 Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'utente.
@@ -7,20 +7,20 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 ## Architettura
 - **Dal 6/11/2026 il gioco ufficiale gira sul PC di Leonardo**: https://desktop-f0qb534.tail9a3baf.ts.net (Tailscale Funnel sulla porta 3000).
   Le modifiche al database vanno fatte sul Supabase LOCALE (`docker exec supabase-db psql -U postgres`, password in `C:\fantasoccorritore\supabase\.env`),
-  non più sul cloud. Il cloud `saagkulmwofgvlssiucw` è fermo (job pg_cron disattivati con `cron.alter_job(..., active := false)`, non cancellati) e resta come copia.
+  non piÃ¹ sul cloud. Il cloud `saagkulmwofgvlssiucw` Ã¨ fermo (job pg_cron disattivati con `cron.alter_job(..., active := false)`, non cancellati) e resta come copia.
 - `web/` Next.js 14 + react-leaflet v4. Su Vercel ogni pagina rimanda al link del PC (`redirects()` in `web/next.config.mjs`, solo con `VERCEL=1`).
   Un push fatto dal PC stesso NON fa ricompilare il sito locale (HEAD = upstream): riavviare `locale/3-avvia-gioco.ps1`.
-- Database e logica di gioco: Supabase. Quasi tutta la logica è in funzioni SQL/RPC.
+- Database e logica di gioco: Supabase. Quasi tutta la logica Ã¨ in funzioni SQL/RPC.
 - `supabase/migrations/`: dalla 001 alla 143 sono soprattutto NOTE (le modifiche erano applicate via MCP). Dalla 144 contengono SQL reale, applicato sul database locale.
 - `locale/`: script per far girare tutto sul PC Windows di Leonardo (Supabase in Docker + Next + tunnel Cloudflare + aggiornamento automatico da GitHub ogni 2 min).
-  In modalità locale `NEXT_PUBLIC_SUPABASE_URL=same-origin` e Next inoltra `/sb/*` a `http://localhost:8000`.
+  In modalitÃ  locale `NEXT_PUBLIC_SUPABASE_URL=same-origin` e Next inoltra `/sb/*` a `http://localhost:8000`.
 
 ## Motore del gioco
 - Un solo job pg_cron `game-tick` ogni 30 s: `call public.game_tick()` (procedura SENZA security definer / set, altrimenti niente COMMIT).
   Esegue `run_tick_task(task)` con cadenze in `tick_state`: races 30, complete 30, dispatch 60, missions 120, maint 60, wake 60, charge_auto 60, recharge 180, auctions 300, base_auctions 300, transfers 300, events 300, parse 300, medical 30, wealth 3600, sea 120.
-- Funzioni principali: `claim_mission(_as)`, `resolve_races` (chi arriva prima vince, chi arriva senza posto torna senza ricompensa), `complete_due_assignments` (ricompense, bonus carte, tassa progressiva 0/15/35/55% sopra 1M/5M/20M), `generate_missions` (solo entro 50 km da una sede via `generate_missions_near(base, n)`, max ~60 aperti; una sede nuova ne riceve 3 col trigger `bases_new_missions`), `generate_sea_missions`, `auto_dispatch_org` e `auto_medical` (solo mezzi delle sedi in `organizations.auto_base_ids`, max 4, rpc `set_auto_bases` + `MAX_AUTO_BASES` in `web/app/automatico/page.tsx`), `wealth_tax` (orario, fondo di solidarietà).
+- Funzioni principali: `claim_mission(_as)`, `resolve_races` (chi arriva prima vince, chi arriva senza posto torna senza ricompensa), `complete_due_assignments` (ricompense, bonus carte, tassa progressiva 0/15/35/55% sopra 1M/5M/20M), `generate_missions` (solo entro 50 km da una sede via `generate_missions_near(base, n)`, max ~60 aperti; una sede nuova ne riceve 3 col trigger `bases_new_missions`), `generate_sea_missions`, `auto_dispatch_org` e `auto_medical` (solo servizi entro 20 km dalla sede del mezzo, `auto_max_km` max 20; solo mezzi delle sedi in `organizations.auto_base_ids`, max 4, rpc `set_auto_bases` + `MAX_AUTO_BASES` in `web/app/automatico/page.tsx`), `wealth_tax` (orario, fondo di solidarietÃ ).
 - Altri job pg_cron oltre a `game-tick`: sync-events-request, org-snapshots, purge-chat, alliance-tax, purge-ledger.
-- Mezzi: ambulanze, automediche (solo autista+medico, solo giallo/rosso, aspettano un'ambulanza; se arrivano prime vincono a tavolino), moto (1-2 soccorritori, max 2 per sede), barche (solo missioni 'mare', ormeggio entro 30 km da un porto, rotte via `sea_path` sui `sea_waypoints`, scaricano in porto ad un'ambulanza; non occupano garage), elisoccorso a pagamento (metà dei soldi, attivo 10 min, vince a tavolino).
+- Mezzi: ambulanze, automediche (solo autista+medico, solo giallo/rosso, aspettano un'ambulanza; se arrivano prime vincono a tavolino), moto (1-2 soccorritori, max 2 per sede), barche (solo missioni 'mare', ormeggio entro 30 km da un porto, rotte via `sea_path` sui `sea_waypoints`, scaricano in porto ad un'ambulanza; non occupano garage), elisoccorso a pagamento (metÃ  dei soldi, attivo 10 min, vince a tavolino).
 - Carte rare (epic/leggendarie) riducono i tempi con tetto; ruoli volontari: soccorritore, autista, infermiere, medico.
 - Acquisizioni di associazioni con offerta/controfferta a turni (max 6 round) e popup a tutto schermo.
 - Vista `my_assignments` filtrata (attenzione al limite di 1000 righe di PostgREST).

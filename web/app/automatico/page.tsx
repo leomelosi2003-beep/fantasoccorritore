@@ -234,6 +234,7 @@ export default function Automatico() {
               <div style={{ fontWeight: 800, marginBottom: 4 }}>📍 Distanza massima</div>
               <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
                 Prende solo i servizi entro questa distanza dall&apos;ambulanza, e ci manda sempre la tua ambulanza libera più vicina.
+                In ogni caso un&apos;ambulanza non esce mai a più di 20 km dalla sua sede: resta nella sua zona.
               </div>
               <select value={maxKm} disabled={busy} onChange={async (e) => {
                         const km = Number(e.target.value); setMaxKm(km); setBusy(true);
@@ -242,7 +243,7 @@ export default function Automatico() {
                         setMsg(error ? { ok: false, text: "Non riesco a salvare, riprova." } : { ok: true, text: `📍 Solo servizi entro ${km} km.` });
                       }}
                       style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }}>
-                {[3, 5, 8, 10, 15, 20, 25].map((k) => <option key={k} value={k}>{k} km{k === 10 ? " (consigliato)" : ""}</option>)}
+                {[3, 5, 8, 10, 15, 20].map((k) => <option key={k} value={k}>{k} km{k === 10 ? " (consigliato)" : ""}</option>)}
               </select>
             </div>
 
