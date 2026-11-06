@@ -12,6 +12,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function forgot() {
+    if (!email) { setError("Scrivi prima la tua email, poi tocca “Password dimenticata”."); return; }
+    setBusy(true); setError(null); setInfo(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/reset" });
+    setBusy(false);
+    if (error) { setError(friendlyError(error.message)); return; }
+    setInfo("Se l'email è registrata, riceverai un link per reimpostare la password.");
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -53,6 +63,7 @@ export default function LoginScreen() {
               style={{ width: "100%", maxWidth: 380, background: "rgba(255,255,255,.92)", backdropFilter: "blur(8px)",
                        borderRadius: 16, padding: 22, boxShadow: "0 10px 40px rgba(0,0,0,.5)", boxSizing: "border-box" }}>
           {error && <div style={errorBox}>{error}</div>}
+          {info && <div style={{ background: "#eefbf0", color: "#15803D", border: "1px solid #b7e2c1", borderRadius: 10, padding: "10px 12px", fontSize: 14, marginBottom: 12 }}>{info}</div>}
 
           <input style={input} type="email" placeholder="Email" autoComplete="email"
                  value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -70,6 +81,11 @@ export default function LoginScreen() {
               {mode === "accedi" ? "Non hai un account? Registrati" : "Hai già un account? Accedi"}
             </button>
           </div>
+          {mode === "accedi" && (
+            <div style={{ marginTop: 8, textAlign: "center" }}>
+              <button type="button" style={link} disabled={busy} onClick={forgot}>Password dimenticata?</button>
+            </div>
+          )}
         </form>
       </div>
     </main>
