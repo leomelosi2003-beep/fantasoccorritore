@@ -23,12 +23,20 @@ function StartSite { Start-Process -PassThru -WindowStyle Minimized -WorkingDire
 
 Build
 $site = StartSite
-$cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe"
-if (-not (Test-Path $cf)) { $cf = "cloudflared" }
-$log = Join-Path $base "tunnel.log"
-$tunnel = Start-Process -PassThru -WindowStyle Minimized $cf "tunnel --url http://localhost:3000 --logfile `"$log`""
-Start-Sleep 15
-$url = (Select-String -Path $log -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -AllMatches | Select-Object -Last 1).Matches.Value
+$ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+if (Test-Path $ts) {
+  # Indirizzo fisso con Tailscale Funnel (resta lo stesso a ogni riavvio)
+  & $ts funnel --bg 3000 | Out-Null
+  $url = "https://" + ((& $ts status --json | ConvertFrom-Json).Self.DNSName.TrimEnd('.'))
+} else {
+  # Riserva: tunnel Cloudflare temporaneo (l'indirizzo cambia a ogni avvio)
+  $cf = "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe"
+  if (-not (Test-Path $cf)) { $cf = "cloudflared" }
+  $log = Join-Path $base "tunnel.log"
+  $tunnel = Start-Process -PassThru -WindowStyle Minimized $cf "tunnel --url http://localhost:3000 --logfile `"$log`""
+  Start-Sleep 15
+  $url = (Select-String -Path $log -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -AllMatches | Select-Object -Last 1).Matches.Value
+}
 Write-Host ""
 Write-Host "GIOCO ONLINE:  $url" -ForegroundColor Green
 Write-Host "Sul PC:        http://localhost:3000"
