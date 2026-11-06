@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
+import OfferEditor, { offerError, itemsSummary, type OfferItems, type ItemsList } from "@/components/OfferEditor";
 
 type Org = Pick<Organization, "id" | "name" | "type" | "logo_url">;
 type Alliance = { id: string; name: string; founder_org: string };
@@ -64,7 +65,7 @@ export default function AlleanzaPage() {
   const [inviteOrg, setInviteOrg] = useState("");
   const [lendTo, setLendTo] = useState("");
   const [hours, setHours] = useState(4);
-  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<string | null>(null); // associazione per cui sto preparando un'offerta
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -130,9 +131,21 @@ export default function AlleanzaPage() {
 
   async function acceptOffer(o: Offer) {
     const buyer = orgById(o.buyer_org)?.name ?? "il compratore";
-    if (!window.confirm(`Vendi a ${buyer} per ${euro(o.price)}?\n\nPasseranno a ${buyer}: tutte le sedi, tutte le ambulanze e metà dei volontari comuni (gli altri comuni se ne vanno).\nTi restano i fondi, i volontari epici e leggendari, e sceglierai una nuova sede.`)) return;
-    const r = await call("answer_acquisition_offer", { p_id: o.id, p_accept: true }, "Vendita fatta!");
-    if (r) router.replace("/nuova-sede");
+    const { data } = await supabase.rpc("acquisition_offer_items_list", { p_id: o.id });
+    const l = data as ItemsList | null;
+    if (!window.confirm(`Accetti l'offerta di ${buyer}?\n\n📤 Dai: ${itemsSummary(l?.prendo)}\n📥 Ricevi: ${euro(o.price)}${l?.do && itemsSummary(l.do) !== "niente" ? ` + ${itemsSummary(l.do)}` : ""}\n\nTutto il resto rimane a te.`)) return;
+    await call("answer_acquisition_offer", { p_id: o.id, p_accept: true }, "Scambio fatto!");
+  }
+
+  async function sendOffer(seller: Org, price: number, take: OfferItems, give: OfferItems) {
+    setBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("make_acquisition_offer", { p_seller: seller.id, p_price: price, p_take: take, p_give: give });
+    setBusy(false);
+    if (error) return offerError(error.message);
+    setEditing(null);
+    setMsg({ ok: true, text: `Offerta mandata a ${seller.name}.` });
+    await load();
+    return null;
   }
 
   return (
@@ -165,8 +178,8 @@ export default function AlleanzaPage() {
             ))}
             {offersIn.map((o) => (
               <div key={o.id} style={row}>
-                <span style={{ flex: 1 }}><OrgBadge o={orgById(o.buyer_org)} /> vuole comprarti per <strong>{euro(o.price)}</strong></span>
-                <button disabled={busy} style={{ ...btn, background: "#B91C1C" }} onClick={() => acceptOffer(o)}>Vendi</button>
+                <span style={{ flex: 1 }}><OrgBadge o={orgById(o.buyer_org)} /> ti fa un&apos;offerta: <strong>{euro(o.price)}</strong> e uno scambio (dettagli e trattativa dalla mappa)</span>
+                <button disabled={busy} style={{ ...btn, background: "#B91C1C" }} onClick={() => acceptOffer(o)}>Accetta</button>
                 <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }}
                         onClick={() => call("answer_acquisition_offer", { p_id: o.id, p_accept: false }, "Offerta rifiutata.")}>Rifiuta</button>
               </div>
@@ -313,8 +326,9 @@ export default function AlleanzaPage() {
         <div style={box}>
           <div style={h2}>💼 Compra un&apos;associazione</div>
           <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
-            Fai un&apos;offerta: se accetta, i soldi vanno a lei e tu prendi <strong>tutte le sedi e le ambulanze</strong> e
-            <strong> metà dei volontari comuni</strong>. Epici e leggendari restano a lei, che riparte da zero.
+            Prepara un&apos;offerta scegliendo <strong>cosa prendi</strong> (sedi, mezzi, volontari) e <strong>cosa dai</strong>
+            (soldi, tue sedi, mezzi, volontari). Quello che non scegli resta a chi lo ha: l&apos;altra associazione continua a giocare.
+            Nella trattativa si possono cambiare sia i soldi sia l&apos;elenco.
           </div>
           {offersOut.map((o) => (
             <div key={o.id} style={{ ...row, background: "#FFFBEB" }}>
@@ -325,20 +339,24 @@ export default function AlleanzaPage() {
           ))}
           {orgs.filter((x) => x.id !== me.id).map((x) => {
             const val = values[x.id] ?? 0;
-            const price = prices[x.id] ?? String(Math.max(1000, Math.round(val / 1000) * 1000));
             const pending = offersOut.some((o) => o.seller_org === x.id);
             return (
-              <div key={x.id} style={row}>
-                <span style={{ flex: 1, minWidth: 180 }}>
-                  <OrgBadge o={x} /><br />
-                  <span style={{ fontSize: 12, color: "#666" }}>valore stimato {euro(val)}</span>
-                </span>
-                <input style={{ ...inp, width: 120 }} type="number" min={1000} step={1000} value={price}
-                       onChange={(e) => setPrices((p) => ({ ...p, [x.id]: e.target.value }))} />
-                <button disabled={busy || pending || Number(price) < 1000} style={{ ...btn, background: "#1E3A8A", opacity: pending ? 0.4 : 1 }}
-                        onClick={() => call("make_acquisition_offer", { p_seller: x.id, p_price: Number(price) }, `Offerta mandata a ${x.name}.`)}>
-                  {pending ? "Offerta fatta" : "Fai offerta"}
-                </button>
+              <div key={x.id} style={{ ...row, display: "block" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 180 }}>
+                    <OrgBadge o={x} /><br />
+                    <span style={{ fontSize: 12, color: "#666" }}>valore stimato {euro(val)}</span>
+                  </span>
+                  <button disabled={busy || pending} style={{ ...btn, background: "#1E3A8A", opacity: pending ? 0.4 : 1 }}
+                          onClick={() => setEditing(editing === x.id ? null : x.id)}>
+                    {pending ? "Offerta fatta" : editing === x.id ? "Chiudi" : "Prepara offerta"}
+                  </button>
+                </div>
+                {editing === x.id && !pending && (
+                  <OfferEditor buyerId={me.id} sellerId={x.id} buyerName={me.name} sellerName={x.name} viewerIsBuyer
+                               initialPrice={0} submitLabel="📨 Manda l'offerta" myFunds={me.funds}
+                               onSubmit={(p, t, g) => sendOffer(x, p, t, g)} onCancel={() => setEditing(null)} />
+                )}
               </div>
             );
           })}
