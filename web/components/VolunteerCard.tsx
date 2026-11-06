@@ -4,7 +4,7 @@ export type Card = {
   id: string; state: "attiva" | "riposo" | "in_servizio" | "scaduta"; rest_until: string | null;
   expires_at: string | null; services_completed: number; energy: number;
   volunteer_id: string; first_name: string; last_name: string; nickname: string | null;
-  role: "autista" | "soccorritore_base" | "soccorritore_avanzato" | "caposervizio" | "infermiere" | "medico";
+  role: "autista" | "soccorritore_base" | "soccorritore_avanzato" | "caposervizio" | "infermiere" | "medico" | "bagnino";
   rarity: "comune" | "epica" | "leggendaria"; gender: string | null; avatar_url: string | null;
   stat_guida: number; stat_soccorso: number; stat_resilienza: number; pros: string[]; cons: string[];
   avanzato?: boolean; lent_to?: string | null; lent_from?: string | null;
@@ -18,6 +18,7 @@ export const ROLE: Record<Card["role"], { label: string; icon: string; color: st
   caposervizio: { label: "Caposervizio", icon: "⭐", color: "#92400E", bg: "#FEF3C7" },
   infermiere: { label: "Infermiere", icon: "🩺", color: "#9D174D", bg: "#FCE7F3" },
   medico: { label: "Medico", icon: "⚕️", color: "#B91C1C", bg: "#FEE2E2" },
+  bagnino: { label: "Bagnino", icon: "🛟", color: "#0E7490", bg: "#CFFAFE" },
 };
 const AUTISTA_AV = { label: "Autista avanzato", icon: "🚑", color: "#1E40AF", bg: "#DBEAFE" };
 

@@ -18,7 +18,7 @@ function km(aLat: number, aLng: number, bLat: number, bLng: number) {
 type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
-const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0 };
+const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0, bagnino: 0 };
 const REQ: Record<string, string> = {
   ecg: "cardiomonitor", defib: "defibrillatore", spinale: "tavola spinale adulti", spinale_ped: "spinale pediatrica",
   collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
@@ -78,7 +78,8 @@ function claimError(m: string) {
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
   if (m.includes("SEA_ONLY_BOAT")) return "🌊 In mare ci va solo la barca: l'ambulanza può andare solo al porto a prendere il paziente della tua barca.";
   if (m.includes("BOAT_ONLY_SEA")) return "⛵ La barca fa solo servizi in mare.";
-  if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono almeno 1 autista (pilota) e 1 soccorritore.";
+  if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino (pilota) e 1 o 2 soccorritori, niente medici.";
+  if (m.includes("BAGNINO_ONLY_BOAT")) return "🛟 I bagnini montano solo sulle barche, non sui mezzi di terra.";
   if (m.includes("HELI_NOT_ACTIVE")) return "🚁 L'elisoccorso non è attivo: attivalo pagando (resta attivo 10 minuti).";
   if (m.includes("HELI_ALREADY_ACTIVE")) return "🚁 L'elisoccorso è già attivo: mandalo su un servizio.";
   if (m.includes("HELI_ONLY_EMERGENCY")) return "🚁 L'elisoccorso va solo sulle emergenze (anche in mare).";
@@ -200,9 +201,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const isMoto = !!vehicles.find((v) => v.id === vehicleId)?.moto;
   const isBoat = !!vehicles.find((v) => v.id === vehicleId)?.boat;
   const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
+  const seaSocc = crewCards.filter((c) => SOCC.includes(c.role)).length;
   const missing = isBoat
-    ? [...(crewCards.some((c) => c.role === "autista") ? [] : ["1 autista (pilota)"]),
-       ...(crewCards.some((c) => c.role !== "autista" && RANK[c.role] >= 1) ? [] : ["1 soccorritore"])]
+    ? [...(crewCards.some((c) => c.role === "bagnino") ? [] : ["1 bagnino (pilota)"]),
+       ...(seaSocc >= 1 && seaSocc <= 2 ? [] : ["1 o 2 soccorritori"]),
+       ...(crewCards.some((c) => c.role !== "bagnino" && !SOCC.includes(c.role)) ? ["solo bagnino e soccorritori"] : [])]
     : isMoto
     ? [...(crewCards.length === 0 ? ["1 soccorritore"] : []), ...(crewCards.some((c) => !SOCC.includes(c.role)) ? ["solo soccorritori"] : [])]
     : isAm
@@ -221,7 +224,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const unavailable = cards.filter((c) => !ready(c));
 
   function toggle(id: string) {
-    setCrew((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= (isAm ? 2 : 4) ? cur : [...cur, id]);
+    setCrew((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= (isAm ? 2 : isBoat ? 3 : 4) ? cur : [...cur, id]);
   }
 
   // Equipaggio automatico: per ogni posto richiesto, il volontario pronto più riposato del grado giusto
@@ -230,6 +233,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (isMoto) {
       const s1 = pool.find((c) => c.role === "soccorritore_base") ?? pool.find((c) => c.role === "soccorritore_avanzato");
       setCrew(s1 ? [s1.id] : []);
+      return;
+    }
+    if (isBoat) {
+      // barca: 1 bagnino (pilota) + 1 soccorritore
+      const b = pool.find((c) => c.role === "bagnino");
+      const s = pool.find((c) => c.role === "soccorritore_base") ?? pool.find((c) => c.role === "soccorritore_avanzato");
+      setCrew([b, s].filter(Boolean).map((c) => c!.id));
       return;
     }
     if (isAm) {
