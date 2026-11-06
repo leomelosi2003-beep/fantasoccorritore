@@ -6,8 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 const ENV_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const URL = ENV_URL === "same-origin"
   ? (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000") + "/sb"
-  : ENV_URL || "https://saagkulmwofgvlssiucw.supabase.co";
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_g7clr76peeA2dkth4NzhJg_gDJODCZ2";
+  : "https://saagkulmwofgvlssiucw.supabase.co";
+const KEY = ENV_URL === "same-origin" && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  : "sb_publishable_g7clr76peeA2dkth4NzhJg_gDJODCZ2";
 
 export const supabase = createClient(URL, KEY);
 export const configError: string | null = null;
