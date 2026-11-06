@@ -1,4 +1,4 @@
-﻿# FantaSoccorritore â€” note per Claude
+# FantaSoccorritore â€” note per Claude
 
 Gioco web gestionale di associazioni di soccorso (ambulanze 118). Proprietario: Leonardo (admin, associazione "Croce Verde Livorno").
 Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'utente.
