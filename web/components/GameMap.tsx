@@ -1093,6 +1093,7 @@ export default function GameMap() {
         {missions.filter((m) => m.category === "grande_evento").map((m) => {
           const isFire = !m.event_id && m.venue === "AIB";
           const isMaxi = !m.event_id && m.venue !== "AIB";
+          const fire = fires.find((x) => x.mission_id === m.id);
           return (
           <Marker key={m.id} position={[m.lat, m.lng]}
                   icon={isFire ? fireIcon() : isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
@@ -1110,6 +1111,18 @@ export default function GameMap() {
                       <span>💶 {m.reward_funds.toLocaleString("it-IT")} €/mezzo</span>
                       <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
+                    {fire && (
+                      <div style={{ margin: "8px 0 2px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, color: "#7C2D12", marginBottom: 3 }}>
+                          <span>🔥 Intensità incendio</span><span>{fire.intensity}%</span>
+                        </div>
+                        <div style={{ height: 10, background: "#f1f5f9", borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ width: `${fire.intensity}%`, height: "100%", borderRadius: 999, transition: "width .5s, background .5s",
+                                        background: fire.intensity > 66 ? "#DC2626" : fire.intensity > 33 ? "#F97316" : "#16A34A" }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: "#15803D", fontWeight: 700, marginTop: 2 }}>{fire.intensity === 0 ? "✅ Incendio domato" : "Più mezzi AIB mandi, più scende."}</div>
+                      </div>
+                    )}
                     <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#C2410C" }}>Solo mezzi antincendio (AIB). Più mezzi mandi, prima lo domate.</div>
                     {org && m.status === "aperta" && (
                       <button onClick={() => setSelected(m)}
