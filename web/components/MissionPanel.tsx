@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { playSound } from "@/lib/sound";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
-  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; moor_lat?: number | null; moor_lng?: number | null };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -18,11 +19,12 @@ function km(aLat: number, aLng: number, bLat: number, bLng: number) {
 type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
-const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0, bagnino: 0 };
+const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0, bagnino: 0, aib: 0 };
 
 // Gruppi per la scelta dei soccorritori, nell'ordine mostrato.
 const CREW_GROUPS: { key: string; label: string; match: (c: Card) => boolean }[] = [
   { key: "bagnino", label: "🛟 Bagnini", match: (c) => c.role === "bagnino" },
+  { key: "aib", label: "🔥 Antincendio (AIB)", match: (c) => c.role === "aib" },
   { key: "socc_av", label: "💉 Soccorritori avanzati", match: (c) => c.role === "soccorritore_avanzato" },
   { key: "socc_base", label: "🩹 Soccorritori base", match: (c) => c.role === "soccorritore_base" },
   { key: "autista_base", label: "🚗 Autisti base", match: (c) => c.role === "autista" && !c.avanzato },
@@ -90,6 +92,9 @@ function claimError(m: string) {
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
   if (m.includes("SEA_ONLY_BOAT")) return "🌊 In mare ci va solo la barca: l'ambulanza può andare solo al porto a prendere il paziente della tua barca.";
   if (m.includes("BOAT_ONLY_SEA")) return "⛵ La barca fa solo servizi in mare.";
+  if (m.includes("FIRE_NEEDS_AIB")) return "🔥 All'incendio può andare solo un mezzo antincendio boschivo (AIB).";
+  if (m.includes("AIB_ONLY_FIRE")) return "🔥 Il mezzo antincendio va solo sugli incendi boschivi.";
+  if (m.includes("AIB_CREW")) return "🔥 Sul mezzo antincendio servono almeno 2 persone, con almeno 1 volontario AIB.";
   if (m.includes("TRANSFER_NEEDS_LONG")) return "🔁 I trasferimenti li fa solo un'ambulanza a passo lungo.";
   if (m.includes("DIMISSIONE_NEEDS_ORDINARIA")) return "🚗 Dimissioni e trasporti ordinari li fa solo una macchina ordinaria.";
   if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino e 1 soccorritore avanzato, niente medici.";
@@ -129,7 +134,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,moor_lat,moor_lng").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -152,6 +157,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (mission.transport === "trasferimento" && !v.transfer_only) return "per i trasferimenti serve un passo lungo";
     if (isOrdinario && !v.ordinaria) return "dimissioni/ordinari: serve una macchina ordinaria";
     if (v.ordinaria && !isOrdinario) return "la macchina ordinaria fa solo dimissioni e ordinari";
+    const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
+    if (fire && !v.aib) return "all'incendio va solo un mezzo antincendio (AIB)";
+    if (v.aib && !fire) return "il mezzo antincendio va solo sugli incendi boschivi";
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";
@@ -225,9 +233,15 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const isAm = !!vehicles.find((v) => v.id === vehicleId)?.automedica;
   const isMoto = !!vehicles.find((v) => v.id === vehicleId)?.moto;
   const isBoat = !!vehicles.find((v) => v.id === vehicleId)?.boat;
+  const isAib = !!vehicles.find((v) => v.id === vehicleId)?.aib;
   const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
   const seaAdv = crewCards.filter((c) => c.role === "soccorritore_avanzato").length;
-  const missing = isBoat
+  const aibCount = crewCards.filter((c) => c.role === "aib").length;
+  const missing = isAib
+    ? [...(crewCards.length < 2 ? ["almeno 2 persone"] : []),
+       ...(aibCount < 1 ? ["1 volontario AIB"] : []),
+       ...(crewCards.some((c) => c.role !== "aib" && !SOCC.includes(c.role)) ? ["solo AIB e soccorritori"] : [])]
+    : isBoat
     ? [...(crewCards.some((c) => c.role === "bagnino") ? [] : ["1 bagnino"]),
        ...(seaAdv >= 1 && seaAdv <= 2 ? [] : ["1 soccorritore avanzato"]),
        ...(crewCards.some((c) => c.role !== "bagnino" && c.role !== "soccorritore_avanzato") ? ["solo bagnino e soccorritori avanzati"] : [])]
@@ -265,6 +279,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const b = pool.find((c) => c.role === "bagnino");
       const s = pool.find((c) => c.role === "soccorritore_avanzato");
       setCrew([b, s].filter(Boolean).map((c) => c!.id));
+      return;
+    }
+    if (isAib) {
+      // incendio: 2 volontari AIB
+      const picked = pool.filter((c) => c.role === "aib").slice(0, 2);
+      setCrew(picked.map((c) => c.id));
       return;
     }
     if (isAm) {
@@ -338,13 +358,16 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     const v = vehicles.find((x) => x.id === vehicleId);
     const arr = new Date((data as { arrives_at: string }).arrives_at);
+    playSound("dispatch");
     onClaimed(`${v?.boat ? "⛵" : v?.moto ? "🛵" : v?.automedica ? "🩺" : "🚑"} ${v?.call_sign} in partenza! Arrivo sul posto alle ${arr.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.`);
   }
 
   const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support || companion) && !full;
   const isEvent = mission.category === "grande_evento";
-  const isMaxi = isEvent && !mission.event_id;
-  const code = isMaxi ? { label: "🆘 Maxi-emergenza", color: "#DC2626" }
+  const isFire = isEvent && !mission.event_id && mission.venue === "AIB";
+  const isMaxi = isEvent && !mission.event_id && mission.venue !== "AIB";
+  const code = isFire ? { label: "🔥 Incendio boschivo", color: "#C2410C" }
+    : isMaxi ? { label: "🆘 Maxi-emergenza", color: "#DC2626" }
     : isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
   return (
@@ -357,7 +380,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.9, textTransform: "uppercase" }}>{code.label}</div>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>{mission.title}</div>
-            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{isMaxi ? mission.description : `${mission.venue} · ${mission.description}`}</div>}
+            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{(isMaxi || isFire) ? mission.description : `${mission.venue} · ${mission.description}`}</div>}
           </div>
           <button onClick={onClose} style={{ ...btn, background: "rgba(0,0,0,.25)", padding: "4px 10px" }}>✕</button>
         </div>

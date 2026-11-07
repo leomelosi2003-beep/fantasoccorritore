@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Circle, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase, livery, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
@@ -13,6 +13,7 @@ import ChatPanel from "@/components/ChatPanel";
 import AcquisitionModal from "@/components/AcquisitionModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
+import { playSound, soundOn, setSoundOn } from "@/lib/sound";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -184,6 +185,17 @@ function eventIcon(kind: string, open: boolean) {
     html: `<div style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
            font-size:${open ? 22 : 17}px;background:${open ? "#7C3AED" : "#fff"};border:3px solid ${open ? "#fff" : "#7C3AED"};
            box-shadow:0 2px 6px rgba(0,0,0,.4);${open ? "animation:ev-pulse 1.4s infinite" : "opacity:.85"}">${KIND_ICON[kind] ?? "🎪"}</div>`,
+    iconSize: [s, s], iconAnchor: [s / 2, s / 2],
+  });
+}
+
+// Icona dell'incendio boschivo.
+function fireIcon() {
+  const s = 50;
+  return L.divIcon({
+    className: "",
+    html: `<div class="fs-fire-pin" style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+           font-size:26px;background:radial-gradient(circle at 50% 32%,#FDBA74,#C2410C 70%);border:3px solid #fff;">🔥</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
   });
 }
@@ -397,6 +409,7 @@ function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null
 export default function GameMap() {
   const router = useRouter();
   const [missions, setMissions] = useState<MissionPin[]>([]);
+  const [fires, setFires] = useState<{ mission_id: string; lat: number; lng: number; severity: number; intensity: number; radius_m: number }[]>([]);
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
   const [notes, setNotes] = useState<{ id: string; text: string }[]>([]);
@@ -411,6 +424,8 @@ export default function GameMap() {
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [sound, setSound] = useState(true);
+  useEffect(() => { setSound(soundOn()); }, []);
   const reloadRef = useRef<() => void>(() => {});
   // ambulanze di una sede: caricate quando apro il popup della sede
   const [baseCars, setBaseCars] = useState<Record<string, BaseCar[] | null>>({});
@@ -574,6 +589,7 @@ export default function GameMap() {
         }
         if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
           const amount = a.reward_funds ?? 0, key = Date.now() + Math.random();
+          playSound("money");
           setMoneyPops((p) => [...p, { key, amount, label: `${a.call_sign} · ${a.title.split(" — ")[0]}` }]);
           setTimeout(() => setMoneyPops((p) => p.filter((x) => x.key !== key)), 3200);
           refreshOrg();
@@ -683,16 +699,18 @@ export default function GameMap() {
       const in24h = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
       const withBases = n % 4 === 0, withEvents = n % 20 === 0;
       n++;
-      const [m, b, ev] = await Promise.all([
+      const [m, b, ev, wf] = await Promise.all([
         supabase.from("missions_map").select("*"),
         withBases ? supabase.from("bases_map").select("*") : Promise.resolve(null),
         withEvents ? supabase.from("events_map").select("id,title,kind,starts_at,show_at,time_confirmed,venue,slots,reward_funds,lat,lng")
           .gt("starts_at", new Date().toISOString()).lt("starts_at", in24h).order("starts_at") : Promise.resolve(null),
+        supabase.from("wildfires_map").select("mission_id,lat,lng,severity,intensity,radius_m"),
       ]);
       if (ev && !ev.error) setUpcoming((ev.data as UpcomingEvent[]) ?? []);
       if (m.error) { setError(`Il server è lento, riprovo tra poco…`); return; }
       setError(null);
       setMissions((m.data as MissionPin[]) ?? []);
+      if (wf && !wf.error) setFires((wf.data as typeof fires) ?? []);
       if (b && !b.error) setBases((b.data as BasePin[]) ?? []);
     }
     load();
@@ -901,9 +919,11 @@ export default function GameMap() {
               ["🏆", "Classifica", "#B45309", "/classifica"],
               ["🎨", "Associazione", "#DB2777", "/associazione"],
               ["📖", "Tutorial", "#2563EB", "__tutorial__"],
+              [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
               ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
             ] as [string, string, string, string][]).map(([icon, label, color, href]) => (
               <button key={href} className="fs-drawer-item" onClick={() => {
+                  if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
                   setMenuOpen(false);
                   if (href === "__tutorial__") setShowTutorial(true); else router.push(href);
                 }}>
@@ -1064,18 +1084,40 @@ export default function GameMap() {
           );
         })}
 
+        {/* Incendi boschivi: cerchio che cresce con l'intensità (si propaga se vanno in pochi) */}
+        {fires.map((f) => (
+          <Circle key={`fire-${f.mission_id}`} center={[f.lat, f.lng]} radius={f.radius_m}
+                  pathOptions={{ color: "#C2410C", weight: 2, opacity: 0.8, fillColor: "#F97316", fillOpacity: 0.12 + Math.min(0.3, f.intensity / 300) }} />
+        ))}
+
         {missions.filter((m) => m.category === "grande_evento").map((m) => {
-          const isMaxi = !m.event_id;
+          const isFire = !m.event_id && m.venue === "AIB";
+          const isMaxi = !m.event_id && m.venue !== "AIB";
           return (
           <Marker key={m.id} position={[m.lat, m.lng]}
-                  icon={isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
+                  icon={isFire ? fireIcon() : isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
             <Popup className="fs-mis-popup">
-              <div className="fs-mis-bar" style={{ background: isMaxi ? "#DC2626" : "#7C3AED" }}>
+              <div className="fs-mis-bar" style={{ background: isFire ? "#C2410C" : isMaxi ? "#DC2626" : "#7C3AED" }}>
                 <span className="fs-mis-title">{m.title}</span>
-                <span className="fs-mis-code">{isMaxi ? "MAXI" : "evento"}</span>
+                <span className="fs-mis-code">{isFire ? "🔥" : isMaxi ? "MAXI" : "evento"}</span>
               </div>
               <div className="fs-mis-body">
-                {isMaxi ? (
+                {isFire ? (
+                  <>
+                    {m.description && <div style={{ marginBottom: 6 }}>{m.description}</div>}
+                    <div className="fs-mis-meta">
+                      <span>🚒 {m.slots_taken} sul posto</span>
+                      <span>💶 {m.reward_funds.toLocaleString("it-IT")} €/mezzo</span>
+                      <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#C2410C" }}>Solo mezzi antincendio (AIB). Più mezzi mandi, prima lo domate.</div>
+                    {org && m.status === "aperta" && (
+                      <button onClick={() => setSelected(m)}
+                              style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
+                                       background: "#C2410C", color: "#fff", fontWeight: 800 }}>🔥 Manda un mezzo AIB</button>
+                    )}
+                  </>
+                ) : isMaxi ? (
                   <>
                     {m.description && <div style={{ marginBottom: 6 }}>{m.description}</div>}
                     <div className="fs-mis-meta">
@@ -1412,6 +1454,7 @@ export default function GameMap() {
         .fs-burger:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(194,65,12,.55); }
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 116px; }
+        .fs-fire-pin { box-shadow: 0 0 0 4px rgba(194,65,12,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
         .fs-maxi-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
         @keyframes maxi-pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(220,38,38,.45), 0 3px 10px rgba(0,0,0,.5) }
           50% { box-shadow: 0 0 0 13px rgba(220,38,38,0), 0 3px 10px rgba(0,0,0,.5) } }
