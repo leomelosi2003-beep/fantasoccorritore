@@ -37,6 +37,12 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Per modificare file da PowerShell usare percorsi assoluti con `[IO.File]` (che non segue `Set-Location`) oppure lo strumento Edit.
 - Vista `my_assignments` filtrata (attenzione al limite di 1000 righe di PostgREST).
 
+## Bilanciamento (difficoltà)
+- Migr. 163: premio dei servizi −10% (fattore `*0.90` in `complete_due_assignments`); buste più care (`pack_catalog`: comune 4500, epico 17000, leggendario 52000); tutte le leggendarie `is_pack_eligible` in vendita nel negozio (`shop_price = somma_stat*1000 + 80000`, ~280-373k).
+
+## Docker / disco (manutenzione)
+- Il DB gira in Docker Desktop (WSL2). Se "Docker Desktop is unable to start": controllare DISCO (`Get-PSDrive C`, il disco C: è piccolo ~223GB e si riempie), non la RAM (13,9GB, ok). Rimedio che ha funzionato: fermare i processi Docker, `wsl --shutdown`, riavviare "Docker Desktop.exe"; poi `docker image prune -af` e `docker builder prune -af` (MAI volumi/dati). I dati del DB sono in bind mount su `C:\fantasoccorritore\supabase\volumes` (non in volumi Docker). Nessun container analytics/vector attivo.
+
 ## Trucchi tecnici
 - Patch di funzioni: `pg_get_functiondef` + replace + `execute` in un blocco DO, con controllo che la patch sia applicata.
 - Il controllo anti-istruzioni distruttive blocca UPDATE/DELETE senza WHERE scritti nel testo: usare `execute 'up'||'date ...'`.
