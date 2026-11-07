@@ -37,6 +37,9 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Per modificare file da PowerShell usare percorsi assoluti con `[IO.File]` (che non segue `Set-Location`) oppure lo strumento Edit.
 - Vista `my_assignments` filtrata (attenzione al limite di 1000 righe di PostgREST).
 
+## Gemellaggio (migr. 170)
+- Relazione a coppie tra associazioni: tabella `twinnings(org_a richiedente, org_b invitata, status in_attesa|attiva)`, RLS per select. RPC: `request_twinning(target)`, `answer_twinning(id,accept)`, `end_twinning(id)`, helper `are_twinned(a,b)`. Donazioni SOLO tra gemelli attivi: `gift_funds(to,amount)`, `gift_vehicle(vehicle,to)` (mezzo disponibile, va all'HQ del gemello), `gift_base(base,to)` (sede non principale + suoi mezzi fermi, blocca se mezzi in servizio), `twin_rename_base(base,twin)` (rinomina "🤝 OrgA × OrgB"). Vista `my_twinnings`. UI: sezione "🤝 Gemellaggio" nella pagina Alleanza (richiesta via select, accetta/rifiuta, bottoni dona soldi/ambulanza/sede, sciogli).
+
 ## Bilanciamento (difficoltà)
 - Migr. 163: premio dei servizi −10% (fattore `*0.90` in `complete_due_assignments`); buste più care (`pack_catalog`: comune 4500, epico 17000, leggendario 52000); tutte le leggendarie `is_pack_eligible` in vendita nel negozio (`shop_price = somma_stat*1000 + 80000`, ~280-373k).
 

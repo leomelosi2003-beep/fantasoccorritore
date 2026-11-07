@@ -11,6 +11,8 @@ type Org = Pick<Organization, "id" | "name" | "type" | "logo_url">;
 type Alliance = { id: string; name: string; founder_org: string };
 type Member = { org_id: string; alliance_id: string };
 type Invite = { id: string; alliance_id: string; org_id: string };
+type Twin = { id: string; status: string; other_org: string; other_name: string; other_logo: string | null; other_type: string; can_answer: boolean; i_requested: boolean };
+type MyBase = { id: string; name: string; is_headquarters: boolean };
 type Offer = { id: string; buyer_org: string; seller_org: string; price: number; status: string; created_at: string; turn?: string };
 type Loan = { id: string; from_org: string; to_org: string; ends_at: string; returned_at: string | null; vehicle_id?: string; card_id?: string };
 type Fleet = { id: string; call_sign: string; status: string; mine: boolean; lent_to: string | null; lent_from: string | null };
@@ -60,6 +62,9 @@ export default function AlleanzaPage() {
   const [cLoans, setCLoans] = useState<Loan[]>([]);
   const [fleet, setFleet] = useState<Fleet[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [twins, setTwins] = useState<Twin[]>([]);
+  const [myBases, setMyBases] = useState<MyBase[]>([]);
+  const [twinTo, setTwinTo] = useState("");
   const [values, setValues] = useState<Record<string, number>>({});
   const [newName, setNewName] = useState("");
   const [inviteOrg, setInviteOrg] = useState("");
@@ -77,7 +82,7 @@ export default function AlleanzaPage() {
     if (!o) { router.replace("/onboarding"); return; }
     setMe(o as Organization);
     const nowIso = new Date().toISOString();
-    const [og, al, mb, inv, of, vl, cl, fl, cd] = await Promise.all([
+    const [og, al, mb, inv, of, vl, cl, fl, cd, tw, bs] = await Promise.all([
       supabase.from("organizations").select("id,name,type,logo_url").order("name"),
       supabase.from("alliances").select("id,name,founder_org"),
       supabase.from("alliance_members").select("org_id,alliance_id"),
@@ -87,7 +92,11 @@ export default function AlleanzaPage() {
       supabase.from("card_loans").select("*").is("returned_at", null).gt("ends_at", nowIso),
       supabase.from("my_fleet").select("id,call_sign,status,mine,lent_to,lent_from").order("call_sign"),
       supabase.from("my_cards").select("*").neq("state", "scaduta"),
+      supabase.from("my_twinnings").select("*"),
+      supabase.from("bases").select("id,name,is_headquarters").eq("org_id", o.id).order("is_headquarters", { ascending: false }),
     ]);
+    setTwins((tw.data as Twin[]) ?? []);
+    setMyBases((bs.data as MyBase[]) ?? []);
     const others = ((og.data as Org[]) ?? []).filter((x) => x.id !== o.id);
     setOrgs((og.data as Org[]) ?? []);
     setAlliances((al.data as Alliance[]) ?? []);
@@ -129,6 +138,47 @@ export default function AlleanzaPage() {
   const myCards = cards.filter((c) => !c.lent_from);
   const lendTarget = lendTo || allies[0] || "";
 
+  // Gemellaggio
+  const activeTwins = twins.filter((t) => t.status === "attiva");
+  const twinReceived = twins.filter((t) => t.can_answer);
+  const twinSent = twins.filter((t) => t.i_requested);
+  const twinnedIds = new Set(twins.map((t) => t.other_org));
+  const twinCandidates = orgs.filter((x) => x.id !== me.id && !twinnedIds.has(x.id));
+
+  function pickFrom<T>(title: string, items: T[], label: (x: T) => string): T | null {
+    if (!items.length) { setMsg({ ok: false, text: "Non hai niente da scegliere qui." }); return null; }
+    const list = items.map((x, i) => `${i + 1}. ${label(x)}`).join("\n");
+    const s = window.prompt(`${title}\n\n${list}\n\nScrivi il numero:`);
+    if (s === null) return null;
+    return items[parseInt(s.trim(), 10) - 1] ?? null;
+  }
+  async function giftFunds(toOrg: string, toName: string) {
+    const s = window.prompt(`Quanti soldi doni a ${toName}?\n(in cassa hai ${euro(me!.funds)})`);
+    if (s === null) return;
+    const amount = parseInt(s.replace(/[^0-9]/g, ""), 10);
+    if (!amount || amount < 1) { setMsg({ ok: false, text: "Importo non valido." }); return; }
+    await call("gift_funds", { p_to: toOrg, p_amount: amount }, `💶 Donati ${euro(amount)} a ${toName}.`);
+  }
+  async function donateVehicle(toOrg: string, toName: string) {
+    const v = pickFrom(`Quale ambulanza doni a ${toName}? (solo quelle libere in sede)`,
+      myVehicles.filter((x) => x.status === "disponibile" && !x.lent_to), (x) => x.call_sign);
+    if (!v) return;
+    if (!window.confirm(`Donare ${v.call_sign} a ${toName}? Non sarà più tua.`)) return;
+    await call("gift_vehicle", { p_vehicle: v.id, p_to: toOrg }, `🚑 ${v.call_sign} donata a ${toName}.`);
+  }
+  async function donateBase(toOrg: string, toName: string) {
+    const b = pickFrom(`Quale sede doni a ${toName}? (non la principale)`,
+      myBases.filter((x) => !x.is_headquarters), (x) => x.name);
+    if (!b) return;
+    if (!window.confirm(`Donare la sede "${b.name}" con i suoi mezzi fermi a ${toName}? Non sarà più tua.`)) return;
+    await call("gift_base", { p_base: b.id, p_to: toOrg }, `🏠 Sede donata a ${toName}.`);
+  }
+  async function renameTwinBase(toOrg: string) {
+    const b = pickFrom("Quale sede rinomini col nome del gemellaggio?", myBases, (x) => x.name);
+    if (!b) return;
+    await call("twin_rename_base", { p_base: b.id, p_twin: toOrg }, "🤝 Sede rinominata col gemellaggio.");
+  }
+
   async function acceptOffer(o: Offer) {
     const buyer = orgById(o.buyer_org)?.name ?? "il compratore";
     const { data } = await supabase.rpc("acquisition_offer_items_list", { p_id: o.id });
@@ -162,6 +212,55 @@ export default function AlleanzaPage() {
 
       <div style={wrap}>
         {msg && <div style={{ ...box, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 600 }}>{msg.text}</div>}
+
+        {/* Gemellaggio */}
+        <div style={box}>
+          <div style={h2}>🤝 Gemellaggio</div>
+          <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>
+            Gemèllati con un&apos;altra associazione per aiutarla a crescere: puoi donarle <strong>soldi</strong>, <strong>ambulanze</strong> e <strong>sedi</strong>. Le sedi in collaborazione prendono il nome di entrambe.
+          </div>
+
+          {twinReceived.map((t) => (
+            <div key={t.id} style={{ ...row, border: "2px solid #F59E0B", borderRadius: 10, padding: 8, marginBottom: 8 }}>
+              <span style={{ flex: 1 }}><OrgBadge o={orgById(t.other_org)} /> ti chiede il gemellaggio</span>
+              <button disabled={busy} style={{ ...btn, background: "#15803D" }} onClick={() => call("answer_twinning", { p_id: t.id, p_accept: true }, "Gemellaggio attivato!")}>Accetta</button>
+              <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }} onClick={() => call("answer_twinning", { p_id: t.id, p_accept: false }, "Richiesta rifiutata.")}>No</button>
+            </div>
+          ))}
+
+          {activeTwins.map((t) => (
+            <div key={t.id} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <OrgBadge o={orgById(t.other_org)} />
+                <span style={{ fontSize: 12, color: "#15803D", fontWeight: 800 }}>gemellati ✓</span>
+                <button disabled={busy} style={{ ...btn, marginLeft: "auto", background: "#eee", color: "#B91C1C" }}
+                        onClick={() => { if (window.confirm("Sciogliere il gemellaggio?")) call("end_twinning", { p_id: t.id }, "Gemellaggio sciolto."); }}>Sciogli</button>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button disabled={busy} style={{ ...btn, background: "#15803D" }} onClick={() => giftFunds(t.other_org, t.other_name)}>💶 Invia soldi</button>
+                <button disabled={busy} style={{ ...btn, background: "#1E3A8A" }} onClick={() => donateVehicle(t.other_org, t.other_name)}>🚑 Dona un&apos;ambulanza</button>
+                <button disabled={busy} style={{ ...btn, background: "#9333EA" }} onClick={() => donateBase(t.other_org, t.other_name)}>🏠 Dona una sede</button>
+                <button disabled={busy} style={{ ...btn, background: "#0E7490" }} onClick={() => renameTwinBase(t.other_org)}>✏️ Sede in collaborazione</button>
+              </div>
+            </div>
+          ))}
+
+          {twinSent.map((t) => (
+            <div key={t.id} style={row}>
+              <span style={{ flex: 1 }}><OrgBadge o={orgById(t.other_org)} /> · richiesta inviata, in attesa…</span>
+              <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }} onClick={() => call("end_twinning", { p_id: t.id }, "Richiesta annullata.")}>Annulla</button>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            <select value={twinTo} onChange={(e) => setTwinTo(e.target.value)} style={{ ...inp, flex: 1, minWidth: 180 }}>
+              <option value="">Scegli un&apos;associazione…</option>
+              {twinCandidates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+            <button disabled={busy || !twinTo} style={{ ...btn, background: "#F59E0B" }}
+                    onClick={() => call("request_twinning", { p_target: twinTo }, "Richiesta di gemellaggio inviata.").then(() => setTwinTo(""))}>Richiedi gemellaggio</button>
+          </div>
+        </div>
 
         {/* Richieste per me */}
         {(myInvites.length > 0 || offersIn.length > 0) && (
