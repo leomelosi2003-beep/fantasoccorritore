@@ -97,7 +97,7 @@ function claimError(m: string) {
   if (m.includes("AIB_CREW")) return "🔥 Sul mezzo antincendio servono almeno 2 persone, con almeno 1 volontario AIB.";
   if (m.includes("TRANSFER_NEEDS_LONG")) return "🔁 I trasferimenti li fa solo un'ambulanza a passo lungo.";
   if (m.includes("DIMISSIONE_NEEDS_ORDINARIA")) return "🚗 Dimissioni e trasporti ordinari li fa solo una macchina ordinaria.";
-  if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino e 1 soccorritore avanzato, niente medici.";
+  if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino e 1 o 2 soccorritori, niente medici.";
   if (m.includes("BAGNINO_ONLY_BOAT")) return "🛟 I bagnini montano solo sulle barche, non sui mezzi di terra.";
   if (m.includes("HELI_NOT_ACTIVE")) return "🚁 L'elisoccorso non è attivo: attivalo pagando (resta attivo 10 minuti).";
   if (m.includes("HELI_ALREADY_ACTIVE")) return "🚁 L'elisoccorso è già attivo: mandalo su un servizio.";
@@ -235,7 +235,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const isBoat = !!vehicles.find((v) => v.id === vehicleId)?.boat;
   const isAib = !!vehicles.find((v) => v.id === vehicleId)?.aib;
   const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
-  const seaAdv = crewCards.filter((c) => c.role === "soccorritore_avanzato").length;
+  const seaSocc = crewCards.filter((c) => SOCC.includes(c.role)).length;
   const aibCount = crewCards.filter((c) => c.role === "aib").length;
   const missing = isAib
     ? [...(crewCards.length < 2 ? ["almeno 2 persone"] : []),
@@ -243,8 +243,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
        ...(crewCards.some((c) => c.role !== "aib" && !SOCC.includes(c.role)) ? ["solo AIB e soccorritori"] : [])]
     : isBoat
     ? [...(crewCards.some((c) => c.role === "bagnino") ? [] : ["1 bagnino"]),
-       ...(seaAdv >= 1 && seaAdv <= 2 ? [] : ["1 soccorritore avanzato"]),
-       ...(crewCards.some((c) => c.role !== "bagnino" && c.role !== "soccorritore_avanzato") ? ["solo bagnino e soccorritori avanzati"] : [])]
+       ...(seaSocc >= 1 && seaSocc <= 2 ? [] : ["1 o 2 soccorritori"]),
+       ...(crewCards.some((c) => c.role !== "bagnino" && !SOCC.includes(c.role)) ? ["solo bagnino e soccorritori"] : [])]
     : isMoto
     ? [...(crewCards.length === 0 ? ["1 soccorritore"] : []), ...(crewCards.some((c) => !SOCC.includes(c.role)) ? ["solo soccorritori"] : [])]
     : isAm
@@ -277,7 +277,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (isBoat) {
       // barca: 1 bagnino + 1 soccorritore avanzato
       const b = pool.find((c) => c.role === "bagnino");
-      const s = pool.find((c) => c.role === "soccorritore_avanzato");
+      const s = pool.find((c) => c.role === "soccorritore_base") ?? pool.find((c) => c.role === "soccorritore_avanzato");
       setCrew([b, s].filter(Boolean).map((c) => c!.id));
       return;
     }

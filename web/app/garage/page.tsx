@@ -424,7 +424,7 @@ export default function Garage() {
                 ⛵ <strong>Idroambulanza:</strong> l&apos;unico mezzo che può fare i <strong>servizi in mare</strong> (cerchi con il bordo blu sulla mappa).
                 Resta <strong>ormeggiata dove vuoi in mare</strong> (sulla mappa: tocca la barca → «Sposta ormeggio») e parte per i servizi entro 40 km.
                 Porta il paziente al <strong>porto più vicino</strong> e aspetta una tua ambulanza che lo carica (anche a servizio pieno).
-                A bordo: 1 bagnino e 1 soccorritore avanzato.
+                A bordo: 1 bagnino e 1 o 2 soccorritori.
               </div>
             )}
             {power === "ordinaria" && (
