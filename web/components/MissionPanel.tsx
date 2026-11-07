@@ -7,7 +7,7 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; long_emergency?: boolean;
   fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
@@ -134,7 +134,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -152,7 +152,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
-    if (v.transfer_only && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
+    if (v.transfer_only && !v.long_emergency && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
     const isOrdinario = mission.category === "ordinario" && mission.transport !== "trasferimento";
     if (mission.transport === "trasferimento" && !v.transfer_only) return "per i trasferimenti serve un passo lungo";
     if (isOrdinario && !v.ordinaria) return "dimissioni/ordinari: serve una macchina ordinaria";
@@ -207,7 +207,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const distOf = (v: Vehicle) => v.base_lat != null && v.base_lng != null ? km(v.base_lat, v.base_lng, mission.lat, mission.lng) : 999;
   // mezzi ordinati: prima quelli disponibili, dal più vicino al più lontano
   // i mezzi solo-trasferimenti non compaiono nemmeno sui servizi di emergenza
-  const sortedVehicles = vehicles.filter((v) => !v.transfer_only || mission.transport === "trasferimento").sort((a, b) =>
+  const sortedVehicles = vehicles.filter((v) => !v.transfer_only || mission.transport === "trasferimento" || v.long_emergency).sort((a, b) =>
     (vehicleProblem(a) ? 1 : 0) - (vehicleProblem(b) ? 1 : 0) || (a.boat ? 0 : 1) - (b.boat ? 0 : 1) || (a.automedica ? 1 : 0) - (b.automedica ? 1 : 0) || distOf(a) - distOf(b));
 
   // scegli automaticamente il mezzo disponibile più vicino (e cambia se quello scelto non è più disponibile)

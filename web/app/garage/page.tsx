@@ -18,7 +18,7 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
-  speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean };
+  speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean; long_emergency?: boolean };
 const SPEED_COST = [6000, 12000, 24000];
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
@@ -293,6 +293,15 @@ export default function Garage() {
       return;
     }
     setMsg({ ok: true, text: on ? `🚗 ${v.call_sign} ora fa solo ordinari (dialisi e dimissioni).` : `🚑 ${v.call_sign} torna a fare le emergenze.` });
+    load();
+  }
+
+  async function toggleLongEmergency(v: Vehicle, on: boolean) {
+    setMsg(null); setBusy(true);
+    const { error } = await supabase.rpc("set_vehicle_long_emergency", { p_vehicle: v.id, p_on: on });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    setMsg({ ok: true, text: on ? `🚨 ${v.call_sign}: ora fa trasferimenti E emergenze.` : `🔁 ${v.call_sign}: di nuovo solo trasferimenti.` });
     load();
   }
 
@@ -692,6 +701,7 @@ export default function Garage() {
                   </div>
                   <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name}
                     {v.converted_ordinaria && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#0E7490", background: "#CFFAFE", borderRadius: 999, padding: "1px 7px" }}>🚗 solo ordinari</span>}
+                    {v.long_emergency && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#B91C1C", background: "#FEE2E2", borderRadius: 999, padding: "1px 7px" }}>🚨 anche emergenze</span>}
                   </div>
                   <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                     🏠 {bases.length > 1 ? (
@@ -785,6 +795,15 @@ export default function Garage() {
                             style={{ ...btn, width: "100%", marginTop: 8, background: v.wear >= 80 ? "#DC2626" : "#111",
                                      opacity: cost > org.funds ? 0.4 : 1 }}>
                       Manutenzione · {euro(cost)}
+                    </button>
+                  )}
+                  {v.status === "disponibile" && m?.transfer_only && (
+                    <button onClick={() => toggleLongEmergency(v, !v.long_emergency)} disabled={busy}
+                            style={{ ...btn, width: "100%", marginTop: 8,
+                                     background: v.long_emergency ? "#fff" : "#DC2626",
+                                     color: v.long_emergency ? "#DC2626" : "#fff",
+                                     border: v.long_emergency ? "1px solid #DC2626" : "none" }}>
+                      {v.long_emergency ? "🔁 Torna a solo trasferimenti" : "🚨 Trasferimenti → anche emergenze"}
                     </button>
                   )}
                   {v.status === "disponibile" && m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only && (
