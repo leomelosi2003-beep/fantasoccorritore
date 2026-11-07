@@ -1,8 +1,9 @@
 import { DARK_CSS } from "@/lib/darkTheme";
 import VersionCheck from "@/components/VersionCheck";
 import Heartbeat from "@/components/Heartbeat";
+import AlphaBadge from "@/components/AlphaBadge";
 
-export const metadata = { title: "FantaSoccorritore" };
+export const metadata = { title: "FantaSoccorritore (alpha)" };
 export const viewport = { width: "device-width", initialScale: 1, maximumScale: 1, viewportFit: "cover", themeColor: "#111111" };
 
 // La scelta chiaro/scuro resta salvata su questo dispositivo e si applica prima di disegnare la pagina
@@ -15,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style dangerouslySetInnerHTML={{ __html: DARK_CSS }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
-      <body style={{ margin: 0 }}><Heartbeat /><VersionCheck />{children}</body>
+      <body style={{ margin: 0 }}><Heartbeat /><VersionCheck />{children}<AlphaBadge /></body>
     </html>
   );
 }
