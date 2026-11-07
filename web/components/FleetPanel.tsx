@@ -140,16 +140,16 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
 
   return (
     <div className="fs-fleet">
-      <button className="fs-fleet-btn fs-fleet-toggle" onClick={() => setOpen(!open)}>
-        <span className="fs-flt-ic">🚑</span>
-        <span className="fs-flt-main">
-          <span className="fs-flt-title">Mezzi disponibili</span>
-          <span className="fs-flt-sub"><strong>{atBase}</strong>/{rows.length} in sede{away ? ` · ${away} in rientro` : ""}{inService ? ` · ${inService} in servizio` : ""}</span>
-        </span>
-        <span className="fs-flt-chev">{open ? "▲" : "▼"}</span>
+      <button className={`fs-fleet-ico${open ? " open" : ""}`} onClick={() => setOpen(!open)} title="I tuoi mezzi" aria-label="I tuoi mezzi">
+        🚑
+        {rows.length > 0 && <span className="fs-fleet-badge">{atBase}</span>}
       </button>
       {open && (
         <div className="fs-fleet-list">
+          <div className="fs-fleet-head">
+            <span className="fs-fleet-head-t">🚑 I tuoi mezzi</span>
+            <span className="fs-fleet-head-sub"><strong>{atBase}</strong>/{rows.length} in sede{away ? ` · ${away} in rientro` : ""}{inService ? ` · ${inService} in servizio` : ""}</span>
+          </div>
           {mq && mq.vehicles > 0 && (
             <div style={{ padding: "8px 10px", borderBottom: "1px solid #f0f0f0" }}>
               <button onClick={maintainAll}
