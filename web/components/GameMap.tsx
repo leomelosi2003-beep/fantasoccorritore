@@ -1366,8 +1366,8 @@ export default function GameMap() {
           box-shadow: 0 8px 28px rgba(0,0,0,.3); padding: 12px; width: min(300px, 86vw); font-size: 13px; text-align: left; }
         .fs-stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
         .fs-stat-btn { border: none; background: #f1f1ee; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
-        .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; }
-        .fs-money { font-size: 15px; font-weight: 700; color: #15803D; white-space: nowrap; transition: transform .2s; display: inline-block; }
+        .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; max-width: 190px; }
+        .fs-money { font-size: 16px; font-weight: 800; color: #15803D; white-space: nowrap; transition: transform .2s; display: inline-flex; align-items: center; gap: 2px; }
         .fs-money-flash { animation: money-flash 1.8s ease-out; }
         @keyframes money-flash { 0% { transform: scale(1); text-shadow: none }
           15% { transform: scale(1.25); text-shadow: 0 0 12px #22C55E; color: #16A34A }
@@ -1387,13 +1387,14 @@ export default function GameMap() {
         @keyframes pop-rise { 0% { transform: translate(-50%, 30px) scale(.6); opacity: 0 }
           12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
           80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
-        .fs-rep { color: #B45309; font-weight: 600; margin-left: 6px; }
+        .fs-rep { color: #92400E; font-weight: 800; margin-left: 6px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 1px 8px; font-size: 12.5px; }
         .fs-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
         .fs-top > .fs-pill { min-width: 0; }
-        .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; min-width: 130px; text-align: left; }
-        .fs-fuel-head { display: flex; justify-content: space-between; gap: 6px; }
-        .fs-fuel-bar { display: block; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
-        .fs-fuel-bar > span { display: block; height: 100%; border-radius: 4px; transition: width .4s, background .4s; }
+        .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 150px; text-align: left; }
+        .fs-fuel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+        .fs-fuel-head strong { font-variant-numeric: tabular-nums; }
+        .fs-fuel-bar { display: block; height: 9px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+        .fs-fuel-bar > span { display: block; height: 100%; border-radius: 999px; transition: width .4s, background .4s; }
         @media (max-width: 760px) { .fs-fuel-word { display: none; } }
         .fs-first { position: absolute; z-index: 1050; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom));
           width: min(520px, calc(100% - 20px)); display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
@@ -1485,8 +1486,10 @@ export default function GameMap() {
         @keyframes note-glow { 0%,100% { box-shadow: 0 6px 20px rgba(0,0,0,.35) } 50% { box-shadow: 0 6px 26px rgba(245,158,11,.9) } }
         @keyframes note-pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.18) } }
         .fs-fleet { position: absolute; top: 66px; left: 56px; z-index: 1000; width: min(330px, calc(100% - 66px)); }
-        .fs-fleet-btn { background: #fff; border: none; border-radius: 12px; padding: 7px 12px; font-size: 13px; font-weight: 600;
-          box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; font-family: inherit; color: #111; }
+        .fs-fleet-btn { background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,.05); border-radius: 14px;
+          padding: 7px 12px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.18); cursor: pointer; font-family: inherit; color: #111;
+          transition: transform .18s, box-shadow .18s; }
+        .fs-fleet-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.24); }
         .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
           max-height: 50vh; overflow-y: auto; }
         @media (max-width: 760px) {
@@ -1498,8 +1501,9 @@ export default function GameMap() {
           .fs-top > .fs-pill { flex: 1 1 100%; width: 100%; }
           .fs-name { font-size: 13px; }
           .fs-money { font-size: 14px; }
-          .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 5px 8px !important; font-size: 11px !important; gap: 3px; }
-          .fs-fuel-bar { height: 6px; }
+          .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 6px 10px !important; font-size: 11.5px !important; gap: 4px; }
+          .fs-fuel-bar { height: 8px; }
+          .fs-rep { font-size: 12px; padding: 1px 7px; }
           .fs-fleet { top: 112px; left: 10px; width: calc(100% - 20px); }
           .fs-map .leaflet-control-zoom { display: none; }
           .fs-chat-btn { bottom: calc(20px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
