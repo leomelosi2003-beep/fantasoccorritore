@@ -22,14 +22,21 @@ export default function Onboarding() {
 
   // Serve un account; chi ha già un'associazione va direttamente alla mappa
   useEffect(() => {
-    (async () => {
+    let cancelled = false; let tries = 0;
+    async function check() {
       const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (!session) { router.replace("/login"); return; }
-      const { data } = await supabase.from("organizations").select("id")
+      const { data, error } = await supabase.from("organizations").select("id")
         .eq("owner_id", session.user.id).maybeSingle();
+      if (cancelled) return;
+      // se la query fallisce (server lento) riprova: non mostrare il form di una nuova associazione a chi ne ha già una
+      if (error) { if (tries++ < 6) setTimeout(check, 2500); return; }
       if (data) { router.replace("/"); return; }
       setReady(true);
-    })();
+    }
+    check();
+    return () => { cancelled = true; };
   }, [router]);
 
   async function create() {

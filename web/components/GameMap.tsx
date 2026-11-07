@@ -674,22 +674,31 @@ export default function GameMap() {
     }
   }, [assignments, others]);
 
-  // Sessione: se sei loggato ma senza associazione vai all'onboarding
+  // Sessione: se sei loggato ma senza associazione vai all'onboarding.
+  // IMPORTANTE: se la query fallisce (server lento/riavvio) NON mandare in onboarding: si riprova,
+  // altrimenti un giocatore che ha già un'associazione rischia di "ricominciare da capo".
   useEffect(() => {
-    (async () => {
+    let cancelled = false; let tries = 0;
+    async function gate() {
       const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (!session) { setLoggedIn(false); return; }
       setLoggedIn(true);
-      const { data } = await supabase.from("organizations")
+      const { data, error } = await supabase.from("organizations")
         .select("id,name,type,funds,reputation,logo_url,auto_enabled").eq("owner_id", session.user.id).maybeSingle();
+      if (cancelled) return;
+      if (error) { if (tries++ < 6) setTimeout(gate, 2500); return; } // errore transitorio: riprova, non resettare
       if (!data) { router.replace("/onboarding"); return; }
-      // associazione venduta: deve scegliere una nuova sede
-      const { count } = await supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", data.id);
+      const { count, error: bErr } = await supabase.from("bases").select("id", { count: "exact", head: true }).eq("org_id", data.id);
+      if (cancelled) return;
+      if (bErr) { if (tries++ < 6) setTimeout(gate, 2500); return; }
       if (count === 0) { router.replace("/nuova-sede"); return; }
       setOrg(data as Organization);
       const { data: prof } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).maybeSingle();
-      setIsAdmin(!!prof?.is_admin);
-    })();
+      if (!cancelled) setIsAdmin(!!prof?.is_admin);
+    }
+    gate();
+    return () => { cancelled = true; };
   }, [router]);
 
   useEffect(() => {
