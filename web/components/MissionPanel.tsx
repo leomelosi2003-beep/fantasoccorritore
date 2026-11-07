@@ -7,7 +7,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean;
-  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; moor_lat?: number | null; moor_lng?: number | null };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -78,6 +78,8 @@ function claimError(m: string) {
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
   if (m.includes("SEA_ONLY_BOAT")) return "🌊 In mare ci va solo la barca: l'ambulanza può andare solo al porto a prendere il paziente della tua barca.";
   if (m.includes("BOAT_ONLY_SEA")) return "⛵ La barca fa solo servizi in mare.";
+  if (m.includes("TRANSFER_NEEDS_LONG")) return "🔁 I trasferimenti li fa solo un'ambulanza a passo lungo.";
+  if (m.includes("DIMISSIONE_NEEDS_ORDINARIA")) return "🚗 Dimissioni e trasporti ordinari li fa solo una macchina ordinaria.";
   if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino (pilota) e 1 o 2 soccorritori, niente medici.";
   if (m.includes("BAGNINO_ONLY_BOAT")) return "🛟 I bagnini montano solo sulle barche, non sui mezzi di terra.";
   if (m.includes("HELI_NOT_ACTIVE")) return "🚁 L'elisoccorso non è attivo: attivalo pagando (resta attivo 10 minuti).";
@@ -114,7 +116,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,moor_lat,moor_lng").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,moor_lat,moor_lng").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -133,6 +135,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
     if (v.transfer_only && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
+    const isOrdinario = mission.category === "ordinario" && mission.transport !== "trasferimento";
+    if (mission.transport === "trasferimento" && !v.transfer_only) return "per i trasferimenti serve un passo lungo";
+    if (isOrdinario && !v.ordinaria) return "dimissioni/ordinari: serve una macchina ordinaria";
+    if (v.ordinaria && !isOrdinario) return "la macchina ordinaria fa solo dimissioni e ordinari";
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";

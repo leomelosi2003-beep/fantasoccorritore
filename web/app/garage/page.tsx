@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -85,7 +85,7 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
-  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto" | "barca">("gasolio");
+  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto" | "barca" | "ordinaria">("gasolio");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -133,9 +133,10 @@ export default function Garage() {
   const firstVehicle = vehicles.length === 0;
   const priceOf = (e: Equip) => (firstVehicle && e.starter ? 0 : e.cost);
   const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
-  const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + eqCost;
+  const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + (model?.ordinaria ? 0 : eqCost);
   const isAm = !!model?.automedica || !!model?.boat; // automedica, moto e barca non hanno la barella
-  const ready = !!model && !!builder && !!picked.monitor && (isAm || !!picked.barella);
+  const isOrd = !!model?.ordinaria; // macchine ordinarie: niente presidi da scegliere
+  const ready = !!model && !!builder && (isOrd || (!!picked.monitor && (isAm || !!picked.barella)));
   // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
   const step: number = !model ? 1 : !builder ? 2 : 4;
   const caps = Array.from(new Set(equip.filter((e) => pickedCodes.includes(e.code)).flatMap((e) => e.provides)));
@@ -173,7 +174,7 @@ export default function Garage() {
     for (const cs of list) {
       const { error } = await supabase.rpc("buy_vehicle", {
         p_model_id: model.id, p_builder_id: builder.id, p_base_id: baseId, p_call_sign: cs,
-        p_equipment: pickedCodes,
+        p_equipment: model.ordinaria ? [] : pickedCodes,
       });
       if (error) { err = `${cs}: ${garageError(error.message)}`; break; }
       done.push(cs);
@@ -361,9 +362,9 @@ export default function Garage() {
 
             <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"], ["barca", "⛵ Barca"]] as const).map(([k, l]) => (
+              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"], ["barca", "⛵ Barca"], ["ordinaria", "🚗 Ordinarie"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setPower(k); setModelId(null); }}
-                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : k === "barca" ? "#0369A1" : "#111") : "#e5e5e0",
+                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : k === "barca" ? "#0369A1" : k === "ordinaria" ? "#0E7490" : "#111") : "#e5e5e0",
                                  color: power === k ? "#fff" : "#111" }}>{l}</button>
               ))}
             </div>
@@ -396,8 +397,22 @@ export default function Garage() {
                 A bordo: almeno 1 autista (pilota) e 1 soccorritore.
               </div>
             )}
+            {power === "ordinaria" && (
+              <div style={{ fontSize: 13, background: "#CFFAFE", color: "#0C4A6E", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                🚗 <strong>Macchina ordinaria:</strong> costa poco e <strong>non monta presidi da emergenza</strong>.
+                È l&apos;unico mezzo che può fare <strong>dimissioni e trasporti ordinari</strong> (le ambulanze da emergenza e i passi lunghi non li fanno).
+                Non può andare su gialli/rossi né sui trasferimenti.
+              </div>
+            )}
             <div style={grid}>
-              {models.filter((m) => power === "barca" ? !!m.boat : m.boat ? false : power === "moto" ? !!m.moto : power === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
+              {models.filter((m) =>
+                power === "barca" ? !!m.boat :
+                m.boat ? false :
+                power === "ordinaria" ? !!m.ordinaria :
+                m.ordinaria ? false :
+                power === "moto" ? !!m.moto :
+                power === "automedica" ? !!m.automedica && !m.moto :
+                !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
                 <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
                         style={{ ...box, textAlign: "left", cursor: "pointer",
                                  border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
@@ -441,6 +456,12 @@ export default function Garage() {
               ))}
             </div>
 
+            {isOrd && (
+              <div style={{ background: "#CFFAFE", color: "#0C4A6E", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
+                🚗 La macchina ordinaria non monta presidi da emergenza: a bordo solo la barella/sedia per dimissioni e trasporti ordinari.
+              </div>
+            )}
+            {!isOrd && (<>
             <h3 id="step3" className={`gar-step${step === 3 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>3. Presidi</h3>
             {firstVehicle && (
               <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
@@ -499,6 +520,7 @@ export default function Garage() {
               {!caps.includes("ecg") && caps.includes("emergenza") &&
                 <div style={{ color: "#a16207", marginTop: 4 }}>Con il solo DAE non puoi fare i servizi ECG: serve un cardiomonitor.</div>}
             </div>
+            </>)}
 
             <h3 id="step4" className={`gar-step${step === 4 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>4. Sigla e sede</h3>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
