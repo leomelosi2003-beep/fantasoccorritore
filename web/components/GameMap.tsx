@@ -1165,17 +1165,21 @@ export default function GameMap() {
           return (
             <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
                           makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url)}>
-              <Popup>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <FactionEmblem type={a.org_type} size={28} logo={a.logo_url} />
-                  <div style={{ lineHeight: 1.2 }}>
-                    <strong>{a.org_name}</strong><br />
-                    <span style={{ fontSize: 12, color: "#666" }}>🚑 {a.call_sign}</span>
+              <Popup className="fs-amb-popup">
+                <div className="fs-amb">
+                  <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
+                    <FactionEmblem type={a.org_type} size={24} logo={a.logo_url} />
+                    <div style={{ lineHeight: 1.15, minWidth: 0 }}>
+                      <div className="fs-amb-org">{a.org_name}</div>
+                      <div className="fs-amb-callsmall">🚑 {a.call_sign}</div>
+                    </div>
+                    <span className="fs-amb-code">{a.code === "nessuno" ? "ord." : a.code}</span>
+                  </div>
+                  <div className="fs-amb-body">
+                    <div className="fs-amb-title">{a.title.split(" — ")[0]}</div>
+                    <div className="fs-amb-row">📍 <span><b>{pos.text}</b>{now < new Date(a.arrives_at).getTime() && <> · sul posto tra {Math.max(1, Math.round((new Date(a.arrives_at).getTime() - now) / 60000))} min</>}</span></div>
                   </div>
                 </div>
-                {a.title.split(" — ")[0]}<br />
-                {pos.text}
-                {now < new Date(a.arrives_at).getTime() && <> · sul posto tra {Math.max(1, Math.round((new Date(a.arrives_at).getTime() - now) / 60000))} min</>}
               </Popup>
             </MovingMarker>
           );
@@ -1255,22 +1259,31 @@ export default function GameMap() {
             ))}
             {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
-              <Popup>
-                <strong>{a.call_sign}</strong> · {a.title}<br />
-                {pos.text} · {left} min<br />
-                {a.hospital && <>Ospedale: {a.hospital}<br /></>}
-                {back > 0 ? <>Libero tra {back} min</> : <strong style={{ color: "#15803D" }}>✅ Disponibile: puoi già mandarlo su un altro servizio</strong>}
-                {a.status === "in_viaggio" && now < new Date(a.arrives_at).getTime() && (
-                  <><br /><button onClick={async () => {
-                      if (!window.confirm("Annullare il viaggio? L'ambulanza torna libera subito, senza premio.")) return;
-                      const { error } = await supabase.rpc("cancel_assignment", { p_assignment: a.id });
-                      if (error) { showToast("Non si può più annullare: è già sul posto."); return; }
-                      showToast("↩️ Viaggio annullato: scegli un altro servizio sulla mappa.");
-                      supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
-                    }}
-                    style={{ marginTop: 6, border: "none", background: "#374151", color: "#fff", borderRadius: 8,
-                             padding: "6px 10px", cursor: "pointer", fontWeight: 700 }}>↩️ Annulla viaggio</button></>
-                )}
+              <Popup className="fs-amb-popup">
+                <div className="fs-amb">
+                  <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
+                    <span style={{ fontSize: 17 }}>🚑</span>
+                    <span className="fs-amb-sign">{a.call_sign}</span>
+                    <span className="fs-amb-code">{a.code === "nessuno" ? "ordinario" : a.code}</span>
+                  </div>
+                  <div className="fs-amb-body">
+                    <div className="fs-amb-title">{a.title.split(" — ")[0]}</div>
+                    <div className="fs-amb-row">📍 <span><b>{pos.text}</b> · {left} min</span></div>
+                    {a.hospital && <div className="fs-amb-row">🏥 <span>{a.hospital}</span></div>}
+                    {back > 0
+                      ? <div className="fs-amb-row">🕐 Libero tra <b>{back} min</b></div>
+                      : <div className="fs-amb-free">✅ Disponibile: puoi già rimandarlo</div>}
+                    {a.status === "in_viaggio" && now < new Date(a.arrives_at).getTime() && (
+                      <button className="fs-amb-cancel" onClick={async () => {
+                          if (!window.confirm("Annullare il viaggio? L'ambulanza torna libera subito, senza premio.")) return;
+                          const { error } = await supabase.rpc("cancel_assignment", { p_assignment: a.id });
+                          if (error) { showToast("Non si può più annullare: è già sul posto."); return; }
+                          showToast("↩️ Viaggio annullato: scegli un altro servizio sulla mappa.");
+                          supabase.from("my_assignments").select("*").then(({ data }) => setAssignments((data as Assignment[]) ?? []));
+                        }}>↩️ Annulla viaggio</button>
+                    )}
+                  </div>
+                </div>
               </Popup>
             </MovingMarker>}
             </Fragment>
@@ -1329,6 +1342,26 @@ export default function GameMap() {
           box-shadow: 0 2px 10px rgba(0,0,0,.3); }
         .fs-burger span { display: block; width: 22px; height: 3px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 50px; }
+        .fs-amb-popup .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.30); padding: 0; overflow: hidden; }
+        .fs-amb-popup .leaflet-popup-content { margin: 0; width: 232px !important; }
+        .fs-amb-popup .leaflet-popup-tip { box-shadow: 0 12px 34px rgba(0,0,0,.30); }
+        .fs-amb-popup a.leaflet-popup-close-button { top: 6px; right: 6px; color: rgba(255,255,255,.9); }
+        .fs-amb { font-family: inherit; }
+        .fs-amb-bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: #fff; }
+        .fs-amb-bar .fs-amb-sign { font-weight: 800; font-size: 14px; color: #fff; letter-spacing: .2px; }
+        .fs-amb-bar .fs-amb-org { font-weight: 800; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fs-amb-bar .fs-amb-callsmall { font-size: 10px; color: rgba(255,255,255,.85); font-weight: 700; }
+        .fs-amb-code { margin-left: auto; font-size: 10px; font-weight: 900; color: #111; background: rgba(255,255,255,.92);
+          padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .4px; flex-shrink: 0; }
+        .fs-amb-body { padding: 10px 12px 11px; }
+        .fs-amb-title { font-size: 13px; color: #111827; font-weight: 700; line-height: 1.25; margin-bottom: 7px; }
+        .fs-amb-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #4b5563; padding: 2px 0; }
+        .fs-amb-row b { color: #111827; font-weight: 700; }
+        .fs-amb-free { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #15803D; font-weight: 800;
+          background: #ecfdf3; border: 1px solid #bbf7d0; border-radius: 9px; padding: 6px 8px; margin-top: 4px; }
+        .fs-amb-cancel { margin-top: 9px; width: 100%; border: none; background: #374151; color: #fff; border-radius: 10px;
+          padding: 8px 10px; cursor: pointer; font-weight: 800; font-size: 12px; transition: background .15s; }
+        .fs-amb-cancel:hover { background: #1f2937; }
         .fs-drawer-bg { position: fixed; inset: 0; z-index: 1300; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .25s; }
         .fs-drawer-bg.open { opacity: 1; pointer-events: auto; }
         .fs-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 1310; width: min(290px, 84vw); background: #fff;
