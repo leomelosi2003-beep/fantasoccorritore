@@ -166,7 +166,7 @@ export default function AlleanzaPage() {
     } else if (kind === "base") {
       await call("gift_base", { p_base: pickId, p_to: org }, `🏠 Sede donata a ${name}.`);
     } else {
-      await call("twin_rename_base", { p_base: pickId, p_twin: org }, "🤝 Sede rinominata col gemellaggio.");
+      await call("twin_rename_base", { p_base: pickId, p_twin: org }, `🤝 Sede condivisa con ${name}: ora può mandare le tue ambulanze ferme lì.`);
     }
     setPicker(null); setPickId("");
   }
@@ -213,7 +213,7 @@ export default function AlleanzaPage() {
         <div style={box}>
           <div style={h2}>🤝 Gemellaggio</div>
           <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>
-            Gemèllati con un&apos;altra associazione per aiutarla a crescere: puoi donarle <strong>soldi</strong>, <strong>ambulanze</strong> e <strong>sedi</strong>. Le sedi in collaborazione prendono il nome di entrambe.
+            Gemèllati con un&apos;altra associazione per aiutarla a crescere: puoi donarle <strong>soldi</strong>, <strong>ambulanze</strong> e <strong>sedi</strong>. Una <strong>sede in collaborazione</strong> prende il nome di entrambe e il gemello può <strong>mandare le tue ambulanze ferme lì</strong>.
           </div>
 
           {twinReceived.map((t) => (
@@ -243,7 +243,7 @@ export default function AlleanzaPage() {
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
                     {picker.kind === "vehicle" ? `🚑 Quale ambulanza doni a ${picker.name}?`
                       : picker.kind === "base" ? `🏠 Quale sede doni a ${picker.name}?`
-                      : "✏️ Quale tua sede rinomini col nome del gemellaggio?"}
+                      : "✏️ Quale tua sede metti in collaborazione? (nome condiviso + il gemello può usare i mezzi fermi lì)"}
                   </div>
                   {pickerItems.length === 0 ? (
                     <div style={{ fontSize: 13, color: "#888" }}>
