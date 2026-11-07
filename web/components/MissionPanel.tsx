@@ -481,7 +481,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
           <strong>Equipaggio:</strong>{" "}
           <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, verticalAlign: "middle" }}>
-            {Object.entries(isMoto ? { soccorritore_base: 1 } : isAm ? { autista: 1, medico: 1 } : required).map(([r, n]) => (
+            {Object.entries(isMoto ? { soccorritore_base: 1 } : isAm ? { autista: 1, medico: 1 } : isBoat ? { bagnino: 1, soccorritore_base: 1 } : isAib ? { aib: 2 } : required).map(([r, n]) => (
               <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                 <strong>{n}×</strong><RoleBadge c={{ role: r as Card["role"] }} small />
               </span>
