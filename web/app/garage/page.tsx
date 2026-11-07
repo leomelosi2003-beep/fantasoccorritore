@@ -9,7 +9,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; transfer_only?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -18,7 +18,7 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
-  speed_level?: number; fuel_liters: number; battery_pct?: number };
+  speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean };
 const SPEED_COST = [6000, 12000, 24000];
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
@@ -278,6 +278,21 @@ export default function Garage() {
     const { error } = await supabase.rpc("create_auction", { p_vehicle: v.id, p_start_price: price, p_minutes: 30 });
     if (error) { setMsg({ ok: false, text: error.message.includes("VEHICLE_BUSY") ? "Il mezzo deve essere libero in sede (non in servizio, in officina o in prestito)." : garageError(error.message) }); return; }
     setMsg({ ok: true, text: `🏷️ ${v.call_sign} è all'asta per 30 minuti in "Ambulanze usate".` });
+    load();
+  }
+
+  async function convertOrdinaria(v: Vehicle, on: boolean) {
+    setMsg(null);
+    if (on && !window.confirm(`Convertire ${v.call_sign} in mezzo "solo ordinari" per 8.000 €?\n\nFarà solo dialisi e dimissioni (non più emergenze). Puoi riportarla a emergenza quando vuoi, gratis.`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("set_vehicle_ordinaria", { p_vehicle: v.id, p_on: on });
+    setBusy(false);
+    if (error) {
+      const m = error.message;
+      setMsg({ ok: false, text: m.includes("VEHICLE_BUSY") ? "Il mezzo deve essere libero in sede." : m.includes("INSUFFICIENT_FUNDS") ? "Soldi insufficienti." : m.includes("NOT_CONVERTIBLE") ? "Questo mezzo non si può convertire." : garageError(m) });
+      return;
+    }
+    setMsg({ ok: true, text: on ? `🚗 ${v.call_sign} ora fa solo ordinari (dialisi e dimissioni).` : `🚑 ${v.call_sign} torna a fare le emergenze.` });
     load();
   }
 
@@ -675,7 +690,9 @@ export default function Garage() {
                     </strong>
                     <Pill cert={v.certification} />
                   </div>
-                  <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name}</div>
+                  <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name}
+                    {v.converted_ordinaria && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#0E7490", background: "#CFFAFE", borderRadius: 999, padding: "1px 7px" }}>🚗 solo ordinari</span>}
+                  </div>
                   <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                     🏠 {bases.length > 1 ? (
                       <select value={v.base_id} onChange={(e) => move(v, e.target.value)}
@@ -768,6 +785,15 @@ export default function Garage() {
                             style={{ ...btn, width: "100%", marginTop: 8, background: v.wear >= 80 ? "#DC2626" : "#111",
                                      opacity: cost > org.funds ? 0.4 : 1 }}>
                       Manutenzione · {euro(cost)}
+                    </button>
+                  )}
+                  {v.status === "disponibile" && m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only && (
+                    <button onClick={() => convertOrdinaria(v, !v.converted_ordinaria)} disabled={busy}
+                            style={{ ...btn, width: "100%", marginTop: 8,
+                                     background: v.converted_ordinaria ? "#fff" : "#0E7490",
+                                     color: v.converted_ordinaria ? "#0E7490" : "#fff",
+                                     border: v.converted_ordinaria ? "1px solid #0E7490" : "none" }}>
+                      {v.converted_ordinaria ? "🚑 Riporta a emergenza (gratis)" : "🚗 Converti in «solo ordinari» · 8.000 €"}
                     </button>
                   )}
                   {v.status === "disponibile" && (
