@@ -19,6 +19,18 @@ type Equip = { code: string; provides: string[] };
 
 const CERT_RANK: Record<string, number> = { trasporto: 0, base: 1, avanzata_rianimazione: 2 };
 const RANK: Record<string, number> = { soccorritore_base: 1, soccorritore_avanzato: 2, infermiere: 2, caposervizio: 3, medico: 3, autista: 0, bagnino: 0 };
+
+// Gruppi per la scelta dei soccorritori, nell'ordine mostrato.
+const CREW_GROUPS: { key: string; label: string; match: (c: Card) => boolean }[] = [
+  { key: "bagnino", label: "🛟 Bagnini", match: (c) => c.role === "bagnino" },
+  { key: "socc_av", label: "💉 Soccorritori avanzati", match: (c) => c.role === "soccorritore_avanzato" },
+  { key: "socc_base", label: "🩹 Soccorritori base", match: (c) => c.role === "soccorritore_base" },
+  { key: "autista_base", label: "🚗 Autisti base", match: (c) => c.role === "autista" && !c.avanzato },
+  { key: "autista_av", label: "🚑 Autisti avanzati", match: (c) => c.role === "autista" && !!c.avanzato },
+  { key: "infermiere", label: "🩺 Infermieri", match: (c) => c.role === "infermiere" },
+  { key: "medico", label: "⚕️ Medici", match: (c) => c.role === "medico" },
+  { key: "caposervizio", label: "⭐ Caposervizio", match: (c) => c.role === "caposervizio" },
+];
 const REQ: Record<string, string> = {
   ecg: "cardiomonitor", defib: "defibrillatore", spinale: "tavola spinale adulti", spinale_ped: "spinale pediatrica",
   collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
@@ -106,6 +118,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const [now, setNow] = useState(Date.now());
 
   const reloadRef = useRef<() => Promise<void>>(async () => {});
+  const crewRef = useRef<HTMLDivElement>(null);
   // elisoccorso a pagamento: si attiva per 10 minuti, vale per un solo servizio
   const [heli, setHeli] = useState<{ price: number; active_until: string | null; funds: number } | null>(null);
   const loadHeli = () => supabase.rpc("heli_status").then(({ data }) => setHeli(((data as { price: number; active_until: string | null; funds: number }[]) ?? [])[0] ?? null));
@@ -200,6 +213,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (!best && vehicleId) setVehicleId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, equip]);
+
+  // appena scelgo il mezzo, scorre in basso alla scelta dei soccorritori (comodo con tante ambulanze)
+  useEffect(() => {
+    if (vehicleId && userPicked) crewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicleId]);
 
   const required = mission.required_roles ?? {};
   const crewCards = cards.filter((c) => crew.includes(c.id));
@@ -475,7 +494,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         </div>
 
         {/* Equipaggio */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 6px" }}>
+        <div ref={crewRef} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 6px", scrollMarginTop: 8 }}>
           <div style={{ fontWeight: 700 }}>2. Equipaggio <span style={{ fontWeight: 400, color: "#888" }}>({crew.length}/4)</span></div>
           <button onClick={autoCrew} style={{ ...btn, fontSize: 12, padding: "6px 10px", background: "#1E3A8A" }}>⚡ Automatico</button>
         </div>
@@ -496,8 +515,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           );
         })()}
         {available.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Nessun volontario pronto. Apri il pacchetto nella Squadra o aspetta che finiscano il riposo.</div>}
-        <div style={{ display: "grid", gap: 6 }}>
-          {available.map((c) => {
+        {(() => {
+          const card = (c: Card) => {
             const sel = crew.includes(c.id);
             return (
               <button key={c.id} onClick={() => toggle(c.id)}
@@ -517,8 +536,24 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                 <span style={{ fontSize: 18 }}>{sel ? "✅" : "⬜"}</span>
               </button>
             );
-          })}
-        </div>
+          };
+          return (
+            <div style={{ display: "grid", gap: 12 }}>
+              {CREW_GROUPS.map((g) => {
+                const list = available.filter(g.match);
+                if (!list.length) return null;
+                return (
+                  <div key={g.key}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".4px", margin: "0 2px 5px" }}>
+                      {g.label} <span style={{ color: "#9ca3af" }}>({list.length})</span>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>{list.map(card)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
         {unavailable.length > 0 && (
           <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
             Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.lent_to ? "prestato" : c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
