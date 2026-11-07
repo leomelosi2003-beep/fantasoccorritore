@@ -53,7 +53,12 @@ export default function LoginScreen() {
       <IntroScene />
 
       <div style={{ position: "relative", zIndex: 1, minHeight: "100vh", display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", gap: 24 }}>
+                    alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", gap: 18 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.jpg" alt="FantaSoccorritore"
+             style={{ width: "clamp(120px, 30vw, 168px)", height: "clamp(120px, 30vw, 168px)", borderRadius: "50%",
+                      objectFit: "cover", border: "4px solid rgba(255,255,255,.92)", boxShadow: "0 12px 36px rgba(0,0,0,.5)",
+                      background: "#fff" }} />
         <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(34px, 8vw, 64px)", fontWeight: 800,
                      letterSpacing: "-0.02em", textAlign: "center", textShadow: "0 4px 24px rgba(0,0,0,.6)" }}>
           Fanta<span style={{ color: "#F97316" }}>Soccorritore</span>

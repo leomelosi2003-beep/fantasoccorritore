@@ -743,7 +743,8 @@ export default function GameMap() {
           </button>
           {statsOpen && stats && (
             <div className="fs-stats-pop" onClick={(e) => e.stopPropagation()}>
-              <div style={{ fontWeight: 800, marginBottom: 6 }}>📊 Andamento</div>
+              <div className="fs-stats-head">📊 Andamento</div>
+              <div className="fs-stats-body">
               <div className="fs-stat-row"><span>💚 Entrate ultima ora</span><strong style={{ color: "#15803D" }}>+{Number(stats.in_1h).toLocaleString("it-IT")} €</strong></div>
               <div className="fs-stat-row"><span>❤️ Uscite ultima ora</span><strong style={{ color: "#DC2626" }}>−{Number(stats.out_1h).toLocaleString("it-IT")} €</strong></div>
               <div className="fs-stat-row" style={{ borderTop: "1px solid #eee", paddingTop: 4 }}>
@@ -757,6 +758,7 @@ export default function GameMap() {
                 <button className="fs-stat-btn" onClick={() => router.push("/finanze")}>📊 Entrate e uscite</button>
                 <button className="fs-stat-btn" onClick={() => router.push("/classifica")}>🏆 Classifica</button>
                 <button className="fs-stat-btn" onClick={() => router.push("/associazione")}>🎨 Associazione</button>
+              </div>
               </div>
             </div>
           )}
@@ -1362,10 +1364,13 @@ export default function GameMap() {
         .fs-pill:hover { box-shadow: 0 6px 22px rgba(0,0,0,.24); transform: translateY(-1px); }
         .fs-pill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
         .fs-chips { display: flex; gap: 8px; font-size: 11px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
-        .fs-stats-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1300; background: #fff; color: #111; border-radius: 14px;
-          box-shadow: 0 8px 28px rgba(0,0,0,.3); padding: 12px; width: min(300px, 86vw); font-size: 13px; text-align: left; }
-        .fs-stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
-        .fs-stat-btn { border: none; background: #f1f1ee; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .fs-stats-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 1300; background: #fff; color: #111; border-radius: 16px;
+          box-shadow: 0 16px 40px rgba(0,0,0,.32); border: 1px solid rgba(0,0,0,.05); padding: 0; overflow: hidden; width: min(300px, 86vw); font-size: 13px; text-align: left; }
+        .fs-stats-head { background: linear-gradient(135deg,#16A34A,#15803D); color: #fff; font-weight: 800; font-size: 14px; padding: 11px 14px; }
+        .fs-stats-body { padding: 12px 14px; }
+        .fs-stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; }
+        .fs-stat-btn { border: none; background: #f1f5f9; border-radius: 9px; padding: 7px 9px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .fs-stat-btn:hover { background: #e2e8f0; }
         .fs-name { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; max-width: 190px; }
         .fs-money { font-size: 16px; font-weight: 800; color: #15803D; white-space: nowrap; transition: transform .2s; display: inline-flex; align-items: center; gap: 2px; }
         .fs-money-flash { animation: money-flash 1.8s ease-out; }
@@ -1485,13 +1490,13 @@ export default function GameMap() {
         @keyframes note-in { from { transform: translateY(-12px); opacity: 0 } to { transform: none; opacity: 1 } }
         @keyframes note-glow { 0%,100% { box-shadow: 0 6px 20px rgba(0,0,0,.35) } 50% { box-shadow: 0 6px 26px rgba(245,158,11,.9) } }
         @keyframes note-pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.18) } }
-        .fs-fleet { position: absolute; top: 66px; left: 56px; z-index: 1000; width: min(330px, calc(100% - 66px)); }
+        .fs-fleet { position: absolute; top: 96px; left: 62px; z-index: 1000; width: min(330px, calc(100% - 72px)); }
         .fs-fleet-btn { background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,.05); border-radius: 14px;
           padding: 7px 12px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.18); cursor: pointer; font-family: inherit; color: #111;
           transition: transform .18s, box-shadow .18s; }
         .fs-fleet-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.24); }
-        .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
-          max-height: 50vh; overflow-y: auto; }
+        .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.28);
+          border: 1px solid rgba(0,0,0,.05); max-height: 50vh; overflow-y: auto; overflow-x: hidden; }
         @media (max-width: 760px) {
           .fs-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
           .fs-notes { bottom: auto; top: 160px; }
@@ -1504,7 +1509,7 @@ export default function GameMap() {
           .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 6px 10px !important; font-size: 11.5px !important; gap: 4px; }
           .fs-fuel-bar { height: 8px; }
           .fs-rep { font-size: 12px; padding: 1px 7px; }
-          .fs-fleet { top: 112px; left: 10px; width: calc(100% - 20px); }
+          .fs-fleet { top: 132px; left: 10px; width: calc(100% - 20px); }
           .fs-map .leaflet-control-zoom { display: none; }
           .fs-chat-btn { bottom: calc(20px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
           .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); height: 55vh; }
