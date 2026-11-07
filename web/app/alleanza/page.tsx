@@ -12,7 +12,7 @@ type Alliance = { id: string; name: string; founder_org: string };
 type Member = { org_id: string; alliance_id: string };
 type Invite = { id: string; alliance_id: string; org_id: string };
 type Twin = { id: string; status: string; other_org: string; other_name: string; other_logo: string | null; other_type: string; can_answer: boolean; i_requested: boolean };
-type MyBase = { id: string; name: string; is_headquarters: boolean };
+type MyBase = { id: string; name: string; is_headquarters: boolean; collab_org: string | null };
 type Offer = { id: string; buyer_org: string; seller_org: string; price: number; status: string; created_at: string; turn?: string };
 type Loan = { id: string; from_org: string; to_org: string; ends_at: string; returned_at: string | null; vehicle_id?: string; card_id?: string };
 type Fleet = { id: string; call_sign: string; status: string; mine: boolean; lent_to: string | null; lent_from: string | null };
@@ -95,7 +95,7 @@ export default function AlleanzaPage() {
       supabase.from("my_fleet").select("id,call_sign,status,mine,lent_to,lent_from").order("call_sign"),
       supabase.from("my_cards").select("*").neq("state", "scaduta"),
       supabase.from("my_twinnings").select("*"),
-      supabase.from("bases").select("id,name,is_headquarters").eq("org_id", o.id).order("is_headquarters", { ascending: false }),
+      supabase.from("bases").select("id,name,is_headquarters,collab_org").eq("org_id", o.id).order("is_headquarters", { ascending: false }),
     ]);
     setTwins((tw.data as Twin[]) ?? []);
     setMyBases((bs.data as MyBase[]) ?? []);
@@ -238,6 +238,13 @@ export default function AlleanzaPage() {
                 <button disabled={busy} style={{ ...btn, background: picker?.org === t.other_org && picker.kind === "base" ? "#111" : "#9333EA" }} onClick={() => openPicker(t.other_org, t.other_name, "base")}>🏠 Dona una sede</button>
                 <button disabled={busy} style={{ ...btn, background: picker?.org === t.other_org && picker.kind === "rename" ? "#111" : "#0E7490" }} onClick={() => openPicker(t.other_org, t.other_name, "rename")}>✏️ Sede in collaborazione</button>
               </div>
+              {myBases.filter((b) => b.collab_org === t.other_org).map((b) => (
+                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13 }}>
+                  <span style={{ flex: 1 }}>🤝 <strong>{b.name}</strong> · condivisa: {t.other_name} può usare i tuoi mezzi fermi lì</span>
+                  <button disabled={busy} style={{ ...btn, background: "#eee", color: "#B91C1C" }}
+                          onClick={() => call("twin_unshare_base", { p_base: b.id }, `Sede non più condivisa con ${t.other_name}.`)}>Smetti di condividere</button>
+                </div>
+              ))}
               {picker && picker.org === t.other_org && (
                 <div style={{ marginTop: 10, padding: 12, background: "#f6f6f4", borderRadius: 10 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
@@ -257,7 +264,7 @@ export default function AlleanzaPage() {
                           {pickerItems.map((it) => <option key={it.id} value={it.id}>{it.label}</option>)}
                         </select>
                         <button disabled={busy || !pickId} style={{ ...btn, background: "#15803D" }} onClick={confirmPick}>
-                          {picker.kind === "rename" ? "Rinomina" : "Dona"}
+                          {picker.kind === "rename" ? "Condividi" : "Dona"}
                         </button>
                         <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }} onClick={() => { setPicker(null); setPickId(""); }}>Annulla</button>
                       </div>
