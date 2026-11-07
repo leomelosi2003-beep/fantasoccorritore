@@ -1110,8 +1110,12 @@ export default function GameMap() {
                           : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
-            <Popup>
-              <strong>{m.title}</strong><br />
+            <Popup className="fs-mis-popup">
+              <div className="fs-mis-bar" style={{ background: CODE_COLOR[m.code] }}>
+                <span className="fs-mis-title">{m.title}</span>
+                <span className="fs-mis-code">{m.code === "nessuno" ? "ordinario" : m.code}</span>
+              </div>
+              <div className="fs-mis-body">
               {m.category === "mare" && <div style={{ fontSize: 12, color: "#0369A1", fontWeight: 700 }}>🌊 Servizio in mare: ci va solo la barca, poi un&apos;ambulanza prende il paziente al porto.</div>}
               {m.slots_taken > 0 && (
                 <div style={{ margin: "6px 0", background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12 }}>
@@ -1153,10 +1157,13 @@ export default function GameMap() {
                       })()}
                 </div>
               )}
-              {m.description && <>{m.description}<br /></>}
-              Slot: {m.slots_taken}/{m.slots_total} · Premio: {m.reward_funds.toLocaleString("it-IT")} €<br />
-              {m.requires?.length > 0 && <>Richiede: {m.requires.map((r) => REQ[r] ?? r).join(", ")}<br /></>}
-              Scade: {new Date(m.expires_at).toLocaleTimeString("it-IT")}
+              {m.description && <div style={{ marginBottom: 6 }}>{m.description}</div>}
+              <div className="fs-mis-meta">
+                <span>🚑 {m.slots_taken}/{m.slots_total}</span>
+                <span>💶 {m.reward_funds.toLocaleString("it-IT")} €</span>
+                <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              {m.requires?.length > 0 && <div className="fs-mis-req">🧰 {m.requires.map((r) => REQ[r] ?? r).join(", ")}</div>}
               {m.won_by_automedica && (
                 <div style={{ marginTop: 8, background: "#FEE2E2", color: "#7F1D1D", borderRadius: 8, padding: "6px 8px", fontSize: 12, fontWeight: 700 }}>
                   🩺🏆 Vinto a tavolino da {m.won_by_automedica}: la sua automedica è arrivata per prima.
@@ -1193,6 +1200,7 @@ export default function GameMap() {
                                    background: "#F97316", color: "#fff", fontWeight: 800 }}>⚔️ Contendi il servizio</button>
                 </div>
               )}
+              </div>
             </Popup>
           </CircleMarker>
         ))}
@@ -1394,6 +1402,18 @@ export default function GameMap() {
         .fs-maxi-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
         @keyframes maxi-pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(220,38,38,.45), 0 3px 10px rgba(0,0,0,.5) }
           50% { box-shadow: 0 0 0 13px rgba(220,38,38,0), 0 3px 10px rgba(0,0,0,.5) } }
+        .fs-mis-popup .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.28); padding: 0; overflow: hidden; }
+        .fs-mis-popup .leaflet-popup-content { margin: 0; width: 258px !important; }
+        .fs-mis-popup .leaflet-popup-tip { box-shadow: 0 12px 34px rgba(0,0,0,.28); }
+        .fs-mis-popup a.leaflet-popup-close-button { top: 6px; right: 7px; color: rgba(255,255,255,.95); width: 20px; height: 20px; font-size: 18px; }
+        .fs-mis-bar { display: flex; align-items: center; gap: 8px; padding: 9px 30px 9px 12px; color: #fff; }
+        .fs-mis-title { font-weight: 800; font-size: 13.5px; line-height: 1.22; flex: 1; }
+        .fs-mis-code { flex-shrink: 0; font-size: 10px; font-weight: 900; color: #111; background: rgba(255,255,255,.92);
+          padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .3px; }
+        .fs-mis-body { padding: 10px 12px 11px; font-size: 13px; color: #374151; line-height: 1.4; }
+        .fs-mis-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 7px 0 2px; }
+        .fs-mis-meta span { background: #f3f4f6; border-radius: 8px; padding: 3px 8px; font-size: 12.5px; font-weight: 800; color: #111827; }
+        .fs-mis-req { font-size: 12px; color: #6b7280; margin-top: 4px; }
         .fs-amb-popup .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.30); padding: 0; overflow: hidden; }
         .fs-amb-popup .leaflet-popup-content { margin: 0; width: 232px !important; }
         .fs-amb-popup .leaflet-popup-tip { box-shadow: 0 12px 34px rgba(0,0,0,.30); }
