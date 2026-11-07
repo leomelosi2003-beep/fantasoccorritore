@@ -591,7 +591,7 @@ export default function GameMap() {
           const amount = a.reward_funds ?? 0, key = Date.now() + Math.random();
           playSound("money");
           setMoneyPops((p) => [...p, { key, amount, label: `${a.call_sign} · ${a.title.split(" — ")[0]}` }]);
-          setTimeout(() => setMoneyPops((p) => p.filter((x) => x.key !== key)), 3200);
+          setTimeout(() => setMoneyPops((p) => p.filter((x) => x.key !== key)), 1900);
           refreshOrg();
         }
       }
@@ -871,14 +871,8 @@ export default function GameMap() {
 
       {/* Soldi che entrano: monete che volano e cifra grande */}
       {moneyPops.map((p, i) => (
-        <div key={p.key} className="fs-pop" style={{ top: `${18 + i * 9}%` }}>
-          <div className="fs-pop-coins">
-            {Array.from({ length: 9 }).map((_, j) => (
-              <span key={j} style={{ ["--dx" as string]: `${(j - 4) * 26}px`, ["--d" as string]: `${j * 60}ms` }}>{j % 3 === 0 ? "💶" : "🪙"}</span>
-            ))}
-          </div>
-          <div className="fs-pop-amount">+{p.amount.toLocaleString("it-IT")} €</div>
-          <div className="fs-pop-label">✅ {p.label}</div>
+        <div key={p.key} className="fs-pop" style={{ top: `${13 + i * 6}%` }}>
+          <span className="fs-pop-chip">💶 +{p.amount.toLocaleString("it-IT")} €<span className="fs-pop-sub">{p.label}</span></span>
         </div>
       ))}
 
@@ -1432,21 +1426,12 @@ export default function GameMap() {
         @keyframes money-flash { 0% { transform: scale(1); text-shadow: none }
           15% { transform: scale(1.25); text-shadow: 0 0 12px #22C55E; color: #16A34A }
           60% { transform: scale(1.1); text-shadow: 0 0 8px #22C55E } 100% { transform: scale(1); text-shadow: none } }
-        .fs-pop { position: absolute; z-index: 1300; left: 50%; transform: translateX(-50%); pointer-events: none; text-align: center;
-          animation: pop-rise 3.2s ease-out forwards; }
-        .fs-pop-amount { font-size: 46px; font-weight: 900; color: #16A34A; -webkit-text-stroke: 2px #fff;
-          text-shadow: 0 4px 14px rgba(0,0,0,.35); letter-spacing: -1px; }
-        .fs-pop-label { display: inline-block; margin-top: 2px; background: rgba(17,17,17,.85); color: #fff; font-weight: 700;
-          font-size: 13px; padding: 4px 10px; border-radius: 999px; }
-        .fs-pop-coins { position: relative; height: 34px; }
-        .fs-pop-coins span { position: absolute; left: 50%; top: 10px; font-size: 26px; opacity: 0;
-          animation: coin-burst 1.6s ease-out var(--d) forwards; }
-        @keyframes coin-burst { 0% { transform: translate(-50%, 30px) scale(.4); opacity: 0 }
-          25% { opacity: 1 } 70% { transform: translate(calc(-50% + var(--dx)), -40px) scale(1.1) rotate(25deg); opacity: 1 }
-          100% { transform: translate(calc(-50% + var(--dx)), -10px) scale(.9) rotate(40deg); opacity: 0 } }
-        @keyframes pop-rise { 0% { transform: translate(-50%, 30px) scale(.6); opacity: 0 }
-          12% { transform: translate(-50%, 0) scale(1.15); opacity: 1 } 22% { transform: translate(-50%, 0) scale(1) }
-          80% { transform: translate(-50%, -20px); opacity: 1 } 100% { transform: translate(-50%, -60px); opacity: 0 } }
+        .fs-pop { position: absolute; z-index: 1300; left: 50%; pointer-events: none; animation: pop-rise 1.9s ease-out forwards; }
+        .fs-pop-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(21,128,61,.95); color: #fff;
+          font-weight: 800; font-size: 14px; padding: 4px 11px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.22); white-space: nowrap; }
+        .fs-pop-sub { font-weight: 600; font-size: 11px; opacity: .85; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+        @keyframes pop-rise { 0% { transform: translate(-50%, 8px) scale(.92); opacity: 0 }
+          14% { transform: translate(-50%, 0) scale(1); opacity: 1 } 72% { opacity: 1 } 100% { transform: translate(-50%, -22px); opacity: 0 } }
         .fs-rep { color: #92400E; font-weight: 800; margin-left: 6px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 1px 8px; font-size: 12.5px; }
         .fs-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
         .fs-top > .fs-pill { min-width: 0; }
