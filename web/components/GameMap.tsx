@@ -1067,36 +1067,43 @@ export default function GameMap() {
           return (
           <Marker key={m.id} position={[m.lat, m.lng]}
                   icon={isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
-            <Popup>
-              {isMaxi ? (
-                <>
-                  <strong style={{ color: "#DC2626" }}>🆘 {m.title.replace(/^🆘\s*/, "")}</strong><br />
-                  {m.description}<br />
-                  🚑 Ambulanze sul posto: <b>{m.slots_taken}</b> · premio base {m.reward_funds.toLocaleString("it-IT")} € a mezzo<br />
-                  <b>Più ambulanze mandi, più guadagni</b> (fino a 3× a mezzo). Attiva fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                  {org && m.status === "aperta" && (
-                    <div style={{ marginTop: 8 }}>
+            <Popup className="fs-mis-popup">
+              <div className="fs-mis-bar" style={{ background: isMaxi ? "#DC2626" : "#7C3AED" }}>
+                <span className="fs-mis-title">{m.title}</span>
+                <span className="fs-mis-code">{isMaxi ? "MAXI" : "evento"}</span>
+              </div>
+              <div className="fs-mis-body">
+                {isMaxi ? (
+                  <>
+                    {m.description && <div style={{ marginBottom: 6 }}>{m.description}</div>}
+                    <div className="fs-mis-meta">
+                      <span>🚑 {m.slots_taken} sul posto</span>
+                      <span>💶 {m.reward_funds.toLocaleString("it-IT")} €/mezzo</span>
+                      <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#B91C1C" }}>Più ambulanze mandi, più guadagni (fino a 3× a mezzo).</div>
+                    {org && m.status === "aperta" && (
                       <button onClick={() => setSelected(m)}
-                              style={{ width: "100%", border: "none", borderRadius: 8, padding: "9px 10px", cursor: "pointer",
+                              style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
                                        background: "#DC2626", color: "#fff", fontWeight: 800 }}>🆘 Manda un&apos;ambulanza</button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {m.description && <div style={{ marginBottom: 6 }}>{m.venue} · {m.description}</div>}
+                    <div className="fs-mis-meta">
+                      <span>🚑 {m.slots_taken}/{m.slots_total}</span>
+                      <span>💶 {m.reward_funds.toLocaleString("it-IT")} €</span>
+                      <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <strong>🏟️ {m.title}</strong><br />
-                  {m.venue} · {m.description}<br />
-                  Ambulanze: {m.slots_taken}/{m.slots_total} · {m.reward_funds.toLocaleString("it-IT")} € ciascuna<br />
-                  Prenotabile fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                  {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
-                    <div style={{ marginTop: 8 }}>
+                    {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
                       <button onClick={() => setSelected(m)}
-                              style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
-                                       background: "#7C3AED", color: "#fff", fontWeight: 700 }}>🏟️ Prenota la postazione</button>
-                    </div>
-                  )}
-                </>
-              )}
+                              style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
+                                       background: "#7C3AED", color: "#fff", fontWeight: 800 }}>🏟️ Prenota la postazione</button>
+                    )}
+                  </>
+                )}
+              </div>
             </Popup>
           </Marker>
           );
