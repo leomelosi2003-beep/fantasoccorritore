@@ -148,6 +148,19 @@ export default function Garage() {
     base: Object.fromEntries(bases.map((b) => [b.id, b])),
   }), [models, builders, bases]);
 
+  // Mezzi raggruppati per sede (così non si scorre troppo), con sezioni richiudibili
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const garageGroups = useMemo(() => {
+    const groups: { key: string; name: string; list: Vehicle[] }[] = [];
+    for (const bs of bases) {
+      const list = vehicles.filter((v) => v.base_id === bs.id);
+      if (list.length) groups.push({ key: bs.id, name: bs.name, list });
+    }
+    const others = vehicles.filter((v) => !bases.some((bs) => bs.id === v.base_id));
+    if (others.length) groups.push({ key: "__altri__", name: "Altri mezzi", list: others });
+    return groups;
+  }, [vehicles, bases]);
+
   function openShop() {
     setShop(true); setMsg(null); setModelId(null); setBuilderId(null);
     setPicked(vehicles.length === 0
@@ -615,8 +628,23 @@ export default function Garage() {
             Il garage è vuoto. Compra il primo mezzo per iniziare a prendere servizi.
           </div>
         ) : (
-          <div style={grid}>
-            {vehicles.map((v) => {
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {garageGroups.map(({ key, name, list }) => {
+              const open = !collapsed[key];
+              return (
+              <div key={key}>
+                <button onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
+                        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
+                                 background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px",
+                                 boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
+                  <span style={{ fontSize: 18 }}>🏠</span>
+                  <span style={{ flex: 1, fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                  <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>
+                  <span style={{ opacity: 0.9, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
+                </button>
+                {open && (
+                <div style={{ ...grid, marginTop: 10 }}>
+                {list.map((v) => {
               const m = byId.model[v.model_id];
               const b = byId.builder[v.builder_id];
               const cost = Math.round(v.wear * v.value_score * 2);
@@ -737,6 +765,11 @@ export default function Garage() {
                             style={{ ...btn, width: "100%", marginTop: 8, background: "#B45309" }}>🏷️ Vedi l&apos;asta</button>
                   )}
                 </div>
+              );
+            })}
+                </div>
+                )}
+              </div>
               );
             })}
           </div>
