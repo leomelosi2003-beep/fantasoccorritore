@@ -318,7 +318,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support || companion) && !full;
   const isEvent = mission.category === "grande_evento";
-  const code = isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
+  const isMaxi = isEvent && !mission.event_id;
+  const code = isMaxi ? { label: "🆘 Maxi-emergenza", color: "#DC2626" }
+    : isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
   return (
     <div style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
@@ -330,7 +332,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.9, textTransform: "uppercase" }}>{code.label}</div>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>{mission.title}</div>
-            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{mission.venue} · {mission.description}</div>}
+            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{isMaxi ? mission.description : `${mission.venue} · ${mission.description}`}</div>}
           </div>
           <button onClick={onClose} style={{ ...btn, background: "rgba(0,0,0,.25)", padding: "4px 10px" }}>✕</button>
         </div>

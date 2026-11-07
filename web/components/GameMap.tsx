@@ -188,6 +188,17 @@ function eventIcon(kind: string, open: boolean) {
   });
 }
 
+// Icona speciale della maxi-emergenza: grande, rossa, pulsante.
+function maxiIcon() {
+  const s = 54;
+  return L.divIcon({
+    className: "",
+    html: `<div class="fs-maxi-pin" style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+           font-size:27px;background:radial-gradient(circle at 50% 32%,#FCA5A5,#DC2626 70%);border:3px solid #fff;">🆘</div>`,
+    iconSize: [s, s], iconAnchor: [s / 2, s / 2],
+  });
+}
+
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
 // Ambulanza ferma sul posto del servizio: non la disegniamo (coprirebbe il puntino), la contiamo nel badge
 function nearM(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -1051,24 +1062,45 @@ export default function GameMap() {
           );
         })}
 
-        {missions.filter((m) => m.category === "grande_evento").map((m) => (
+        {missions.filter((m) => m.category === "grande_evento").map((m) => {
+          const isMaxi = !m.event_id;
+          return (
           <Marker key={m.id} position={[m.lat, m.lng]}
-                  icon={eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
+                  icon={isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
             <Popup>
-              <strong>🏟️ {m.title}</strong><br />
-              {m.venue} · {m.description}<br />
-              Ambulanze: {m.slots_taken}/{m.slots_total} · {m.reward_funds.toLocaleString("it-IT")} € ciascuna<br />
-              Prenotabile fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-              {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => setSelected(m)}
-                          style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
-                                   background: "#7C3AED", color: "#fff", fontWeight: 700 }}>🏟️ Prenota la postazione</button>
-                </div>
+              {isMaxi ? (
+                <>
+                  <strong style={{ color: "#DC2626" }}>🆘 {m.title.replace(/^🆘\s*/, "")}</strong><br />
+                  {m.description}<br />
+                  🚑 Ambulanze sul posto: <b>{m.slots_taken}</b> · premio base {m.reward_funds.toLocaleString("it-IT")} € a mezzo<br />
+                  <b>Più ambulanze mandi, più guadagni</b> (fino a 3× a mezzo). Attiva fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                  {org && m.status === "aperta" && (
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => setSelected(m)}
+                              style={{ width: "100%", border: "none", borderRadius: 8, padding: "9px 10px", cursor: "pointer",
+                                       background: "#DC2626", color: "#fff", fontWeight: 800 }}>🆘 Manda un&apos;ambulanza</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>🏟️ {m.title}</strong><br />
+                  {m.venue} · {m.description}<br />
+                  Ambulanze: {m.slots_taken}/{m.slots_total} · {m.reward_funds.toLocaleString("it-IT")} € ciascuna<br />
+                  Prenotabile fino alle {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                  {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => setSelected(m)}
+                              style={{ width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                       background: "#7C3AED", color: "#fff", fontWeight: 700 }}>🏟️ Prenota la postazione</button>
+                    </div>
+                  )}
+                </>
               )}
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
 
         {missions.filter((m) => m.category !== "grande_evento").map((m) => (
           <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={m.contestable ? 12 : 10}
@@ -1359,6 +1391,9 @@ export default function GameMap() {
         .fs-burger:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(194,65,12,.55); }
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 50px; }
+        .fs-maxi-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
+        @keyframes maxi-pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(220,38,38,.45), 0 3px 10px rgba(0,0,0,.5) }
+          50% { box-shadow: 0 0 0 13px rgba(220,38,38,0), 0 3px 10px rgba(0,0,0,.5) } }
         .fs-amb-popup .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.30); padding: 0; overflow: hidden; }
         .fs-amb-popup .leaflet-popup-content { margin: 0; width: 232px !important; }
         .fs-amb-popup .leaflet-popup-tip { box-shadow: 0 12px 34px rgba(0,0,0,.30); }
