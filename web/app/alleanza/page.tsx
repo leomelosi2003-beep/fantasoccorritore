@@ -65,6 +65,8 @@ export default function AlleanzaPage() {
   const [twins, setTwins] = useState<Twin[]>([]);
   const [myBases, setMyBases] = useState<MyBase[]>([]);
   const [twinTo, setTwinTo] = useState("");
+  const [picker, setPicker] = useState<{ org: string; name: string; kind: "vehicle" | "base" | "rename" } | null>(null);
+  const [pickId, setPickId] = useState("");
   const [values, setValues] = useState<Record<string, number>>({});
   const [newName, setNewName] = useState("");
   const [inviteOrg, setInviteOrg] = useState("");
@@ -145,13 +147,6 @@ export default function AlleanzaPage() {
   const twinnedIds = new Set(twins.map((t) => t.other_org));
   const twinCandidates = orgs.filter((x) => x.id !== me.id && !twinnedIds.has(x.id));
 
-  function pickFrom<T>(title: string, items: T[], label: (x: T) => string): T | null {
-    if (!items.length) { setMsg({ ok: false, text: "Non hai niente da scegliere qui." }); return null; }
-    const list = items.map((x, i) => `${i + 1}. ${label(x)}`).join("\n");
-    const s = window.prompt(`${title}\n\n${list}\n\nScrivi il numero:`);
-    if (s === null) return null;
-    return items[parseInt(s.trim(), 10) - 1] ?? null;
-  }
   async function giftFunds(toOrg: string, toName: string) {
     const s = window.prompt(`Quanti soldi doni a ${toName}?\n(in cassa hai ${euro(me!.funds)})`);
     if (s === null) return;
@@ -159,25 +154,26 @@ export default function AlleanzaPage() {
     if (!amount || amount < 1) { setMsg({ ok: false, text: "Importo non valido." }); return; }
     await call("gift_funds", { p_to: toOrg, p_amount: amount }, `💶 Donati ${euro(amount)} a ${toName}.`);
   }
-  async function donateVehicle(toOrg: string, toName: string) {
-    const v = pickFrom(`Quale ambulanza doni a ${toName}? (solo quelle libere in sede)`,
-      myVehicles.filter((x) => x.status === "disponibile" && !x.lent_to), (x) => x.call_sign);
-    if (!v) return;
-    if (!window.confirm(`Donare ${v.call_sign} a ${toName}? Non sarà più tua.`)) return;
-    await call("gift_vehicle", { p_vehicle: v.id, p_to: toOrg }, `🚑 ${v.call_sign} donata a ${toName}.`);
+  function openPicker(org: string, name: string, kind: "vehicle" | "base" | "rename") {
+    setMsg(null); setPickId(""); setPicker((p) => (p && p.org === org && p.kind === kind ? null : { org, name, kind }));
   }
-  async function donateBase(toOrg: string, toName: string) {
-    const b = pickFrom(`Quale sede doni a ${toName}? (non la principale)`,
-      myBases.filter((x) => !x.is_headquarters), (x) => x.name);
-    if (!b) return;
-    if (!window.confirm(`Donare la sede "${b.name}" con i suoi mezzi fermi a ${toName}? Non sarà più tua.`)) return;
-    await call("gift_base", { p_base: b.id, p_to: toOrg }, `🏠 Sede donata a ${toName}.`);
+  async function confirmPick() {
+    if (!picker || !pickId) return;
+    const { org, name, kind } = picker;
+    if (kind === "vehicle") {
+      const v = myVehicles.find((x) => x.id === pickId);
+      await call("gift_vehicle", { p_vehicle: pickId, p_to: org }, `🚑 ${v?.call_sign ?? "Ambulanza"} donata a ${name}.`);
+    } else if (kind === "base") {
+      await call("gift_base", { p_base: pickId, p_to: org }, `🏠 Sede donata a ${name}.`);
+    } else {
+      await call("twin_rename_base", { p_base: pickId, p_twin: org }, "🤝 Sede rinominata col gemellaggio.");
+    }
+    setPicker(null); setPickId("");
   }
-  async function renameTwinBase(toOrg: string) {
-    const b = pickFrom("Quale sede rinomini col nome del gemellaggio?", myBases, (x) => x.name);
-    if (!b) return;
-    await call("twin_rename_base", { p_base: b.id, p_twin: toOrg }, "🤝 Sede rinominata col gemellaggio.");
-  }
+  const pickerItems: { id: string; label: string }[] = !picker ? []
+    : picker.kind === "vehicle"
+      ? myVehicles.filter((x) => x.status === "disponibile" && !x.lent_to).map((x) => ({ id: x.id, label: `🚑 ${x.call_sign}` }))
+      : (picker.kind === "base" ? myBases.filter((x) => !x.is_headquarters) : myBases).map((x) => ({ id: x.id, label: `🏠 ${x.name}` }));
 
   async function acceptOffer(o: Offer) {
     const buyer = orgById(o.buyer_org)?.name ?? "il compratore";
@@ -238,10 +234,38 @@ export default function AlleanzaPage() {
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button disabled={busy} style={{ ...btn, background: "#15803D" }} onClick={() => giftFunds(t.other_org, t.other_name)}>💶 Invia soldi</button>
-                <button disabled={busy} style={{ ...btn, background: "#1E3A8A" }} onClick={() => donateVehicle(t.other_org, t.other_name)}>🚑 Dona un&apos;ambulanza</button>
-                <button disabled={busy} style={{ ...btn, background: "#9333EA" }} onClick={() => donateBase(t.other_org, t.other_name)}>🏠 Dona una sede</button>
-                <button disabled={busy} style={{ ...btn, background: "#0E7490" }} onClick={() => renameTwinBase(t.other_org)}>✏️ Sede in collaborazione</button>
+                <button disabled={busy} style={{ ...btn, background: picker?.org === t.other_org && picker.kind === "vehicle" ? "#111" : "#1E3A8A" }} onClick={() => openPicker(t.other_org, t.other_name, "vehicle")}>🚑 Dona un&apos;ambulanza</button>
+                <button disabled={busy} style={{ ...btn, background: picker?.org === t.other_org && picker.kind === "base" ? "#111" : "#9333EA" }} onClick={() => openPicker(t.other_org, t.other_name, "base")}>🏠 Dona una sede</button>
+                <button disabled={busy} style={{ ...btn, background: picker?.org === t.other_org && picker.kind === "rename" ? "#111" : "#0E7490" }} onClick={() => openPicker(t.other_org, t.other_name, "rename")}>✏️ Sede in collaborazione</button>
               </div>
+              {picker && picker.org === t.other_org && (
+                <div style={{ marginTop: 10, padding: 12, background: "#f6f6f4", borderRadius: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
+                    {picker.kind === "vehicle" ? `🚑 Quale ambulanza doni a ${picker.name}?`
+                      : picker.kind === "base" ? `🏠 Quale sede doni a ${picker.name}?`
+                      : "✏️ Quale tua sede rinomini col nome del gemellaggio?"}
+                  </div>
+                  {pickerItems.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#888" }}>
+                      {picker.kind === "vehicle" ? "Non hai ambulanze libere in sede (devono essere ferme e non prestate)." : "Non hai sedi adatte (serve una sede diversa dalla principale)."}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <select value={pickId} onChange={(e) => setPickId(e.target.value)} style={{ ...inp, flex: 1, minWidth: 200 }}>
+                          <option value="">Scegli…</option>
+                          {pickerItems.map((it) => <option key={it.id} value={it.id}>{it.label}</option>)}
+                        </select>
+                        <button disabled={busy || !pickId} style={{ ...btn, background: "#15803D" }} onClick={confirmPick}>
+                          {picker.kind === "rename" ? "Rinomina" : "Dona"}
+                        </button>
+                        <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }} onClick={() => { setPicker(null); setPickId(""); }}>Annulla</button>
+                      </div>
+                      {picker.kind !== "rename" && <div style={{ fontSize: 12, color: "#B45309", marginTop: 8 }}>⚠️ La donazione è definitiva: il mezzo o la sede non saranno più tuoi.</div>}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
