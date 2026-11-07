@@ -140,8 +140,13 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
 
   return (
     <div className="fs-fleet">
-      <button className="fs-fleet-btn" onClick={() => setOpen(!open)}>
-        🚑 Mezzi <strong>{atBase}</strong>/{rows.length} in sede{away ? ` · ${away} in rientro` : ""}{inService ? ` · ${inService} in servizio` : ""} {open ? "▲" : "▼"}
+      <button className="fs-fleet-btn fs-fleet-toggle" onClick={() => setOpen(!open)}>
+        <span className="fs-flt-ic">🚑</span>
+        <span className="fs-flt-main">
+          <span className="fs-flt-title">Mezzi disponibili</span>
+          <span className="fs-flt-sub"><strong>{atBase}</strong>/{rows.length} in sede{away ? ` · ${away} in rientro` : ""}{inService ? ` · ${inService} in servizio` : ""}</span>
+        </span>
+        <span className="fs-flt-chev">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className="fs-fleet-list">

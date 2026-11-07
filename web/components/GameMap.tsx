@@ -1495,6 +1495,14 @@ export default function GameMap() {
           padding: 7px 12px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.18); cursor: pointer; font-family: inherit; color: #111;
           transition: transform .18s, box-shadow .18s; }
         .fs-fleet-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.24); }
+        .fs-fleet-toggle { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 7px 12px !important; }
+        .fs-flt-ic { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(135deg,#F97316,#C2410C); color: #fff;
+          display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(194,65,12,.4); }
+        .fs-flt-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; flex: 1; }
+        .fs-flt-title { font-weight: 800; font-size: 13px; color: #111; letter-spacing: .2px; }
+        .fs-flt-sub { font-size: 11.5px; color: #6b7280; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fs-flt-sub strong { color: #15803D; }
+        .fs-flt-chev { color: #9ca3af; font-size: 12px; flex-shrink: 0; }
         .fs-fleet-list { margin-top: 6px; background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.28);
           border: 1px solid rgba(0,0,0,.05); max-height: 50vh; overflow-y: auto; overflow-x: hidden; }
         @media (max-width: 760px) {
@@ -1509,7 +1517,7 @@ export default function GameMap() {
           .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 6px 10px !important; font-size: 11.5px !important; gap: 4px; }
           .fs-fuel-bar { height: 8px; }
           .fs-rep { font-size: 12px; padding: 1px 7px; }
-          .fs-fleet { top: 132px; left: 10px; width: calc(100% - 20px); }
+          .fs-fleet { top: 156px; left: 10px; width: calc(100% - 20px); }
           .fs-map .leaflet-control-zoom { display: none; }
           .fs-chat-btn { bottom: calc(20px + env(safe-area-inset-bottom)); width: 48px; height: 48px; font-size: 22px; }
           .fs-chat { left: 8px; right: 8px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); height: 55vh; }
