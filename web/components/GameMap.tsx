@@ -12,6 +12,7 @@ import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
 import AcquisitionModal from "@/components/AcquisitionModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -398,6 +399,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const reloadRef = useRef<() => void>(() => {});
   // ambulanze di una sede: caricate quando apro il popup della sede
   const [baseCars, setBaseCars] = useState<Record<string, BaseCar[] | null>>({});
@@ -436,6 +438,12 @@ export default function GameMap() {
   // andamento nel riquadro del profilo: entrate/uscite dell'ultima ora e servizi rubati
   const [stats, setStats] = useState<{ net_1h: number; in_1h: number; out_1h: number; stolen_24h: number; lost_24h: number; services_1h: number } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
+  // Tutorial al primo accesso (una volta per dispositivo); riapribile dal menu.
+  useEffect(() => {
+    if (!org?.id) return;
+    try { if (localStorage.getItem(TUTORIAL_KEY) !== "1") setShowTutorial(true); } catch {}
+  }, [org?.id]);
+  const closeTutorial = () => { setShowTutorial(false); try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} };
   useEffect(() => {
     if (!org?.id) return;
     const load = () => supabase.rpc("my_quick_stats").then(({ data }) => {
@@ -879,9 +887,13 @@ export default function GameMap() {
               ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
               ["🏆", "Classifica", "#B45309", "/classifica"],
               ["🎨", "Associazione", "#DB2777", "/associazione"],
+              ["📖", "Tutorial", "#2563EB", "__tutorial__"],
               ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
             ] as [string, string, string, string][]).map(([icon, label, color, href]) => (
-              <button key={href} className="fs-drawer-item" onClick={() => { setMenuOpen(false); router.push(href); }}>
+              <button key={href} className="fs-drawer-item" onClick={() => {
+                  setMenuOpen(false);
+                  if (href === "__tutorial__") setShowTutorial(true); else router.push(href);
+                }}>
                 <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
                 {href === "/alleanza" && notes.length > 0 && <b className="fs-drawer-badge">{notes.length}</b>}
@@ -894,6 +906,8 @@ export default function GameMap() {
           </nav>
         </>
       )}
+
+      {showTutorial && <Tutorial onClose={closeTutorial} />}
 
       {error && (
         <div style={{ position: "absolute", top: 64, left: 12, right: 12, zIndex: 1000, background: "#fff3f3",
@@ -1294,9 +1308,11 @@ export default function GameMap() {
       <style>{`
         .fs-map { height: 100vh; height: 100dvh; }
         .fs-top { position: absolute; top: 10px; left: 62px; z-index: 1000; max-width: calc(100% - 72px); }
-        .fs-pill { display: flex; align-items: center; gap: 10px; background: #fff; border: none; border-radius: 14px;
-          padding: 6px 12px 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; text-align: left;
-          max-width: 100%; font-family: inherit; }
+        .fs-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
+          border: 1px solid rgba(0,0,0,.05); border-radius: 14px; padding: 6px 12px 6px 8px;
+          box-shadow: 0 4px 16px rgba(0,0,0,.18); cursor: pointer; text-align: left; max-width: 100%; font-family: inherit;
+          transition: box-shadow .18s, transform .18s; }
+        .fs-pill:hover { box-shadow: 0 6px 22px rgba(0,0,0,.24); transform: translateY(-1px); }
         .fs-pill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
         .fs-chips { display: flex; gap: 8px; font-size: 11px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
         .fs-stats-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1300; background: #fff; color: #111; border-radius: 14px;
@@ -1337,10 +1353,11 @@ export default function GameMap() {
           background: linear-gradient(135deg,#F97316,#C2410C); color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: note-glow 2s infinite; }
         @media (max-width: 760px) { .fs-first { bottom: calc(80px + env(safe-area-inset-bottom)); } }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
-        .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 12px; border: none;
-          background: #111; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-          box-shadow: 0 2px 10px rgba(0,0,0,.3); }
-        .fs-burger span { display: block; width: 22px; height: 3px; border-radius: 2px; background: #fff; }
+        .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 13px; border: none;
+          background: linear-gradient(135deg,#F97316,#C2410C); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+          box-shadow: 0 4px 14px rgba(194,65,12,.45); transition: transform .18s, box-shadow .18s; }
+        .fs-burger:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(194,65,12,.55); }
+        .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 50px; }
         .fs-amb-popup .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.30); padding: 0; overflow: hidden; }
         .fs-amb-popup .leaflet-popup-content { margin: 0; width: 232px !important; }
@@ -1368,20 +1385,27 @@ export default function GameMap() {
           box-shadow: 6px 0 28px rgba(0,0,0,.35); transform: translateX(-105%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
           display: flex; flex-direction: column; padding: 12px 10px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; }
         .fs-drawer.open { transform: translateX(0); }
-        .fs-drawer-head { display: flex; align-items: center; gap: 10px; padding: 6px 6px 14px; margin-bottom: 6px; border-bottom: 1px solid #eee; }
-        .fs-drawer-name { font-weight: 800; font-size: 15px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .fs-drawer-sub { font-size: 12px; color: #15803D; font-weight: 700; }
-        .fs-drawer-x { border: none; background: #f1f1f1; color: #333; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 15px; }
+        .fs-drawer-head { display: flex; align-items: center; gap: 10px; margin: -12px -10px 10px; padding: 16px 12px;
+          background: linear-gradient(135deg,#F97316,#C2410C); border-radius: 0 0 18px 18px; box-shadow: 0 4px 14px rgba(194,65,12,.3); }
+        .fs-drawer-name { font-weight: 800; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fs-drawer-sub { font-size: 12px; color: rgba(255,255,255,.92); font-weight: 700; }
+        .fs-drawer-x { border: none; background: rgba(255,255,255,.22); color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 15px; }
+        .fs-drawer-x:hover { background: rgba(255,255,255,.35); }
         .fs-drawer-item { display: flex; align-items: center; gap: 12px; width: 100%; border: none; background: transparent; color: #111;
-          font: inherit; font-size: 15px; font-weight: 700; padding: 9px 8px; border-radius: 12px; cursor: pointer; text-align: left; }
-        .fs-drawer-item:hover { background: #f3f3f3; }
-        .fs-drawer-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+          font: inherit; font-size: 15px; font-weight: 700; padding: 9px 8px; border-radius: 12px; cursor: pointer; text-align: left;
+          transition: background .15s, transform .12s; }
+        .fs-drawer-item:hover { background: #f3f4f6; transform: translateX(2px); }
+        .fs-drawer-item:active { transform: translateX(2px) scale(.99); }
+        .fs-drawer-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+          font-size: 19px; flex-shrink: 0; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
         .fs-drawer-badge { background: #DC2626; color: #fff; font-size: 12px; min-width: 22px; height: 22px; border-radius: 11px;
           display: flex; align-items: center; justify-content: center; padding: 0 6px; animation: note-pulse 1.4s infinite; }
         .fs-drawer-exit { color: #555; }
         .fs-toast { bottom: 24px; }
         .fs-theme-btn { position: absolute; z-index: 1000; top: 62px; right: 10px; width: 42px; height: 42px; border-radius: 50%;
-          border: none; background: #fff; font-size: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+          border: 1px solid rgba(0,0,0,.05); background: rgba(255,255,255,.92); backdrop-filter: blur(10px); font-size: 20px; cursor: pointer;
+          box-shadow: 0 4px 16px rgba(0,0,0,.18); transition: transform .18s, box-shadow .18s; }
+        .fs-theme-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.24); }
         .fs-chat-btn { position: absolute; z-index: 1000; left: 10px; bottom: 24px; width: 52px; height: 52px; border-radius: 50%;
           border: none; background: #111; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
         .fs-chat-dot { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #DC2626;
