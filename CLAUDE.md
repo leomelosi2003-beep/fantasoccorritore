@@ -52,6 +52,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 
 ## Affidabilità (locale/)
 - Attività pianificate in "\FantaSoccorritore\" (create da `locale/4-avvio-automatico.ps1`): **Avvia gioco** all'accesso (3-avvia-gioco.ps1: avvia Docker se serve, fa da guardiano ogni 2 min, ricompila anche se HEAD cambia per un push fatto dal PC), **Backup notturno** 04:00 (`backup.ps1`: pg_dump -Fc in `C:\fantasoccorritore\backup-auto` ultimi 14 + `OneDrive\FantaSoccorritore-backup` ultimi 7), **Pulizia disco** domenica 05:00 (`pulizia.ps1`). Log in `C:\fantasoccorritore\gioco.log`.
+- Wi-Fi: chiavetta USB Realtek 8812BU; l'8/11 il driver l'ha staccata alle 09:43 e Windows non si è ricollegato per 9,5 ore. Il guardiano ora controlla internet ogni 2 min e fa `netsh wlan connect` (senza admin). Riavvio manuale: collegamento "Riavvia FantaSoccorritore" sul Desktop → `locale/riavvia-gioco.ps1`. Da PC, il nome ts.net si risolve sull'IP 100.x di Tailscale: per provare il percorso pubblico usare `curl --resolve ...:443:185.40.234.75`.
 - GitHub Action `controllo-sito.yml`: ogni 15 min controlla /api/version, fallisce (email) solo al passaggio acceso→spento.
 - Stemmi e foto ora sono nello storage LOCALE (URL `https://desktop-f0qb534.tail9a3baf.ts.net/sb/storage/...`).
 
