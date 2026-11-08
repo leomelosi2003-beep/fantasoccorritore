@@ -275,7 +275,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       return;
     }
     if (isBoat) {
-      // barca: 1 bagnino + 1 soccorritore avanzato
+      // barca: 1 bagnino + 1 soccorritore (base o avanzato)
       const b = pool.find((c) => c.role === "bagnino");
       const s = pool.find((c) => c.role === "soccorritore_base") ?? pool.find((c) => c.role === "soccorritore_avanzato");
       setCrew([b, s].filter(Boolean).map((c) => c!.id));
@@ -505,7 +505,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
           const need = mission.transport === "trasferimento" ? "un'ambulanza a passo lungo (Garage → categoria passi lunghi). Fa solo trasferimenti e paga +25%."
             : mission.category === "ordinario" ? "una macchina ordinaria (Garage → 🚗 Ordinarie), oppure converti un'ambulanza in «solo ordinari» per 8.000 €."
-            : mission.category === "mare" ? "una barca ormeggiata entro 40 km, con a bordo 1 bagnino e 1 soccorritore avanzato."
+            : mission.category === "mare" ? "una barca ormeggiata entro 40 km, con a bordo 1 bagnino e 1 o 2 soccorritori (base o avanzati)."
             : fire ? "un mezzo antincendio (Garage → 🔥 Antincendio) con almeno 2 persone, di cui 1 volontario AIB."
             : "un'ambulanza libera entro 20 km dalla sua sede, con gasolio, revisionata e con i presidi richiesti.";
           const busy = sortedVehicles.filter((v) => ["in servizio", "in officina", "da revisionare"].includes(vehicleProblem(v) ?? "")).length;
