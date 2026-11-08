@@ -57,7 +57,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Stemmi e foto ora sono nello storage LOCALE (URL `https://desktop-f0qb534.tail9a3baf.ts.net/sb/storage/...`).
 
 ## Bilanciamento (difficoltà)
-- Migr. 163: premio dei servizi −10% (fattore `*0.90` in `complete_due_assignments`); buste più care (`pack_catalog`: comune 4500, epico 17000, leggendario 52000); tutte le leggendarie `is_pack_eligible` in vendita nel negozio (`shop_price = somma_stat*1000 + 80000`, ~280-373k).
+- Migr. 163: premio dei servizi −10% (fattore `*0.90` in `complete_due_assignments`); buste più care (`pack_catalog`: comune 4500, epico 17000, leggendario 52000); tutte le leggendarie `is_pack_eligible` in vendita nel negozio (`shop_price = somma_stat*1000 + 80000`, ~280-373k). Migr. 185: +180 volontari (30 per ruolo: base, avanzato, infermiere, medico, bagnino, AIB) e pacchetti specialisti `ruolo_<ruolo>` in `pack_catalog` (40k-120k, 5 carte dello stesso ruolo, `buy_pack` filtra per `role`, errore `NO_ROLE_LEFT`); `pack_role_availability()`. In Squadra i prezzi dei pacchetti ora si leggono da `pack_catalog`.
 
 ## Docker / disco (manutenzione)
 - Il DB gira in Docker Desktop (WSL2). Se "Docker Desktop is unable to start": controllare DISCO (`Get-PSDrive C`, il disco C: è piccolo ~223GB e si riempie), non la RAM (13,9GB, ok). Rimedio che ha funzionato: fermare i processi Docker, `wsl --shutdown`, riavviare "Docker Desktop.exe"; poi `docker image prune -af` e `docker builder prune -af` (MAI volumi/dati). I dati del DB sono in bind mount su `C:\fantasoccorritore\supabase\volumes` (non in volumi Docker). Nessun container analytics/vector attivo.

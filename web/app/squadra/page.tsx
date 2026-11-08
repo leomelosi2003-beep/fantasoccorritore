@@ -12,11 +12,11 @@ const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "no
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
 const PACKS = [
-  { kind: "comune", price: 3000, icon: "📦", leg: "2%", epi: "13%", note: "",
+  { kind: "comune", price: 4500, icon: "📦", leg: "2%", epi: "13%", note: "",
     bg: "linear-gradient(135deg,#4B5563,#1F2937)", glow: "0 2px 8px rgba(0,0,0,.15)" },
-  { kind: "epico", price: 12000, icon: "💜", leg: "8%", epi: "42%", note: "almeno 1 epica garantita",
+  { kind: "epico", price: 17000, icon: "💜", leg: "8%", epi: "42%", note: "almeno 1 epica garantita",
     bg: "linear-gradient(135deg,#7C3AED,#4C1D95)", glow: "0 0 16px rgba(139,92,246,.5)" },
-  { kind: "leggendario", price: 35000, icon: "👑", leg: "25%", epi: "50%", note: "almeno 1 leggendaria garantita",
+  { kind: "leggendario", price: 52000, icon: "👑", leg: "25%", epi: "50%", note: "almeno 1 leggendaria garantita",
     bg: "linear-gradient(135deg,#F59E0B,#B45309)", glow: "0 0 20px rgba(245,158,11,.6)" },
 ];
 const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 };
@@ -33,8 +33,14 @@ export default function Squadra() {
   const [classSel, setClassSel] = useState<string[]>([]);
   const [shop, setShop] = useState<(Card & { shop_price: number; owned: boolean })[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // prezzi veri dal database (pack_catalog) e quanti volontari restano da trovare per ruolo
+  const [catalog, setCatalog] = useState<{ kind: string; price: number; role?: string }[]>([]);
+  const [roleAvail, setRoleAvail] = useState<Record<string, number>>({});
+  const priceOf = (kind: string, fallback: number) => catalog.find((c) => c.kind === kind)?.price ?? fallback;
 
   const load = useCallback(async () => {
+    supabase.rpc("pack_catalog").then(({ data }) => setCatalog((data as { kind: string; price: number; role?: string }[]) ?? []));
+    supabase.rpc("pack_role_availability").then(({ data }) => setRoleAvail((data as Record<string, number>) ?? {}));
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/"); return; }
     const { data: o } = await supabase.from("organizations").select("id,name,type,funds,reputation,logo_url")
@@ -77,8 +83,8 @@ export default function Squadra() {
   }
 
   // Pacchetti a pagamento
-  async function buyPack(kind: string, price: number) {
-    if (!window.confirm(`Comprare il pacchetto ${kind} per ${price.toLocaleString("it-IT")} €?`)) return;
+  async function buyPack(kind: string, price: number, label?: string) {
+    if (!window.confirm(`Comprare il pacchetto ${label ?? kind} per ${price.toLocaleString("it-IT")} €?`)) return;
     setBusy(true); setError(null);
     const { data, error } = await supabase.rpc("buy_pack", { p_kind: kind });
     if (error) {
@@ -87,6 +93,7 @@ export default function Squadra() {
       setError(m.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza fondi."
         : m.includes("NO_LEGENDARY_LEFT") ? "Non ci sono carte leggendarie da trovare (le hai già tutte o non ne esistono ancora): non hai pagato niente."
         : m.includes("NO_EPIC_LEFT") ? "Non ci sono carte epiche da trovare (le hai già tutte o non ne esistono ancora): non hai pagato niente."
+        : m.includes("NO_ROLE_LEFT") ? "Hai già tutti i volontari di questo ruolo: non hai pagato niente."
         : friendlyError(m));
       return;
     }
@@ -212,14 +219,48 @@ export default function Squadra() {
                   🟣 Epica: <strong>{p.epi}</strong><br />
                   {p.note && <span style={{ opacity: 0.9 }}>✨ {p.note}</span>}
                 </div>
-                <button onClick={() => buyPack(p.kind, p.price)} disabled={busy || none}
+                <button onClick={() => buyPack(p.kind, priceOf(p.kind, p.price))} disabled={busy || none}
                         style={{ ...btn, background: "#fff", color: "#111", marginTop: "auto", opacity: busy || none ? 0.5 : 1 }}>
-                  {none ? "Nessuna carta da trovare" : `Compra · ${p.price.toLocaleString("it-IT")} €`}
+                  {none ? "Nessuna carta da trovare" : `Compra · ${priceOf(p.kind, p.price).toLocaleString("it-IT")} €`}
                 </button>
               </div>
             );
           })}
         </div>
+
+        {/* Pacchetti specialisti: 5 volontari tutti dello stesso ruolo */}
+        {catalog.some((c) => c.role) && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, margin: "4px 0 2px" }}>🎯 Pacchetti specialisti</div>
+            <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+              5 volontari tutti del ruolo che scegli. Costano di più, ma non sprechi carte. Leggendaria 3%, epica 17%.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+              {catalog.filter((c) => c.role).map((c) => {
+                const r = ROLE[c.role as Card["role"]];
+                const left = roleAvail[c.role!] ?? 0;
+                const none = left === 0;
+                return (
+                  <div key={c.kind} style={{ background: "#fff", border: `2px solid ${r.color}`, borderRadius: 14, padding: 12,
+                                             display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 26, background: r.bg, borderRadius: 10, width: 40, height: 40, display: "flex",
+                                     alignItems: "center", justifyContent: "center" }}>{r.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 800, color: r.color }}>{r.label}</div>
+                        <div style={{ fontSize: 12, color: "#666" }}>{none ? "li hai già tutti" : `${left} da trovare`}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => buyPack(c.kind, c.price, `specialisti ${r.label.toLowerCase()}`)} disabled={busy || none}
+                            style={{ ...btn, background: r.color, marginTop: "auto", fontSize: 14, opacity: busy || none ? 0.5 : 1 }}>
+                      {none ? "Esaurito" : `Compra · ${c.price.toLocaleString("it-IT")} €`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Negozio carte */}
         {shop.length > 0 && (
