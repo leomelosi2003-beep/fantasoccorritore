@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
+import AllianceGoal from "@/components/AllianceGoal";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
 import OfferEditor, { offerError, itemsSummary, type OfferItems, type ItemsList } from "@/components/OfferEditor";
 
@@ -208,6 +209,8 @@ export default function AlleanzaPage() {
 
       <div style={wrap}>
         {msg && <div style={{ ...box, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 600 }}>{msg.text}</div>}
+
+        {myAlliance && <AllianceGoal key={myAlliance} />}
 
         {/* Gemellaggio */}
         <div style={box}>
