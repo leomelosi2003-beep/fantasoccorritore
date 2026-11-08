@@ -45,6 +45,34 @@ const CAN: Record<string, string> = {
   cucchiaio: "Cadute dall'alto", steccobende: "Fratture",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
+type Power = "gasolio" | "elettrica" | "automedica" | "moto" | "barca" | "ordinaria" | "aib";
+const TYPES: { k: Power; icon: string; label: string; color: string; what: string; info: string }[] = [
+  { k: "gasolio", icon: "🚑", label: "Ambulanza", color: "#111", what: "Emergenze 118: verdi, gialli e rossi",
+    info: "Il mezzo di base del gioco: fa tutte le emergenze 118. Più presidi monti, più tipi di servizio può fare." },
+  { k: "elettrica", icon: "⚡", label: "Ambulanza elettrica", color: "#16A34A", what: "Come l'ambulanza, senza gasolio",
+    info: "Si ricarica in 1 minuto in sede (circa 30 € a pieno), ma ha poca autonomia: se il servizio è troppo lontano non parte." },
+  { k: "automedica", icon: "🩺", label: "Automedica", color: "#B91C1C", what: "Solo gialli e rossi, arriva prima",
+    info: "A bordo 1 autista + 1 medico, ECG e defibrillatore inclusi. Arriva prima e prende il posto, poi aspetta una tua ambulanza (max 15 minuti)." },
+  { k: "moto", icon: "🛵", label: "Moto", color: "#EA580C", what: "La più veloce: ruba i servizi",
+    info: "Come l'automedica ma con 1-2 soccorritori. Massimo 2 moto per sede." },
+  { k: "barca", icon: "⛵", label: "Barca", color: "#0369A1", what: "Soccorsi in mare",
+    info: "Unico mezzo per i servizi in mare. Resta ormeggiata in mare, porta il paziente al porto dove lo prende una tua ambulanza. A bordo 1 bagnino + 1-2 soccorritori." },
+  { k: "ordinaria", icon: "🚗", label: "Ordinaria", color: "#0E7490", what: "Dimissioni e trasporti ordinari",
+    info: "Costa poco e non monta presidi. È l'unico mezzo che fa dimissioni e trasporti ordinari." },
+  { k: "aib", icon: "🔥", label: "Antincendio (AIB)", color: "#C2410C", what: "Incendi boschivi",
+    info: "Pickup 4x4 con acqua e naspo: va solo sugli incendi boschivi, con volontari AIB a bordo." },
+];
+// Kit di presidi pronti (chiave = slot)
+const KITS: { k: string; label: string; what: string; pick: Record<string, string> }[] = [
+  { k: "base", label: "Essenziale", what: "Emergenze e codici rossi",
+    pick: { monitor: "dae", barella: "barella_std", borsoni: "borsoni" } },
+  { k: "trauma", label: "Completo", what: "+ tutti gli incidenti, cadute e fratture",
+    pick: { monitor: "dae", barella: "barella_std", borsoni: "borsoni", spinale: "spinale", collari: "collari", ked: "ked",
+            cucchiaio: "cucchiaio", steccobende: "steccobende", spinale_ped: "spinale_ped" } },
+  { k: "top", label: "Top", what: "+ ECG, barella autocaricante e massaggiatore",
+    pick: { monitor: "lt15", barella: "barella_auto", borsoni: "borsoni", spinale: "spinale", collari: "collari", ked: "ked",
+            cucchiaio: "cucchiaio", steccobende: "steccobende", spinale_ped: "spinale_ped", materasso: "materasso", massaggiatore: "massaggiatore" } },
+];
 const litri = (n: number) => (Math.round(n * 10) / 10).toLocaleString("it-IT") + " L";
 const RISERVA = 5; // sotto questi litri il mezzo non parte
 
@@ -86,7 +114,9 @@ export default function Garage() {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [callSign, setCallSign] = useState("");
   const [qty, setQty] = useState(1);
-  const [power, setPower] = useState<"gasolio" | "elettrica" | "automedica" | "moto" | "barca" | "ordinaria" | "aib">("gasolio");
+  const [power, setPower] = useState<Power>("gasolio");
+  const [wiz, setWiz] = useState(1);           // passo del negozio: 1 tipo, 2 modello, 3 allestitore, 4 presidi, 5 conferma
+  const [customKit, setCustomKit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [fuelStock, setFuelStock] = useState(0);
@@ -165,6 +195,7 @@ export default function Garage() {
   }, [vehicles, bases]);
 
   function openShop() {
+    setWiz(1); setCustomKit(false);
     setShop(true); setMsg(null); setModelId(null); setBuilderId(null);
     setPicked(vehicles.length === 0
       ? { monitor: "dae", barella: "barella_std", borsoni: "borsoni", spinale: "spinale", collari: "collari" }
@@ -372,247 +403,216 @@ export default function Garage() {
           </button>
         )}
 
-        {/* Acquisto */}
-        {shop && firstVehicle && (
-          <div style={{ ...box, marginBottom: 12, background: "#FFF7ED", border: "2px solid #F97316" }}>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>👋 Benvenuto! Compra la tua prima ambulanza in 4 passi</div>
-            <div style={{ fontSize: 14, color: "#555", marginTop: 4 }}>
-              Senza ambulanza non puoi prendere servizi. Segui i passi evidenziati in arancione: ti porto io avanti.
+        {/* Acquisto: negozio guidato, un passo alla volta */}
+        {shop && (() => {
+          const typeModels = (k: Power) => models.filter((m) =>
+            k === "barca" ? !!m.boat : m.boat ? false : k === "aib" ? !!m.aib : m.aib ? false :
+            k === "ordinaria" ? !!m.ordinaria : m.ordinaria ? false : k === "moto" ? !!m.moto :
+            k === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (k === "elettrica") === !!m.electric);
+          const T = TYPES.find((t) => t.k === power)!;
+          const list = typeModels(power);
+          const best = [...list].sort((x, y) => (y.speed_factor * 50 + y.base_reliability + y.base_durability) / y.base_cost
+                                               - (x.speed_factor * 50 + x.base_reliability + x.base_durability) / x.base_cost)[0];
+          const kitCost = (pick: Record<string, string>) => equip.filter((e) => Object.values(pick).includes(e.code)
+            && !(e.slot === "barella" && isAm)).reduce((t, e) => t + priceOf(e), 0);
+          const activeKit = KITS.find((k) => Object.keys(k.pick).length === Object.values(picked).filter(Boolean).length
+            && Object.entries(k.pick).every(([sl, c]) => picked[sl] === c));
+          const steps = noKit ? [1, 2, 3, 5] : [1, 2, 3, 4, 5];
+          const names: Record<number, string> = { 1: "Tipo", 2: "Modello", 3: "Allestitore", 4: "Presidi", 5: "Conferma" };
+          const canNext = wiz === 1 ? true : wiz === 2 ? !!model : wiz === 3 ? !!builder : wiz === 4 ? ready : false;
+          const go = (dir: 1 | -1) => { const i = steps.indexOf(wiz); const n = steps[Math.max(0, Math.min(steps.length - 1, i + dir))];
+            if (n === 3 && !builderId && builders.length) setBuilderId([...builders].sort((x, y) => x.cost - y.cost)[0].id);
+            setWiz(n); window.scrollTo({ top: 0, behavior: "smooth" }); };
+          const tile = (on: boolean): CSSProperties => ({ ...box, textAlign: "left", cursor: "pointer", border: on ? "3px solid #F97316" : "1px solid #e5e5e0", position: "relative" });
+          return (
+          <div style={{ ...box, marginBottom: 16, padding: 0, overflow: "hidden" }}>
+            {/* testata con i passi */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderBottom: "1px solid #eee" }}>
+              <div style={{ fontWeight: 800, fontSize: 17, flex: 1 }}>🛒 Nuovo mezzo</div>
+              <button onClick={() => setShop(false)} style={{ ...btn, background: "#eee", color: "#111", padding: "6px 12px" }}>✕</button>
             </div>
-            <ol style={{ margin: "8px 0 0", paddingLeft: 22, fontSize: 14, lineHeight: 1.7 }}>
-              {[
-                ["Scegli il modello", !!model],
-                ["Scegli l'allestitore (chi la trasforma in ambulanza)", !!builder],
-                ["Controlla i presidi: per la prima sono già inclusi quelli base", !!model && !!builder],
-                ["Dai una sigla e premi Compra", false],
-              ].map(([t, done], i) => (
-                <li key={i} style={{ fontWeight: step === i + 1 ? 800 : 400, color: done ? "#15803D" : step === i + 1 ? "#C2410C" : "#555" }}>
-                  {done ? "✅ " : step === i + 1 ? "👉 " : ""}{t as string}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-        {shop && (
-          <div style={{ ...box, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ margin: 0 }}>Nuovo mezzo</h2>
-              <button onClick={() => setShop(false)} style={{ ...btn, background: "#eee", color: "#111" }}>Annulla</button>
-            </div>
-
-            <h3 id="step1" className={`gar-step${step === 1 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>1. Modello</h3>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {([["gasolio", "⛽ Gasolio"], ["elettrica", "⚡ Elettriche"], ["automedica", "🩺 Automediche"], ["moto", "🛵 Moto"], ["barca", "⛵ Barca"], ["ordinaria", "🚗 Ordinarie"], ["aib", "🔥 Antincendio"]] as const).map(([k, l]) => (
-                <button key={k} onClick={() => { setPower(k); setModelId(null); }}
-                        style={{ ...btn, padding: "8px 14px", background: power === k ? (k === "elettrica" ? "#16A34A" : k === "automedica" ? "#B91C1C" : k === "moto" ? "#EA580C" : k === "barca" ? "#0369A1" : k === "ordinaria" ? "#0E7490" : k === "aib" ? "#C2410C" : "#111") : "#e5e5e0",
-                                 color: power === k ? "#fff" : "#111" }}>{l}</button>
-              ))}
-            </div>
-            {power === "elettrica" && (
-              <div style={{ fontSize: 13, background: "#DCFCE7", color: "#166534", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                ⚡ Niente gasolio: si ricaricano in <strong>1 minuto</strong> quando sono ferme in sede, pagando la corrente al prezzo reale (0,74 €/kWh, circa 30 € per un pieno).
-                Hanno però poca autonomia: se il servizio (andata e ritorno) è più lungo della carica rimasta, non partono.
-              </div>
-            )}
-            {power === "automedica" && (
-              <div style={{ fontSize: 13, background: "#FEE2E2", color: "#7F1D1D", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                🩺 <strong>Automedica:</strong> a bordo solo <strong>1 autista + 1 medico</strong>, con ECG e defibrillatore già incorporati.
-                Va solo su <strong>gialli e rossi</strong> ed è più veloce delle ambulanze: serve a rubare lo slot alle altre associazioni.
-                Arrivata sul posto <strong>aspetta una tua ambulanza</strong> (che entra anche a servizio pieno): sul rosso la segue in ospedale,
-                sul giallo si libera appena arriva. Se in 15 minuti non arriva nessuna ambulanza, rientra senza premio.
-              </div>
-            )}
-            {power === "moto" && (
-              <div style={{ fontSize: 13, background: "#FFEDD5", color: "#7C2D12", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                🛵 <strong>Moto di primo soccorso:</strong> funziona come l&apos;automedica ma senza medico: a bordo <strong>1 o 2 soccorritori</strong>.
-                È il mezzo <strong>più veloce</strong>: arriva per primo, vince il servizio e aspetta una tua ambulanza.
-                Si possono avere <strong>al massimo 2 moto per sede</strong>.
-              </div>
-            )}
-            {power === "barca" && (
-              <div style={{ fontSize: 13, background: "#E0F2FE", color: "#0C4A6E", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                ⛵ <strong>Idroambulanza:</strong> l&apos;unico mezzo che può fare i <strong>servizi in mare</strong> (cerchi con il bordo blu sulla mappa).
-                Resta <strong>ormeggiata dove vuoi in mare</strong> (sulla mappa: tocca la barca → «Sposta ormeggio») e parte per i servizi entro 40 km.
-                Porta il paziente al <strong>porto più vicino</strong> e aspetta una tua ambulanza che lo carica (anche a servizio pieno).
-                A bordo: 1 bagnino e 1 o 2 soccorritori.
-              </div>
-            )}
-            {power === "ordinaria" && (
-              <div style={{ fontSize: 13, background: "#CFFAFE", color: "#0C4A6E", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                🚗 <strong>Macchina ordinaria:</strong> costa poco e <strong>non monta presidi da emergenza</strong>.
-                È l&apos;unico mezzo che può fare <strong>dimissioni e trasporti ordinari</strong> (le ambulanze da emergenza e i passi lunghi non li fanno).
-                Non può andare su gialli/rossi né sui trasferimenti.
-              </div>
-            )}
-            {power === "aib" && (
-              <div style={{ fontSize: 13, background: "#FFEDD5", color: "#7C2D12", borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                🔥 <strong>Mezzo antincendio boschivo (AIB):</strong> pickup/camioncino 4x4 con serbatoio d&apos;acqua e naspo.
-                È l&apos;unico mezzo che può andare sugli <strong>incendi boschivi</strong> (e va solo su quelli). A bordo servono <strong>volontari AIB</strong>.
-                Durante l&apos;incendio torna da solo alla sede più vicina per <strong>ricaricare l&apos;acqua</strong>. Niente presidi da emergenza.
-              </div>
-            )}
-            <div style={grid}>
-              {models.filter((m) =>
-                power === "barca" ? !!m.boat :
-                m.boat ? false :
-                power === "aib" ? !!m.aib :
-                m.aib ? false :
-                power === "ordinaria" ? !!m.ordinaria :
-                m.ordinaria ? false :
-                power === "moto" ? !!m.moto :
-                power === "automedica" ? !!m.automedica && !m.moto :
-                !m.automedica && (power === "elettrica") === !!m.electric).map((m) => (
-                <button key={m.id} onClick={() => { setModelId(m.id); if (!builderId) setTimeout(() => document.getElementById("step2")?.scrollIntoView({ behavior: "smooth" }), 80); }}
-                        style={{ ...box, textAlign: "left", cursor: "pointer",
-                                 border: modelId === m.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                  <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={livery(m.image_url, org.type)} stripe={stripe} /></div>
-                  <div style={{ fontWeight: 700, marginTop: 6 }}>{m.name}</div>
-                  <div style={{ fontSize: 13, color: "#666", minHeight: 34 }}>{m.description}</div>
-                  {m.ability_label && (
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1E40AF", background: "#EFF6FF", borderRadius: 8, padding: "4px 8px", margin: "4px 0" }}>
-                      {m.ability_label}
-                    </div>
-                  )}
-                  <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
-                  <Bar label="Affidabilità" value={m.base_reliability} color="#16A34A" />
-                  <Bar label="Durata" value={m.base_durability} color="#9333EA" />
-                  {m.electric && <Bar label={`Autonomia ${m.range_km ?? 0} km`} value={Math.min(100, ((m.range_km ?? 0) / 150) * 100)} color="#16A34A" />}
-                  <div style={{ fontWeight: 700, marginTop: 8 }}>{euro(m.base_cost)}</div>
-                </button>
-              ))}
+            <div style={{ display: "flex", gap: 4, padding: "10px 14px", overflowX: "auto" }}>
+              {steps.map((n, i) => {
+                const done = steps.indexOf(wiz) > i, cur = wiz === n;
+                return (
+                  <button key={n} disabled={!done} onClick={() => setWiz(n)}
+                          style={{ flex: "1 0 auto", border: "none", borderRadius: 999, padding: "6px 10px", fontSize: 12.5, fontWeight: 700,
+                                   cursor: done ? "pointer" : "default", whiteSpace: "nowrap",
+                                   background: cur ? "#F97316" : done ? "#FFEDD5" : "#f1f1f1", color: cur ? "#fff" : done ? "#9A3412" : "#999" }}>
+                    {done ? "✓" : i + 1} {names[n]}
+                  </button>
+                );
+              })}
             </div>
 
-            <h3 id="step2" className={`gar-step${step === 2 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>2. Allestitore</h3>
-            <div style={grid}>
-              {builders.map((b) => (
-                <button key={b.id} onClick={() => { setBuilderId(b.id); setTimeout(() => document.getElementById(firstVehicle ? "step4" : "step3")?.scrollIntoView({ behavior: "smooth" }), 80); }}
-                        style={{ ...box, textAlign: "left", cursor: "pointer",
-                                 border: builderId === b.id ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <BuilderLogo name={b.name} url={b.logo_url} />
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{b.name}</div>
-                      <Pill cert={b.certification} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 13, color: "#666", marginTop: 8, minHeight: 34 }}>{b.description}</div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>
-                    Affidabilità +{b.reliability} · Durata +{b.durability}
-                    {b.bonus?.reward_mult ? ` · Ricompense +${Math.round(b.bonus.reward_mult * 100)}%` : ""}
-                  </div>
-                  <div style={{ fontWeight: 700, marginTop: 8 }}>{euro(b.cost)}</div>
-                </button>
-              ))}
-            </div>
-
-            {isOrd && (
-              <div style={{ background: "#CFFAFE", color: "#0C4A6E", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
-                🚗 La macchina ordinaria non monta presidi da emergenza: a bordo solo la barella/sedia per dimissioni e trasporti ordinari.
+            <div style={{ padding: "4px 14px 14px" }}>
+            {wiz === 1 && (<>
+              {firstVehicle && <div style={{ fontSize: 14, color: "#9A3412", background: "#FFF7ED", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                👋 Prima volta? Scegli <strong>🚑 Ambulanza</strong>: è quella che fa le emergenze. I presidi base del primo mezzo sono gratis.</div>}
+              <div style={{ fontWeight: 700, margin: "4px 0 8px" }}>Che mezzo ti serve?</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+                {TYPES.map((t) => {
+                  const ms = typeModels(t.k); if (!ms.length) return null;
+                  const from = Math.min(...ms.map((m) => m.base_cost));
+                  return (
+                    <button key={t.k} onClick={() => { setPower(t.k); if (power !== t.k) setModelId(null); setWiz(2); }}
+                            style={{ ...tile(power === t.k && !!modelId), padding: 12 }}>
+                      <div style={{ fontSize: 30 }}>{t.icon}</div>
+                      <div style={{ fontWeight: 800, color: t.color }}>{t.label}</div>
+                      <div style={{ fontSize: 12.5, color: "#555", minHeight: 32 }}>{t.what}</div>
+                      <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>da {euro(from)} · {ms.length} {ms.length === 1 ? "modello" : "modelli"}</div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-            {isAib && (
-              <div style={{ background: "#FFEDD5", color: "#7C2D12", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
-                🔥 Il mezzo antincendio non monta presidi: porta acqua e naspo. A bordo salgono i volontari AIB.
-              </div>
-            )}
-            {!noKit && (<>
-            <h3 id="step3" className={`gar-step${step === 3 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>3. Presidi</h3>
-            {firstVehicle && (
-              <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 12 }}>
-                🎁 <strong>Primo mezzo:</strong> DAE, barella standard, borsoni, tavola spinale e collari sono inclusi gratis.
-                Se vuoi qualcosa di meglio, gli upgrade si pagano.
-              </div>
-            )}
-            {isAm && (
-              <div style={{ background: "#FEE2E2", color: "#7F1D1D", borderRadius: 10, padding: 10, fontSize: 13, marginBottom: 12 }}>
-                🩺 Automedica: niente barella, il paziente lo trasporta l&apos;ambulanza.
-              </div>
-            )}
-            {GROUPS.filter((g) => !(isAm && g.key === "barella")).map(({ key, title, required, multi }) => {
-              const opts = equip.filter((e) => (multi ? e.category === key : e.slot === key));
-              if (!opts.length) return null;
-              const card = (e: Equip, on: boolean, onClick: () => void) => (
-                <button key={e.code} onClick={onClick}
-                        style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
-                                 border: on ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <EquipmentIcon code={e.code} url={e.image_url} size={48} />
-                    {multi && <span style={{ fontSize: 20 }}>{on ? "✅" : "⬜"}</span>}
-                  </div>
-                  <div style={{ fontWeight: 700 }}>{e.name}</div>
-                  <div style={{ fontSize: 13, color: "#666", margin: "4px 0" }}>{e.description}</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: priceOf(e) === 0 ? "#166534" : undefined }}>
-                    {priceOf(e) === 0 ? "Incluso" : euro(e.cost)}
-                  </div>
-                </button>
-              );
-              return (
-                <div key={key} style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
-                    {title} {required ? <span style={{ color: "#DC2626" }}>*</span>
-                      : <span style={{ color: "#888", fontWeight: 400 }}>{multi ? "(scegli quelli che vuoi)" : "(facoltativo)"}</span>}
-                  </div>
-                  <div style={grid}>
-                    {!required && !multi && (
-                      <button onClick={() => setPicked((p) => ({ ...p, [key]: undefined }))}
-                              style={{ ...box, padding: 12, textAlign: "left", cursor: "pointer",
-                                       border: !picked[key] ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                        <div style={{ fontWeight: 700 }}>Nessuno</div>
-                        <div style={{ fontSize: 13, color: "#666" }}>0 €</div>
-                      </button>
-                    )}
-                    {opts.map((e) => multi
-                      ? card(e, !!picked[e.slot], () => setPicked((p) => ({ ...p, [e.slot]: p[e.slot] ? undefined : e.code })))
-                      : card(e, picked[key] === e.code, () => setPicked((p) => ({ ...p, [key]: e.code }))))}
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ fontSize: 14, background: "#f6f6f4", borderRadius: 10, padding: 10 }}>
-              <strong>Questo mezzo potrà fare:</strong> Trasporti
-              {caps.filter((c) => CAN[c]).map((c) => ` · ${CAN[c]}`).join("")}
-              {!caps.includes("ecg") && caps.includes("emergenza") &&
-                <div style={{ color: "#a16207", marginTop: 4 }}>Con il solo DAE non puoi fare i servizi ECG: serve un cardiomonitor.</div>}
-            </div>
             </>)}
 
-            <h3 id="step4" className={`gar-step${step === 4 ? " gar-step-on" : ""}`} style={{ marginBottom: 8, padding: "2px 6px" }}>4. Sigla e sede</h3>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input value={callSign} onChange={(e) => setCallSign(e.target.value)} maxLength={20} placeholder="Sigla (es. Alfa 1)"
-                     style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }} />
-              <select value={qty} onChange={(e) => setQty(Number(e.target.value))} title="Quante ambulanze uguali"
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "0 0 auto" }}>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n === 1 ? "1 mezzo" : `${n} mezzi uguali`}</option>)}
-              </select>
-              {bases.length > 1 && (
-                <select value={baseId ?? ""} onChange={(e) => setBaseId(e.target.value)}
-                        style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }}>
-                  {bases.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              )}
-            </div>
+            {wiz === 2 && (<>
+              <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                <strong>{T.icon} {T.label}:</strong> {T.info}
+              </div>
+              <div style={grid}>
+                {list.map((m) => (
+                  <button key={m.id} onClick={() => { setModelId(m.id); go(1); }} style={tile(modelId === m.id)}>
+                    {best?.id === m.id && list.length > 1 && <span style={{ position: "absolute", top: 8, right: 8, fontSize: 11, fontWeight: 800,
+                      background: "#16A34A", color: "#fff", borderRadius: 999, padding: "2px 8px" }}>★ Consigliato</span>}
+                    <div style={{ textAlign: "center" }}><ModelImage name={m.name} url={livery(m.image_url, org.type)} stripe={stripe} /></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
+                      <span style={{ fontWeight: 800 }}>{m.name}</span><span style={{ fontWeight: 800 }}>{euro(m.base_cost)}</span>
+                    </div>
+                    {m.ability_label && <div style={{ fontSize: 12, fontWeight: 700, color: "#1E40AF", margin: "4px 0" }}>{m.ability_label}</div>}
+                    <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
+                    <Bar label="Affidabilità" value={m.base_reliability} color="#16A34A" />
+                    <Bar label="Durata" value={m.base_durability} color="#9333EA" />
+                    {m.electric && <Bar label={`Autonomia ${m.range_km ?? 0} km`} value={Math.min(100, ((m.range_km ?? 0) / 150) * 100)} color="#16A34A" />}
+                  </button>
+                ))}
+              </div>
+            </>)}
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16,
-                          borderTop: "1px solid #eee", paddingTop: 12, gap: 12, flexWrap: "wrap",
-                          position: "sticky", bottom: 0, background: "#fff", paddingBottom: "calc(10px + env(safe-area-inset-bottom))",
-                          zIndex: 5, boxShadow: "0 -6px 12px rgba(0,0,0,.06)" }}>
-              {!ready && (
-                <div style={{ width: "100%", fontSize: 13, fontWeight: 700, color: "#C2410C" }}>
-                  {!model ? "👉 Passo 1: scegli il modello qui sopra" : !builder ? "👉 Passo 2: scegli l'allestitore" : (isAm ? "👉 Scegli il monitor nei presidi" : "👉 Scegli monitor e barella nei presidi")}
+            {wiz === 3 && (<>
+              <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>L&apos;allestitore trasforma il mezzo: dà affidabilità, durata e a volte un bonus sui premi. Ho già scelto il più economico.</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {[...builders].sort((x, y) => x.cost - y.cost).map((b) => (
+                  <button key={b.id} onClick={() => { setBuilderId(b.id); go(1); }}
+                          style={{ ...tile(builderId === b.id), display: "flex", gap: 10, alignItems: "center", padding: 12 }}>
+                    <BuilderLogo name={b.name} url={b.logo_url} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800 }}>{b.name} <Pill cert={b.certification} /></div>
+                      <div style={{ fontSize: 12.5, color: "#555" }}>Affidabilità +{b.reliability} · Durata +{b.durability}
+                        {b.bonus?.reward_mult ? <strong style={{ color: "#15803D" }}> · Premi +{Math.round(b.bonus.reward_mult * 100)}%</strong> : ""}</div>
+                    </div>
+                    <div style={{ fontWeight: 800, whiteSpace: "nowrap" }}>{euro(b.cost)}</div>
+                  </button>
+                ))}
+              </div>
+            </>)}
+
+            {wiz === 4 && !noKit && (<>
+              {firstVehicle && <div style={{ background: "#effaf1", color: "#166534", borderRadius: 10, padding: 10, fontSize: 13, marginBottom: 10 }}>
+                🎁 Primo mezzo: DAE, barella standard, borsoni, tavola spinale e collari sono gratis.</div>}
+              <div style={{ fontWeight: 700, margin: "4px 0 8px" }}>Scegli un kit di presidi</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8, marginBottom: 10 }}>
+                {KITS.map((k) => (
+                  <button key={k.k} onClick={() => { setPicked(isAm ? Object.fromEntries(Object.entries(k.pick).filter(([sl]) => sl !== "barella")) : k.pick); setCustomKit(false); }}
+                          style={{ ...tile(!customKit && activeKit?.k === k.k), padding: 12 }}>
+                    <div style={{ fontWeight: 800 }}>{k.label}</div>
+                    <div style={{ fontSize: 12.5, color: "#555", minHeight: 32 }}>{k.what}</div>
+                    <div style={{ fontWeight: 800, marginTop: 4 }}>{kitCost(k.pick) === 0 ? "Gratis" : euro(kitCost(k.pick))}</div>
+                  </button>
+                ))}
+                <button onClick={() => setCustomKit(true)} style={{ ...tile(customKit || !activeKit), padding: 12 }}>
+                  <div style={{ fontWeight: 800 }}>✏️ Personalizza</div>
+                  <div style={{ fontSize: 12.5, color: "#555" }}>Scegli tu pezzo per pezzo</div>
+                </button>
+              </div>
+              {(customKit || !activeKit) && GROUPS.filter((g) => !(isAm && g.key === "barella")).map(({ key, title, required, multi }) => {
+                const opts = equip.filter((e) => (multi ? e.category === key : e.slot === key));
+                if (!opts.length) return null;
+                const chip = (e: Equip, on: boolean, onClick: () => void) => (
+                  <button key={e.code} onClick={onClick} title={e.description ?? undefined}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 10, cursor: "pointer", font: "inherit",
+                                   border: on ? "2px solid #F97316" : "1px solid #ddd", background: on ? "#FFF7ED" : "#fff", textAlign: "left" }}>
+                    {e.code !== "__none__" && <EquipmentIcon code={e.code} url={e.image_url} size={28} />}
+                    <span style={{ fontSize: 13 }}><strong>{e.name}</strong><br /><span style={{ color: priceOf(e) === 0 ? "#166534" : "#555" }}>{priceOf(e) === 0 ? "Incluso" : euro(e.cost)}</span></span>
+                  </button>
+                );
+                return (
+                  <div key={key} style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{title} {required ? <span style={{ color: "#DC2626" }}>*</span> : <span style={{ color: "#888", fontWeight: 400 }}>{multi ? "(quelli che vuoi)" : "(facoltativo)"}</span>}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {!required && !multi && chip({ code: "__none__", name: "Nessuno", cost: 0, starter: false } as Equip, !picked[key], () => setPicked((p) => ({ ...p, [key]: undefined })))}
+                      {opts.map((e) => multi
+                        ? chip(e, !!picked[e.slot], () => setPicked((p) => ({ ...p, [e.slot]: p[e.slot] ? undefined : e.code })))
+                        : chip(e, picked[key] === e.code, () => setPicked((p) => ({ ...p, [key]: e.code }))))}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10 }}>
+                <strong>Potrà fare:</strong> Trasporti{caps.filter((c) => CAN[c]).map((c) => ` · ${CAN[c]}`).join("")}
+                {!caps.includes("ecg") && caps.includes("emergenza") && <div style={{ color: "#a16207", marginTop: 4 }}>Senza cardiomonitor niente servizi ECG.</div>}
+              </div>
+            </>)}
+
+            {wiz === 5 && (<>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+                {model && <ModelImage name={model.name} url={livery(model.image_url, org.type)} stripe={stripe} />}
+                <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+                  <div><strong>{T.icon} {model?.name}</strong> · {euro(model?.base_cost ?? 0)}</div>
+                  <div>🔧 {builder?.name} · {euro(builder?.cost ?? 0)}</div>
+                  {!noKit && <div>🧰 Presidi {activeKit && !customKit ? `«${activeKit.label}»` : "personalizzati"} · {euro(total - (model?.base_cost ?? 0) - (builder?.cost ?? 0))}</div>}
                 </div>
-              )}
-              <div>
-                <div style={{ fontSize: 13, color: "#666" }}>Totale{qty > 1 && ` (${qty} × ${euro(total)})`}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: total * qty > org.funds ? "#DC2626" : "#111" }}>{euro(total * qty)}</div>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 600 }}>Sigla
+                  <input value={callSign} onChange={(e) => setCallSign(e.target.value)} maxLength={20} placeholder="Sigla (es. Alfa 1)"
+                         style={{ display: "block", width: "100%", boxSizing: "border-box", padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, marginTop: 4 }} />
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, flex: "1 1 140px" }}>Quanti
+                    <select value={qty} onChange={(e) => setQty(Number(e.target.value))}
+                            style={{ display: "block", width: "100%", padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, marginTop: 4 }}>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n === 1 ? "1 mezzo" : `${n} mezzi uguali`}</option>)}
+                    </select>
+                  </label>
+                  {bases.length > 1 && (
+                    <label style={{ fontSize: 13, fontWeight: 600, flex: "2 1 200px" }}>In quale sede
+                      <select value={baseId ?? ""} onChange={(e) => setBaseId(e.target.value)}
+                              style={{ display: "block", width: "100%", padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, marginTop: 4 }}>
+                        {bases.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
                 {qty > 1 && <div style={{ fontSize: 12, color: "#666" }}>Sigle: {signs(callSign, qty).join(", ")}</div>}
               </div>
-              <button onClick={buy} disabled={!ready || busy || total * qty > org.funds}
-                      style={{ ...btn, background: "#F97316", opacity: !ready || busy || total * qty > org.funds ? 0.4 : 1 }}>
-                {busy ? "Acquisto…" : total * qty > org.funds ? "Fondi insufficienti" : qty > 1 ? `Compra ${qty}` : "Compra"}
-              </button>
+            </>)}
+            </div>
+
+            {/* barra fissa: totale e avanti/indietro */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderTop: "1px solid #eee",
+                          position: "sticky", bottom: 0, background: "#fff", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", zIndex: 5,
+                          boxShadow: "0 -6px 12px rgba(0,0,0,.06)" }}>
+              {wiz > 1 && <button onClick={() => go(-1)} style={{ ...btn, background: "#eee", color: "#111" }}>‹ Indietro</button>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: "#666" }}>Totale{qty > 1 && ` (${qty} × ${euro(total)})`}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: total * qty > org.funds ? "#DC2626" : "#111" }}>{euro(total * qty)}</div>
+              </div>
+              {wiz < 5 ? (
+                <button onClick={() => go(1)} disabled={!canNext} style={{ ...btn, background: "#F97316", opacity: canNext ? 1 : 0.4 }}>
+                  {wiz === 1 ? "Avanti ›" : !canNext ? (wiz === 2 ? "Scegli un modello" : wiz === 3 ? "Scegli l'allestitore" : "Scegli monitor e barella") : "Avanti ›"}
+                </button>
+              ) : (
+                <button onClick={buy} disabled={!ready || busy || total * qty > org.funds}
+                        style={{ ...btn, background: "#16A34A", opacity: !ready || busy || total * qty > org.funds ? 0.4 : 1 }}>
+                  {busy ? "Acquisto…" : total * qty > org.funds ? "Fondi insufficienti" : qty > 1 ? `✅ Compra ${qty}` : "✅ Compra"}
+                </button>
+              )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Benzinaio */}
         {(() => {
