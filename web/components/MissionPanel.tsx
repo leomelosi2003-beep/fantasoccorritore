@@ -163,6 +163,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";
+    if (sea && v.boat && waiting) return "la tua barca è già sul servizio: manda un'ambulanza al porto";
     if (v.boat) {
       if (v.moor_lat != null && v.moor_lng != null) {
         const d = km(v.moor_lat, v.moor_lng, mission.lat, mission.lng);
@@ -228,11 +229,13 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId]);
 
-  const required = mission.required_roles ?? {};
   const crewCards = cards.filter((c) => crew.includes(c.id));
   const isAm = !!vehicles.find((v) => v.id === vehicleId)?.automedica;
   const isMoto = !!vehicles.find((v) => v.id === vehicleId)?.moto;
   const isBoat = !!vehicles.find((v) => v.id === vehicleId)?.boat;
+  // ambulanza che va al porto a prendere il paziente della mia barca: equipaggio da ambulanza, non da barca
+  const portHandoff = mission.category === "mare" && waiting && !isBoat;
+  const required: Record<string, number> = portHandoff ? { autista: 1, soccorritore_base: 1 } : (mission.required_roles ?? {});
   const isAib = !!vehicles.find((v) => v.id === vehicleId)?.aib;
   const SOCC = ["soccorritore_base", "soccorritore_avanzato"];
   const seaSocc = crewCards.filter((c) => SOCC.includes(c.role)).length;
@@ -432,7 +435,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {isBoat && (
           <div style={{ background: "#E0F2FE", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#0C4A6E" }}>
             ⛵ <strong>Barca:</strong> parte dall&apos;ormeggio, recupera il paziente in mare e lo porta al porto più vicino,
-            dove aspetta una tua ambulanza (max 15 minuti, altrimenti niente premio). A bordo almeno 1 autista e 1 soccorritore.
+            dove aspetta una tua ambulanza (max 15 minuti, altrimenti niente premio): sul porto compare una bandierina rossa «!». A bordo 1 bagnino e 1 o 2 soccorritori.
           </div>
         )}
         {mission.category === "mare" && waiting && (

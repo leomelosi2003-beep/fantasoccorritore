@@ -120,6 +120,19 @@ const portIcon = L.divIcon({
          align-items:center;justify-content:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.35)">⚓</div>`,
   iconSize: [22, 22], iconAnchor: [11, 11],
 });
+type Handoff = { boat_assignment: string; boat_call_sign: string; port_id: number; port_name: string; at_port: string; wait_until: string;
+                 id: string; lat: number; lng: number };
+// Porto con una mia barca che aspetta l'ambulanza: bandierina rossa con "!" che pulsa
+function handoffIcon(n: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div class="fs-handoff-pin" style="position:relative;width:34px;height:34px;border-radius:50%;background:#DC2626;border:3px solid #fff;
+           display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;font-family:system-ui">!
+           <span style="position:absolute;right:-8px;bottom:-6px;background:#E0F2FE;border:2px solid #0369A1;border-radius:6px;font-size:11px;
+           padding:0 2px;line-height:14px">⚓${n > 1 ? n : ""}</span></div>`,
+    iconSize: [34, 34], iconAnchor: [17, 17],
+  });
+}
 function boatIcon(img: string | null) {
   return L.divIcon({
     className: "",
@@ -500,6 +513,15 @@ export default function GameMap() {
   const [heliBases, setHeliBases] = useState<Port[]>([]);
   const [boats, setBoats] = useState<Boat[]>([]);
   const [mooring, setMooring] = useState<Boat | null>(null);
+  // Barche che portano il paziente in porto e aspettano una mia ambulanza: bandierina "!" sul porto
+  const [handoffs, setHandoffs] = useState<Handoff[]>([]);
+  useEffect(() => {
+    if (!org?.id) return;
+    const load = () => supabase.rpc("my_port_handoffs").then(({ data }) => setHandoffs((data as Handoff[]) ?? []));
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 15_000);
+    return () => clearInterval(t);
+  }, [org?.id, selected]);
   useEffect(() => {
     supabase.rpc("ports_map").then(({ data }) => setPorts((data as Port[]) ?? []));
     supabase.rpc("heli_bases_map").then(({ data }) => setHeliBases((data as Port[]) ?? []));
@@ -1048,11 +1070,36 @@ export default function GameMap() {
             <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
           </Marker>
         ))}
-        {ports.map((p) => (
+        {ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
         ))}
+        {[...new Set(handoffs.map((h) => h.port_id))].map((pid) => {
+          const list = handoffs.filter((h) => h.port_id === pid);
+          const hm = (s: string) => new Date(s).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+          return (
+            <Marker key={`handoff-${pid}`} position={[list[0].lat, list[0].lng]} icon={handoffIcon(list.length)} zIndexOffset={900}>
+              <Popup>
+                <strong>⚓ {list[0].port_name}</strong>
+                {list.map((h) => {
+                  const arrived = new Date(h.at_port).getTime() <= now;
+                  return (
+                    <div key={h.boat_assignment} style={{ marginTop: 8, borderTop: "1px solid #eee", paddingTop: 6 }}>
+                      ⛵ <strong>{h.boat_call_sign}</strong> {arrived ? "è in porto col paziente" : `arriva in porto alle ${hm(h.at_port)}`}.
+                      <br /><span style={{ fontSize: 12, color: new Date(h.wait_until).getTime() - now < 5 * 60_000 ? "#B91C1C" : "#555" }}>
+                        Aspetta un&apos;ambulanza fino alle {hm(h.wait_until)}, poi riparte senza premio.
+                      </span>
+                      <button onClick={() => setSelected({ ...(h as unknown as MissionPin), status: "aperta" })}
+                              style={{ marginTop: 6, width: "100%", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+                                       background: "#DC2626", color: "#fff", fontWeight: 800 }}>🚑 Manda l&apos;ambulanza al porto</button>
+                    </div>
+                  );
+                })}
+              </Popup>
+            </Marker>
+          );
+        })}
         {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status !== "manutenzione" && b.status !== "fuori_servizio"
             // la barca ferma all'ormeggio si vede sempre, tranne quando è in giro (allora la mostra il livello delle barche in movimento)
             && !assignments.some((x) => x.vehicle_id === b.id && now < new Date(x.route_ends_at).getTime())).map((b) => (
@@ -1537,6 +1584,7 @@ export default function GameMap() {
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 116px; }
         .fs-fire-pin { box-shadow: 0 0 0 4px rgba(194,65,12,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
+        .fs-handoff-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.1s infinite; }
         .fs-maxi-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
         @keyframes maxi-pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(220,38,38,.45), 0 3px 10px rgba(0,0,0,.5) }
           50% { box-shadow: 0 0 0 13px rgba(220,38,38,0), 0 3px 10px rgba(0,0,0,.5) } }
