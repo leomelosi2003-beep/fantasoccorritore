@@ -11,6 +11,7 @@ import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
 import AcquisitionModal from "@/components/AcquisitionModal";
+import OfferOutcomeModal from "@/components/OfferOutcomeModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
@@ -1717,6 +1718,7 @@ export default function GameMap() {
       )}
 
       {org && <AcquisitionModal onDone={(t) => setToast(t)} />}
+      {org && <OfferOutcomeModal />}
       {toast && (
         <div className="fs-toast" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 1200,
                       background: "#111", color: "#fff", padding: "12px 18px", borderRadius: 12, fontWeight: 600,
