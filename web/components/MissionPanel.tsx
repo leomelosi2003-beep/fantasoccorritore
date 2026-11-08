@@ -500,6 +500,23 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         {/* Mezzo */}
         <div style={{ fontWeight: 700, marginBottom: 6 }}>1. Mezzo</div>
         {vehicles.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Non hai mezzi: comprane uno nel garage.</div>}
+        {vehicles.length > 0 && sortedVehicles.every((v) => vehicleProblem(v)) && (() => {
+          // Aiuto: nessun mezzo va bene -> spiego che cosa serve per questo tipo di servizio
+          const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
+          const need = mission.transport === "trasferimento" ? "un'ambulanza a passo lungo (Garage → categoria passi lunghi). Fa solo trasferimenti e paga +25%."
+            : mission.category === "ordinario" ? "una macchina ordinaria (Garage → 🚗 Ordinarie), oppure converti un'ambulanza in «solo ordinari» per 8.000 €."
+            : mission.category === "mare" ? "una barca ormeggiata entro 40 km, con a bordo 1 bagnino e 1 soccorritore avanzato."
+            : fire ? "un mezzo antincendio (Garage → 🔥 Antincendio) con almeno 2 persone, di cui 1 volontario AIB."
+            : "un'ambulanza libera entro 20 km dalla sua sede, con gasolio, revisionata e con i presidi richiesti.";
+          const busy = sortedVehicles.filter((v) => ["in servizio", "in officina", "da revisionare"].includes(vehicleProblem(v) ?? "")).length;
+          return (
+            <div style={{ background: "#EFF6FF", color: "#1E3A8A", borderRadius: 10, padding: "8px 10px", fontSize: 13, marginBottom: 8 }}>
+              💡 <strong>Nessun tuo mezzo può partire.</strong> Per questo servizio serve {need}
+              {busy > 0 && <> {busy === 1 ? "Un mezzo adatto è" : `${busy} mezzi sono`} occupati o in officina: riprova tra poco.</>}
+              <br /><span style={{ opacity: 0.8 }}>Il motivo per ogni mezzo è scritto a destra, in grigio.</span>
+            </div>
+          );
+        })()}
         <div style={{ display: "grid", gap: 6 }}>
           {sortedVehicles.map((v, i) => {
             const prob = vehicleProblem(v);

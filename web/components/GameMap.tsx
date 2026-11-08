@@ -14,6 +14,7 @@ import AcquisitionModal from "@/components/AcquisitionModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
+import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -426,6 +427,8 @@ export default function GameMap() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [sound, setSound] = useState(true);
   useEffect(() => { setSound(soundOn()); }, []);
+  const [notif, setNotif] = useState(false);
+  useEffect(() => { setNotif(notifyOn()); }, []);
   const reloadRef = useRef<() => void>(() => {});
   // ambulanze di una sede: caricate quando apro il popup della sede
   const [baseCars, setBaseCars] = useState<Record<string, BaseCar[] | null>>({});
@@ -668,6 +671,23 @@ export default function GameMap() {
     return () => clearInterval(t);
   }, []);
 
+  // Notifiche: nuove maxi-emergenze/incendi, obiettivi pronti, nuove proposte (solo con la scheda in secondo piano)
+  const seenBig = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const big = missions.filter((m) => m.category === "grande_evento" && !m.event_id && m.status === "aperta");
+    if (seenBig.current === null) { seenBig.current = new Set(big.map((m) => m.id)); return; }
+    for (const m of big) {
+      if (seenBig.current.has(m.id)) continue;
+      seenBig.current.add(m.id);
+      notify(m.venue === "AIB" ? "🔥 Nuovo incendio boschivo" : "🆘 Maxi-emergenza!", m.title, m.id);
+    }
+  }, [missions]);
+  const prevNotes = useRef(-1);
+  useEffect(() => {
+    if (notes.length > prevNotes.current && prevNotes.current >= 0) notify("📬 Nuova proposta", notes[notes.length - 1]?.text ?? "", "notes");
+    prevNotes.current = notes.length;
+  }, [notes]);
+
   // Obiettivi completati da ritirare (pallino nel menu)
   const [objReady, setObjReady] = useState(0);
   useEffect(() => {
@@ -675,7 +695,11 @@ export default function GameMap() {
     async function loadObj() {
       const { data } = await supabase.rpc("my_objectives");
       const list = (data as { progress: number; target: number; claimed: boolean }[] | null) ?? [];
-      setObjReady(list.filter((o) => !o.claimed && o.progress >= o.target).length);
+      const ready = list.filter((o) => !o.claimed && o.progress >= o.target).length;
+      setObjReady((prev) => {
+        if (ready > prev) notify("🎯 Obiettivo completato", "Hai un premio da ritirare nella pagina Obiettivi.", "obiettivi");
+        return ready;
+      });
     }
     loadObj();
     const t = setInterval(() => { if (document.visibilityState === "visible") loadObj(); }, 120_000);
@@ -956,15 +980,25 @@ export default function GameMap() {
               ["🏷️", "Usato e aste", "#B45309", "/usate"],
               ["🏠", "Sedi", "#9333EA", "/sedi"],
               ["📊", "Entrate e uscite", "#166534", "/finanze"],
+              ["📈", "Statistiche", "#1E40AF", "/statistiche"],
               ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
               ["🏆", "Classifica", "#B45309", "/classifica"],
               ["🎨", "Associazione", "#DB2777", "/associazione"],
               ["📖", "Tutorial", "#2563EB", "__tutorial__"],
               [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
+              ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
               ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
             ] as [string, string, string, string][]).map(([icon, label, color, href]) => (
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
+                  if (href === "__notify__") {
+                    setNotifyOn(!notif).then((v) => {
+                      setNotif(v);
+                      showToast(v ? "🔔 Ti avviso di maxi-emergenze, incendi, obiettivi pronti e proposte quando il gioco è in un'altra scheda."
+                                  : notif ? "🔕 Notifiche spente." : "Il browser non ha dato il permesso per le notifiche.");
+                    });
+                    return;
+                  }
                   setMenuOpen(false);
                   if (href === "__tutorial__") setShowTutorial(true); else router.push(href);
                 }}>

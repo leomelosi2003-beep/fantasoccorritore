@@ -31,7 +31,7 @@ returns bigint language sql stable security definer set search_path = public as 
     when 'ordinari' then count(*) filter (where m.category = 'ordinario' and m.transport is distinct from 'trasferimento')
     when 'mare'     then count(*) filter (where m.category = 'mare')
     when 'incendi'  then count(*) filter (where m.category = 'grande_evento' and m.event_id is null and m.venue = 'AIB')
-    when 'veloci'   then count(*) filter (where m.code = 'rosso' and a.arrives_at - a.assigned_at <= interval '8 minutes')
+    when 'veloci'   then count(*) filter (where m.code = 'rosso' and a.arrives_at - a.assigned_at <= interval '30 seconds')
   end, 0)::bigint
   from mission_assignments a join missions m on m.id = a.mission_id
   where a.org_id = p_org and a.status = 'conclusa'
@@ -73,7 +73,7 @@ begin
       ('d','gialli','🟡','Concludi %s codici gialli','gialli', greatest(3, v_veh*2)::bigint, 1.0, null),
       ('d','manuali','🧭','Manda a mano %s mezzi (non in automatico)','manuali', 5::bigint, 1.5, null),
       ('d','incasso','💶','Incassa %s € dai servizi','incasso', greatest(30000, v_veh*120000)::bigint, 1.0, null),
-      ('d','veloci','⚡','Arriva su %s codici rossi in meno di 8 minuti','veloci', greatest(2, v_veh)::bigint, 1.2, null),
+      ('d','veloci','⚡','Arriva su %s codici rossi in meno di 30 secondi','veloci', greatest(2, v_veh)::bigint, 1.2, null),
       ('w','servizi','🚑','Concludi %s servizi questa settimana','servizi', greatest(30, v_veh*35)::bigint, 4.0, null),
       ('w','manuali','🧭','Manda a mano %s mezzi questa settimana','manuali', 30::bigint, 5.0, null),
       ('w','incasso','💶','Incassa %s € questa settimana','incasso', greatest(200000, v_veh*700000)::bigint, 4.0, null),
