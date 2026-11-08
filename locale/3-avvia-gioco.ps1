@@ -78,8 +78,43 @@ Write-Host "Sul PC:        http://localhost:3000"
 Write-Host "Lascia aperta questa finestra. Controllo il sito e gli aggiornamenti da GitHub ogni 2 minuti."
 
 $fails = 0
+# Internet: se la Wi-Fi cade e Windows non si ricollega da solo (succede con la chiavetta USB Realtek),
+# chiedo io di ricollegarmi alla rete salvata. Funziona senza permessi di amministratore.
+function InternetOk {
+  foreach ($h in @("1.1.1.1", "8.8.8.8")) {
+    try { $c = New-Object Net.Sockets.TcpClient; if ($c.ConnectAsync($h, 443).Wait(5000) -and $c.Connected) { $c.Close(); return $true }; $c.Close() } catch {}
+  }
+  return $false
+}
+function CurrentWifi {
+  $line = netsh wlan show interfaces | Select-String '^\s*SSID\s*:' | Select-Object -First 1
+  if ($line) { return ($line.ToString() -split ':', 2)[1].Trim() } else { return $null }
+}
+$wifi = CurrentWifi
+$offline = 0
 while ($true) {
   Start-Sleep 120
+
+  # Rete: se manca internet provo a ricollegare la Wi-Fi
+  if (InternetOk) {
+    if ($offline -gt 0) { Log "Internet tornato dopo circa $($offline * 2) minuti." Green; if (Test-Path $ts) { & $ts funnel --bg 3000 *> $null } }
+    $offline = 0
+    $now = CurrentWifi; if ($now) { $wifi = $now }
+  } else {
+    $offline++
+    if (-not $wifi) {
+      # rete Wi-Fi da usare: quella salvata con "Connetti automaticamente"
+      $wifi = (netsh wlan show profiles | Select-String ':\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -First 1)
+    }
+    Log "Internet assente ($offline). Ricollego la Wi-Fi '$wifi'..." Yellow
+    if ($wifi) { netsh wlan connect name="$wifi" *> $null }
+    if ($offline % 5 -eq 0) {
+      # ogni 10 minuti senza rete provo anche a riaccendere la scheda Wi-Fi (serve l'amministratore: se non c'e', pazienza)
+      Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceDescription -match 'Wireless|Wi-?Fi|802\.11' } |
+        ForEach-Object { try { Restart-NetAdapter -Name $_.Name -Confirm:$false -ErrorAction Stop; Log "Scheda Wi-Fi riavviata." Yellow } catch {} }
+    }
+    continue
+  }
 
   # Guardiano: database e sito
   $dbUp = (docker ps --filter "name=^supabase-db$" --filter "status=running" -q)
