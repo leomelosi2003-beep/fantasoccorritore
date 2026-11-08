@@ -13,7 +13,7 @@ import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
 import AcquisitionModal from "@/components/AcquisitionModal";
 import OfferOutcomeModal from "@/components/OfferOutcomeModal";
-import ThumbZoom, { THUMB_ZOOM_CSS } from "@/components/ThumbZoom";
+import OneFingerZoom from "@/components/ThumbZoom";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
@@ -475,9 +475,8 @@ export default function GameMap() {
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [thumbSide, setThumbSide] = useState<"destra" | "sinistra" | "spento">("destra");
-  useEffect(() => { try { const v = localStorage.getItem("fs_thumbzoom"); if (v === "sinistra" || v === "spento") setThumbSide(v); } catch {} }, []);
-  const [mapReady, setMapReady] = useState(false);
+  const [oneFinger, setOneFinger] = useState(true);
+  useEffect(() => { try { if (localStorage.getItem("fs_onefinger") === "0") setOneFinger(false); } catch {} }, []);
   const [showTutorial, setShowTutorial] = useState(false);
   const [sound, setSound] = useState(true);
   useEffect(() => { setSound(soundOn()); }, []);
@@ -1062,7 +1061,7 @@ export default function GameMap() {
               ["Impostazioni", [
                 ["📖", "Tutorial", "#2563EB", "__tutorial__"],
                 [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
-                ["👍", thumbSide === "spento" ? "Zoom col pollice: spento" : `Zoom col pollice: ${thumbSide}`, "#2563EB", "__thumb__"],
+                ["👆", oneFinger ? "Zoom con un dito: attivo" : "Zoom con un dito: spento", "#2563EB", "__thumb__"],
                 ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
                 ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
               ]],
@@ -1077,9 +1076,8 @@ export default function GameMap() {
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
                   if (href === "__thumb__") {
-                    const v = thumbSide === "destra" ? "sinistra" : thumbSide === "sinistra" ? "spento" : "destra";
-                    setThumbSide(v); try { localStorage.setItem("fs_thumbzoom", v); } catch {}
-                    showToast(v === "spento" ? "Zoom col pollice spento." : `👍 Zoom col pollice a ${v}: trascina in su per avvicinare, in giù per allontanare.`);
+                    const v = !oneFinger; setOneFinger(v); try { localStorage.setItem("fs_onefinger", v ? "1" : "0"); } catch {}
+                    showToast(v ? "👆 Zoom con un dito: tocca due volte, tieni giù il dito e scorri in su per avvicinare, in giù per allontanare." : "Zoom con un dito spento.");
                     return;
                   }
                   if (href === "__notify__") {
@@ -1151,8 +1149,8 @@ export default function GameMap() {
           </div>
         )}
       </div>
-      {thumbSide !== "spento" && mapReady && <ThumbZoom map={mapRef.current} side={thumbSide} />}
-      <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} zoomSnap={0} zoomDelta={0.5} wheelPxPerZoomLevel={90} whenReady={() => setMapReady(true)} className="fs-map" style={{ width: "100%" }}>
+      <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} zoomSnap={0} zoomDelta={0.5} wheelPxPerZoomLevel={90} className="fs-map" style={{ width: "100%" }}>
+        <OneFingerZoom enabled={oneFinger} />
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -1680,7 +1678,6 @@ export default function GameMap() {
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 116px; }
         .fs-fire-pin { box-shadow: 0 0 0 4px rgba(194,65,12,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
-        ${THUMB_ZOOM_CSS}
         .fs-drawer-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #888; padding: 12px 14px 4px; }
         .fs-legend { position: absolute; left: 10px; bottom: 96px; z-index: 1000; font-family: system-ui, sans-serif; }
         .fs-legend-btn { border: none; border-radius: 999px; padding: 7px 12px; background: #fff; color: #111; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
