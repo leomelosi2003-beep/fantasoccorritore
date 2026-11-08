@@ -20,7 +20,7 @@ function SideList({ s, money }: { s?: Side; money?: number }) {
   return (
     <>
       {money != null && money > 0 && <>💶 {euro(money)}<br /></>}
-      {s?.sedi.map((x) => <span key={x.id}>🏠 {x.name}{x.mezzi > 0 && <span style={{ color: "#666" }}> · con {x.mezzi} {x.mezzi === 1 ? "mezzo" : "mezzi"}</span>}<br /></span>)}
+      {s?.sedi.map((x) => <span key={x.id}>🏠 {x.name} <span style={{ color: "#666" }}>(solo la sede)</span><br /></span>)}
       {s && s.mezzi.length > 0 && <>🚑 {s.mezzi.map((m) => m.call_sign).join(", ")}<br /></>}
       {s && s.volontari.length > 0 && (
         <>👥 {s.volontari.length} {s.volontari.length === 1 ? "volontario" : "volontari"}

@@ -23,7 +23,7 @@ export const listToItems = (l?: ListSide): OfferItems =>
 export function itemsSummary(l?: ListSide) {
   if (!l) return "niente";
   const parts = [
-    ...l.sedi.map((s) => `sede ${s.name}${s.mezzi ? ` (con ${s.mezzi} ${s.mezzi === 1 ? "mezzo" : "mezzi"})` : ""}`),
+    ...l.sedi.map((s) => `sede ${s.name}`),
     ...(l.mezzi.length ? [`${l.mezzi.length} ${l.mezzi.length === 1 ? "mezzo" : "mezzi"} (${l.mezzi.map((m) => m.call_sign).join(", ")})`] : []),
     ...(l.volontari.length ? [`${l.volontari.length} ${l.volontari.length === 1 ? "volontario" : "volontari"}`] : []),
   ];
@@ -48,7 +48,6 @@ function Picker({ title, assets, sel, setSel }: { title: string; assets: Assets 
   if (!assets) return <div style={{ color: "#888", fontSize: 13, padding: 8 }}>Caricamento…</div>;
   const toggle = (k: keyof OfferItems, id: string) =>
     setSel({ ...sel, [k]: sel[k].includes(id) ? sel[k].filter((x) => x !== id) : [...sel[k], id] });
-  const viaSede = (baseId: string | null) => !!baseId && sel.sedi.includes(baseId);
   const n = sel.sedi.length + sel.mezzi.length + sel.volontari.length;
   return (
     <div style={{ flex: "1 1 260px", minWidth: 0 }}>
@@ -60,23 +59,22 @@ function Picker({ title, assets, sel, setSel }: { title: string; assets: Assets 
         {assets.sedi.map((s) => (
           <button key={s.id} disabled={s.hq} onClick={() => toggle("sedi", s.id)} style={item(sel.sedi.includes(s.id), s.hq)}>
             <span>{s.hq ? "🔒" : sel.sedi.includes(s.id) ? "✅" : "⬜"}</span>
-            <span style={{ flex: 1 }}>{s.name}{s.mezzi > 0 && <span style={{ color: "#666" }}> · con {s.mezzi} {s.mezzi === 1 ? "mezzo" : "mezzi"}</span>}</span>
+            <span style={{ flex: 1 }}>{s.name}<span style={{ color: "#666" }}> · solo la sede</span></span>
             {s.hq && <span style={{ fontSize: 11 }}>sede principale</span>}
           </button>
         ))}
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>🚑 Mezzi</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>🚑 Mezzi <span style={{ fontWeight: 400 }}>(a parte, uno per uno)</span></div>
       <div style={list}>
         {assets.mezzi.length === 0 && <div style={{ fontSize: 12, color: "#999", padding: 4 }}>Nessuno</div>}
         {assets.mezzi.map((m) => {
-          const locked = viaSede(m.base_id);
-          const on = locked || sel.mezzi.includes(m.id);
+          const on = sel.mezzi.includes(m.id);
           return (
-            <button key={m.id} disabled={locked} onClick={() => toggle("mezzi", m.id)} style={item(on, locked)}>
+            <button key={m.id} onClick={() => toggle("mezzi", m.id)} style={item(on)}>
               <span>{on ? "✅" : "⬜"}</span>
               <span style={{ flex: 1 }}><strong>{m.call_sign}</strong>{m.base_name && <span style={{ color: "#666" }}> · {m.base_name}</span>}</span>
-              {locked ? <span style={{ fontSize: 11 }}>con la sede</span> : m.status === "in_servizio" ? <span style={{ fontSize: 11, color: "#B45309" }}>in servizio</span> : null}
+              {m.status === "in_servizio" ? <span style={{ fontSize: 11, color: "#B45309" }}>in servizio</span> : null}
             </button>
           );
         })}
@@ -131,7 +129,7 @@ export default function OfferEditor({ buyerId, sellerId, buyerName, sellerName, 
   return (
     <div style={{ background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: 14, padding: 12, marginTop: 8 }}>
       <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>
-        Scegli cosa passa di mano: quello che non scegli resta a chi lo ha. Una sede passa con i mezzi parcheggiati lì;
+        Scegli cosa passa di mano: quello che non scegli resta a chi lo ha. Una sede passa da sola: i mezzi si scelgono a parte, uno per uno (quelli non scelti tornano nella sede principale di chi li ha);
         la sede principale non si può scambiare. Se un mezzo o un volontario è in servizio, il servizio si chiude senza premio.
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
