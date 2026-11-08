@@ -658,6 +658,20 @@ export default function GameMap() {
     return () => clearInterval(t);
   }, [org]);
 
+  // Obiettivi completati da ritirare (pallino nel menu)
+  const [objReady, setObjReady] = useState(0);
+  useEffect(() => {
+    if (!org) return;
+    async function loadObj() {
+      const { data } = await supabase.rpc("my_objectives");
+      const list = (data as { progress: number; target: number; claimed: boolean }[] | null) ?? [];
+      setObjReady(list.filter((o) => !o.claimed && o.progress >= o.target).length);
+    }
+    loadObj();
+    const t = setInterval(() => { if (document.visibilityState === "visible") loadObj(); }, 120_000);
+    return () => clearInterval(t);
+  }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
     const tNow = serverNow();
@@ -896,7 +910,7 @@ export default function GameMap() {
         <>
           <button className="fs-burger" onClick={() => setMenuOpen(true)} aria-label="Apri il menu">
             <span /><span /><span />
-            {notes.length > 0 && <b className="fs-badge">{notes.length}</b>}
+            {notes.length + objReady > 0 && <b className="fs-badge">{notes.length + objReady}</b>}
           </button>
           <div className={`fs-drawer-bg${menuOpen ? " open" : ""}`} onClick={() => setMenuOpen(false)} />
           <nav className={`fs-drawer${menuOpen ? " open" : ""}`} aria-hidden={!menuOpen}>
@@ -909,6 +923,7 @@ export default function GameMap() {
               <button className="fs-drawer-x" onClick={() => setMenuOpen(false)} aria-label="Chiudi">✕</button>
             </div>
             {([
+              ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
               ["🚑", "Garage", "#F97316", "/garage"],
               ["👥", "Squadra", "#1E3A8A", "/squadra"],
               ["🤝", "Alleanza", "#15803D", "/alleanza"],
@@ -933,6 +948,7 @@ export default function GameMap() {
                 <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
                 {href === "/alleanza" && notes.length > 0 && <b className="fs-drawer-badge">{notes.length}</b>}
+                {href === "/obiettivi" && objReady > 0 && <b className="fs-drawer-badge">{objReady}</b>}
               </button>
             ))}
             <div style={{ flex: 1 }} />
