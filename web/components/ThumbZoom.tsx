@@ -3,74 +3,67 @@
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 
-// Zoom con un dito (come Bump / Google Maps): tocca due volte, al secondo tocco NON alzare il dito
-// e scorri: in su avvicina, in giù allontana. Funziona con il pollice destro o sinistro, ovunque sulla mappa.
-// Un doppio tocco veloce senza scorrere avvicina di un livello (come prima).
+// Zoom col pollice sul bordo (come Bump): appoggia il dito vicino al bordo destro o sinistro della mappa
+// e scorri: in su avvicina, in giù allontana. Niente doppio tocco. Al centro la mappa si trascina come sempre.
+export const EDGE_PX = 56; // larghezza della fascia sensibile su ciascun bordo
+
 export default function OneFingerZoom({ enabled }: { enabled: boolean }) {
   const map = useMap();
 
   useEffect(() => {
     if (!enabled) return;
     const el = map.getContainer();
-    const touch = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-    if (!touch) return;
-    // il doppio tocco lo gestiamo noi (altrimenti Leaflet zooma da solo al secondo tocco)
-    const hadDbl = map.doubleClickZoom.enabled();
-    map.doubleClickZoom.disable();
+    const PX_PER_LEVEL = 110;
+    let active: { y: number; zoom: number; side: "left" | "right" } | null = null;
 
-    const PX_PER_LEVEL = 120;
-    let lastTap = { t: 0, x: 0, y: 0 };
-    let active: { y: number; zoom: number; x0: number; y0: number; moved: boolean } | null = null;
+    // guida visiva: una barra sottile sul bordo, visibile solo mentre zoomi
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:absolute;top:12%;bottom:12%;width:6px;border-radius:6px;background:rgba(37,99,235,.55);" +
+      "box-shadow:0 0 12px rgba(37,99,235,.6);z-index:1002;pointer-events:none;opacity:0;transition:opacity .15s";
+    el.appendChild(bar);
 
-    const pt = (e: TouchEvent) => {
-      const r = el.getBoundingClientRect();
-      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-    };
+    const pos = (t: Touch) => { const r = el.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top, w: r.width }; };
 
     function start(e: TouchEvent) {
-      if (e.touches.length !== 1) { active = null; return; }
-      const p = pt(e);
-      const now = Date.now();
-      if (now - lastTap.t < 320 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 45) {
-        // secondo tocco: si entra nello zoom con un dito
-        e.preventDefault(); e.stopPropagation();
-        active = { y: p.y, zoom: map.getZoom(), x0: p.x, y0: p.y, moved: false };
-        map.dragging.disable();
-        lastTap = { t: 0, x: 0, y: 0 };
-      } else {
-        lastTap = { t: now, x: p.x, y: p.y };
-      }
+      if (e.touches.length !== 1) { if (active) end(); return; }
+      const p = pos(e.touches[0]);
+      const side = p.x <= EDGE_PX ? "left" : p.x >= p.w - EDGE_PX ? "right" : null;
+      if (!side) return;
+      e.preventDefault(); e.stopPropagation();
+      active = { y: p.y, zoom: map.getZoom(), side };
+      map.dragging.disable();
+      bar.style.left = side === "left" ? "3px" : "";
+      bar.style.right = side === "right" ? "3px" : "";
+      bar.style.opacity = "1";
     }
     function move(e: TouchEvent) {
-      if (!active || e.touches.length !== 1) return;
-      e.preventDefault(); e.stopPropagation();
-      const p = pt(e);
-      const dy = p.y - active.y;
-      if (Math.abs(dy) > 6) active.moved = true;
-      const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), active.zoom - dy / PX_PER_LEVEL));
-      map.setZoomAround(map.containerPointToLatLng([active.x0, active.y0]), z, { animate: false });
-    }
-    function end(e: TouchEvent) {
       if (!active) return;
-      e.preventDefault();
-      const a = active; active = null;
+      e.preventDefault(); e.stopPropagation();
+      const p = pos(e.touches[0]);
+      const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), active.zoom - (p.y - active.y) / PX_PER_LEVEL));
+      map.setZoom(z, { animate: false });
+    }
+    function end(e?: TouchEvent) {
+      if (!active) return;
+      e?.preventDefault();
+      active = null;
       map.dragging.enable();
-      const around = map.containerPointToLatLng([a.x0, a.y0]);
-      if (!a.moved) map.setZoomAround(around, Math.min(map.getMaxZoom(), Math.round(a.zoom) + 1), { animate: false });   // doppio tocco classico
-      else map.setZoomAround(around, Math.round(map.getZoom() * 4) / 4, { animate: false });   // si assesta, mappa nitida
+      bar.style.opacity = "0";
+      map.setZoom(Math.round(map.getZoom() * 4) / 4, { animate: false });   // si assesta: mappa nitida
     }
 
-    el.addEventListener("touchstart", start, { passive: false, capture: true });
-    el.addEventListener("touchmove", move, { passive: false, capture: true });
-    el.addEventListener("touchend", end, { passive: false, capture: true });
-    el.addEventListener("touchcancel", end, { passive: false, capture: true });
+    const opt = { passive: false, capture: true } as AddEventListenerOptions;
+    el.addEventListener("touchstart", start, opt);
+    el.addEventListener("touchmove", move, opt);
+    el.addEventListener("touchend", end, opt);
+    el.addEventListener("touchcancel", end, opt);
     return () => {
-      el.removeEventListener("touchstart", start, { capture: true } as EventListenerOptions);
-      el.removeEventListener("touchmove", move, { capture: true } as EventListenerOptions);
-      el.removeEventListener("touchend", end, { capture: true } as EventListenerOptions);
-      el.removeEventListener("touchcancel", end, { capture: true } as EventListenerOptions);
+      el.removeEventListener("touchstart", start, opt);
+      el.removeEventListener("touchmove", move, opt);
+      el.removeEventListener("touchend", end, opt);
+      el.removeEventListener("touchcancel", end, opt);
+      bar.remove();
       map.dragging.enable();
-      if (hadDbl) map.doubleClickZoom.enable();
     };
   }, [map, enabled]);
 

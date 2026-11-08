@@ -1061,7 +1061,7 @@ export default function GameMap() {
               ["Impostazioni", [
                 ["📖", "Tutorial", "#2563EB", "__tutorial__"],
                 [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
-                ["👆", oneFinger ? "Zoom con un dito: attivo" : "Zoom con un dito: spento", "#2563EB", "__thumb__"],
+                ["👆", oneFinger ? "Zoom col pollice sul bordo: attivo" : "Zoom col pollice sul bordo: spento", "#2563EB", "__thumb__"],
                 ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
                 ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
               ]],
@@ -1077,7 +1077,7 @@ export default function GameMap() {
                   if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
                   if (href === "__thumb__") {
                     const v = !oneFinger; setOneFinger(v); try { localStorage.setItem("fs_onefinger", v ? "1" : "0"); } catch {}
-                    showToast(v ? "👆 Zoom con un dito: tocca due volte, tieni giù il dito e scorri in su per avvicinare, in giù per allontanare." : "Zoom con un dito spento.");
+                    showToast(v ? "👆 Zoom col pollice: appoggia il dito vicino al bordo destro o sinistro e scorri in su per avvicinare, in giù per allontanare." : "Zoom col pollice spento.");
                     return;
                   }
                   if (href === "__notify__") {
