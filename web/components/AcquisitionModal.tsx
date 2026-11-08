@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { supabase } from "@/lib/supabase";
 import OfferEditor, { itemsSummary, listToItems, offerError, type ItemsList, type OfferItems } from "@/components/OfferEditor";
 
@@ -69,7 +70,7 @@ export default function AcquisitionModal({ onDone }: { onDone?: (text: string) =
 
   async function answer(accept: boolean) {
     if (!d) return;
-    if (accept && !window.confirm(`Confermi lo scambio con ${other}?\n\n📤 ${seller ? "Dai" : "Ricevi"}: ${itemsSummary(items?.prendo)}\n📥 ${seller ? "Ricevi" : "Dai"}: ${euro(d.price)}${items?.do && itemsSummary(items.do) !== "niente" ? ` + ${itemsSummary(items.do)}` : ""}`)) return;
+    if (accept && !(await gameConfirm(`Confermi lo scambio con ${other}?\n\n📤 ${seller ? "Dai" : "Ricevi"}: ${itemsSummary(items?.prendo)}\n📥 ${seller ? "Ricevi" : "Dai"}: ${euro(d.price)}${items?.do && itemsSummary(items.do) !== "niente" ? ` + ${itemsSummary(items.do)}` : ""}`))) return;
     setBusy(true); setErr(null);
     const { error } = await supabase.rpc("answer_acquisition_offer", { p_id: d.id, p_accept: accept });
     setBusy(false);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, livery, type Organization } from "@/lib/supabase";
 import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
@@ -235,7 +236,7 @@ export default function Garage() {
     const lvl = v.speed_level ?? 0;
     if (lvl >= 3) return;
     const cost = SPEED_COST[lvl];
-    if (!window.confirm(`Potenziare ${v.call_sign} al livello ${lvl + 1} per ${cost.toLocaleString("it-IT")} €?\n\n+12% velocità in strada e -12% di tempo sul posto per ogni livello.`)) return;
+    if (!(await gameConfirm(`Potenziare ${v.call_sign} al livello ${lvl + 1} per ${cost.toLocaleString("it-IT")} €?\n\n+12% velocità in strada e -12% di tempo sul posto per ogni livello.`))) return;
     setMsg(null);
     const { error } = await supabase.rpc("upgrade_vehicle_speed", { p_vehicle: v.id });
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
@@ -283,7 +284,7 @@ export default function Garage() {
 
   async function convertOrdinaria(v: Vehicle, on: boolean) {
     setMsg(null);
-    if (on && !window.confirm(`Convertire ${v.call_sign} in mezzo "solo ordinari" per 8.000 €?\n\nFarà solo dialisi e dimissioni (non più emergenze). Puoi riportarla a emergenza quando vuoi, gratis.`)) return;
+    if (on && !(await gameConfirm(`Convertire ${v.call_sign} in mezzo "solo ordinari" per 8.000 €?\n\nFarà solo dialisi e dimissioni (non più emergenze). Puoi riportarla a emergenza quando vuoi, gratis.`))) return;
     setBusy(true);
     const { error } = await supabase.rpc("set_vehicle_ordinaria", { p_vehicle: v.id, p_on: on });
     setBusy(false);
@@ -310,7 +311,7 @@ export default function Garage() {
     const q = await supabase.rpc("maintenance_all_quote");
     const r0 = ((q.data as { vehicles: number; cost: number }[]) ?? [])[0];
     if (!r0 || !r0.vehicles) { setMsg({ ok: true, text: "Nessun mezzo fermo in sede da riparare." }); return; }
-    if (!window.confirm(`Mandare in officina ${r0.vehicles} mezzi fermi in sede per ${euro(Number(r0.cost))}?`)) return;
+    if (!(await gameConfirm(`Mandare in officina ${r0.vehicles} mezzi fermi in sede per ${euro(Number(r0.cost))}?`))) return;
     const { data, error } = await supabase.rpc("maintenance_all");
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
     const r = ((data as { vehicles: number; cost: number }[]) ?? [])[0];

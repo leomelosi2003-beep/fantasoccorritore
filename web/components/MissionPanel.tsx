@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { playSound } from "@/lib/sound";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import { avatarSvg } from "@/components/avatar";
@@ -326,7 +327,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   async function activateHeli() {
     if (!heli) return;
-    if (!window.confirm(`Attivare l'elisoccorso per ${Number(heli.price).toLocaleString("it-IT")} €?\n\nPer 10 minuti puoi mandare tutti gli elicotteri che vuoi, su qualsiasi servizio: arrivano prima di tutti e vincono a tavolino. Poi va ripagato.`)) return;
+    if (!(await gameConfirm(`Attivare l'elisoccorso per ${Number(heli.price).toLocaleString("it-IT")} €?\n\nPer 10 minuti puoi mandare tutti gli elicotteri che vuoi, su qualsiasi servizio: arrivano prima di tutti e vincono a tavolino. Poi va ripagato.`))) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("activate_heli");
     setBusy(false);

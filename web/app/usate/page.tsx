@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, livery } from "@/lib/supabase";
 
@@ -73,7 +74,7 @@ export default function Usate() {
   async function bid(a: { id: string; top_bid: number | null; start_price: number }, name: string, kind: "mezzi" | "sedi" = "mezzi") {
     const amount = parseInt((offer[a.id] ?? String(minNext(a))).replace(/[^0-9]/g, ""), 10);
     if (!amount) return;
-    if (!window.confirm(`Offrire ${euro(amount)} per ${name}? I soldi restano bloccati finché qualcuno non offre di più (allora ti tornano indietro).`)) return;
+    if (!(await gameConfirm(`Offrire ${euro(amount)} per ${name}? I soldi restano bloccati finché qualcuno non offre di più (allora ti tornano indietro).`))) return;
     setBusy(true); setMsg(null);
     const { error } = await supabase.rpc(kind === "sedi" ? "place_base_bid" : "place_bid", { p_auction: a.id, p_amount: amount });
     setBusy(false);
@@ -84,7 +85,7 @@ export default function Usate() {
   }
 
   async function cancel(a: { id: string }, name: string, kind: "mezzi" | "sedi" = "mezzi") {
-    if (!window.confirm(`Ritirare ${name} dall'asta?`)) return;
+    if (!(await gameConfirm(`Ritirare ${name} dall'asta?`))) return;
     setBusy(true); setMsg(null);
     const { error } = await supabase.rpc(kind === "sedi" ? "cancel_base_auction" : "cancel_auction", { p_auction: a.id });
     setBusy(false);

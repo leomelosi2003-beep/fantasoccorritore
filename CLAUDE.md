@@ -69,3 +69,10 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Test come utente: `set_config('request.jwt.claims', json_build_object('sub','b9b15433-82f3-4b53-a825-601807453b4c','role','authenticated')::text, true)` + `set local role authenticated`.
 - Il piano gratuito di Supabase si satura facilmente: tenere leggere le query del tick, usare indici.
 - Immagini mezzi in `web/public/vehicles/` (varianti -map, -mis, -cri, -e), gestite da `livery()` in `web/lib/supabase.ts`.
+
+## Interfaccia (8/11/2026 sera)
+- Mappa: i servizi sono "gocce" (`missionIcon`, colore = codice, simbolo = tipo via `missionKind`: ✚ 118, O ordinario, ⇄ trasferimento, ≈ mare; ⚔️ conteso, 🚑 se ci va un mio mezzo); le sedi sono quadrati arrotondati (`baseIcon`, 🏠 / ⭐ sede principale). Legenda in basso a sinistra (`fs-legend`).
+- Alleanza divisa in 3 pagine che usano lo stesso componente `components/AlliancePage.tsx` con `section`: `/alleanza` (alleanza, inviti, prestiti, obiettivo di squadra), `/offerte` (offerte ricevute/fatte, compra), `/gemellaggio`.
+- Menu laterale a gruppi (Gioco, La mia associazione, Mercato, Altre associazioni, Numeri, Impostazioni); le note hanno `href` per andare alla pagina giusta.
+- Conferme: `gameConfirm(testo)` in `lib/confirm.ts` (prima riga = titolo), al posto di `window.confirm`.
+- Il tema scuro c'è già per tutte le pagine (`lib/darkTheme.ts`: sostituisce i colori degli stili inline).

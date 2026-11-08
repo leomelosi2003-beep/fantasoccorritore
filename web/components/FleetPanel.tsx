@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { supabase, livery } from "@/lib/supabase";
 
 type Vehicle = {
@@ -46,7 +47,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
   }, [open, refreshKey]);
   async function maintainAll() {
     if (!mq || !mq.vehicles) return;
-    if (!window.confirm(`Mandare in officina ${mq.vehicles} mezzi fermi in sede per ${Number(mq.cost).toLocaleString("it-IT")} €?\n\nTornano come nuovi dopo pochi minuti.`)) return;
+    if (!(await gameConfirm(`Mandare in officina ${mq.vehicles} mezzi fermi in sede per ${Number(mq.cost).toLocaleString("it-IT")} €?\n\nTornano come nuovi dopo pochi minuti.`))) return;
     const { data, error } = await supabase.rpc("maintenance_all");
     if (error) { onChanged("Errore: " + error.message); return; }
     const r = ((data as { vehicles: number; cost: number }[]) ?? [])[0];
@@ -67,7 +68,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
 
   // Annulla il viaggio verso il servizio (solo prima di arrivare sul posto): l'ambulanza è subito libera
   async function cancelTrip(job: Job) {
-    if (!window.confirm(`Annullare il viaggio verso "${job.title.split(" — ")[0]}"? L'ambulanza torna libera subito, senza premio.`)) return;
+    if (!(await gameConfirm(`Annullare il viaggio verso "${job.title.split(" — ")[0]}"? L'ambulanza torna libera subito, senza premio.`))) return;
     setBusy(true); setErr(null);
     const { error } = await supabase.rpc("cancel_assignment", { p_assignment: job.id });
     setBusy(false);

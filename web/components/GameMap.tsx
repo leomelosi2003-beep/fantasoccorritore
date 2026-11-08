@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Circle, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -406,19 +407,53 @@ function lastSeen(t: string) {
   return `${d} ${d === 1 ? "giorno" : "giorni"} fa`;
 }
 
-// Icona della sede: lo stemma della fazione su un cerchio bianco
-function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false) {
-  const svg = emblemSvg(type, mine ? (logo ? 38 : 30) : (logo ? 30 : 22), logo);
+// Icona della sede: stemma in un quadrato arrotondato con la casetta (i servizi invece sono "gocce"),
+// stella sulla sede principale, pallino verde se il proprietario è online
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false) {
+  const svg = emblemSvg(type, mine ? (logo ? 36 : 28) : (logo ? 28 : 20), logo);
   const s = mine ? 44 : 34;
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:50%;background:#fff;display:flex;
-           align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);
-           border:${mine ? "3px solid #111" : "1px solid #999"}">${svg}${online
-           ? `<span title="Online" style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;
+    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:10px;background:#fff;display:flex;
+           align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
+           border:${mine ? "3px solid #111" : "2px solid #6B7280"}">${svg}
+           <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "#111" : "#6B7280"};color:#fff;border-radius:6px;
+           font-size:10px;line-height:15px;padding:0 3px;border:1.5px solid #fff">${hq ? "⭐" : "🏠"}</span>${online
+           ? `<span title="Online" style="position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;
               background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
   });
+}
+
+// Icona del servizio: "goccia" che punta il luogo, colore = codice, simbolo = tipo di servizio
+export function missionKind(m: Pick<MissionPin, "category" | "transport">) {
+  if (m.transport === "trasferimento") return { glyph: "⇄", label: "Trasferimento tra ospedali" };
+  if (m.category === "mare") return { glyph: "≈", label: "Soccorso in mare" };
+  if (m.category === "ordinario") return { glyph: "O", label: "Ordinario / dimissione" };
+  return { glyph: "✚", label: "Emergenza 118" };
+}
+const missionIcons = new Map<string, L.DivIcon>();
+function missionIcon(m: MissionPin, mineGoing: boolean) {
+  const k = `${m.code}|${missionKind(m).glyph}|${m.contestable ? 1 : 0}|${mineGoing ? 1 : 0}`;
+  let ic = missionIcons.get(k);
+  if (ic) return ic;
+  const color = CODE_COLOR[m.code];
+  const ink = m.code === "giallo" ? "#422006" : "#fff";
+  const s = m.contestable ? 30 : 26;
+  ic = L.divIcon({
+    className: "",
+    html: `<div style="position:relative;width:${s}px;height:${s}px">
+      <div style="width:${s}px;height:${s}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};
+        border:2px ${m.contestable ? "dashed #111" : "solid #fff"};box-shadow:0 2px 6px rgba(0,0,0,.45);box-sizing:border-box"></div>
+      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:${ink};
+        font:900 ${m.category === "mare" ? 18 : 14}px/1 system-ui,sans-serif">${missionKind(m).glyph}</span>
+      ${m.contestable ? `<span style="position:absolute;right:-9px;top:-9px;font-size:13px">⚔️</span>` : ""}
+      ${mineGoing ? `<span style="position:absolute;left:-8px;top:-8px;background:#2563EB;color:#fff;border-radius:999px;
+        font-size:10px;padding:0 3px;border:1.5px solid #fff">🚑</span>` : ""}</div>`,
+    iconSize: [s, s], iconAnchor: [s / 2, Math.round(s * 1.2)], popupAnchor: [0, -s],
+  });
+  missionIcons.set(k, ic);
+  return ic;
 }
 
 export default function GameMap() {
@@ -427,7 +462,7 @@ export default function GameMap() {
   const [fires, setFires] = useState<{ mission_id: string; lat: number; lng: number; severity: number; intensity: number; radius_m: number }[]>([]);
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
-  const [notes, setNotes] = useState<{ id: string; text: string }[]>([]);
+  const [notes, setNotes] = useState<{ id: string; text: string; href: string }[]>([]);
   const [moneyPops, setMoneyPops] = useState<{ key: number; amount: number; label: string }[]>([]);
   const [shownFunds, setShownFunds] = useState<number | null>(null);
   const [fundsFlash, setFundsFlash] = useState(false);
@@ -438,6 +473,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [sound, setSound] = useState(true);
   useEffect(() => { setSound(soundOn()); }, []);
@@ -672,11 +708,11 @@ export default function GameMap() {
         supabase.from("acquisition_offers").select("id,price,buyer:organizations!acquisition_offers_buyer_org_fkey(name)")
           .eq("seller_org", myId).eq("status", "in_attesa"),
       ]);
-      const list: { id: string; text: string }[] = [];
+      const list: { id: string; text: string; href: string }[] = [];
       for (const i of (inv.data as unknown as { id: string; alliances: { name: string } | null }[]) ?? [])
-        list.push({ id: i.id, text: `🤝 Sei invitato nell'alleanza «${i.alliances?.name ?? "?"}»` });
+        list.push({ id: i.id, href: "/alleanza", text: `🤝 Sei invitato nell'alleanza «${i.alliances?.name ?? "?"}»` });
       for (const o of (off.data as unknown as { id: string; price: number; buyer: { name: string } | null }[]) ?? [])
-        list.push({ id: o.id, text: `💼 ${o.buyer?.name ?? "Un'associazione"} vuole comprarti per ${o.price.toLocaleString("it-IT")} €` });
+        list.push({ id: o.id, href: "/offerte", text: `💼 ${o.buyer?.name ?? "Un'associazione"} vuole comprarti per ${o.price.toLocaleString("it-IT")} €` });
       setNotes(list);
     }
     loadNotes();
@@ -936,7 +972,7 @@ export default function GameMap() {
             <div key={n.id} className="fs-note">
               <span style={{ fontSize: 22 }}>📬</span>
               <div style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14 }}>{n.text}</div>
-              <button onClick={() => router.push("/alleanza")}
+              <button onClick={() => router.push(n.href)}
                       style={{ border: "none", background: "#fff", color: "#B45309", fontWeight: 800, borderRadius: 8,
                                padding: "7px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>Rispondi</button>
               <button onClick={() => setHiddenNotes((h) => [...h, n.id])} aria-label="Nascondi"
@@ -992,26 +1028,47 @@ export default function GameMap() {
               <button className="fs-drawer-x" onClick={() => setMenuOpen(false)} aria-label="Chiudi">✕</button>
             </div>
             {([
-              ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
-              ["📰", "Notizie", "#374151", "/notizie"],
-              ["🚑", "Garage", "#F97316", "/garage"],
-              ["👥", "Squadra", "#1E3A8A", "/squadra"],
-              ["🤝", "Alleanza", "#15803D", "/alleanza"],
-              ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
-              ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
-              ["🛒", "Presidi", "#374151", "/negozio"],
-              ["🏷️", "Usato e aste", "#B45309", "/usate"],
-              ["🏠", "Sedi", "#9333EA", "/sedi"],
-              ["📊", "Entrate e uscite", "#166534", "/finanze"],
-              ["📈", "Statistiche", "#1E40AF", "/statistiche"],
-              ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
-              ["🏆", "Classifica", "#B45309", "/classifica"],
-              ["🎨", "Associazione", "#DB2777", "/associazione"],
-              ["📖", "Tutorial", "#2563EB", "__tutorial__"],
-              [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
-              ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
-              ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
-            ] as [string, string, string, string][]).map(([icon, label, color, href]) => (
+              ["Gioco", [
+                ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
+                ["📰", "Notizie", "#374151", "/notizie"],
+                ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
+                ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
+              ]],
+              ["La mia associazione", [
+                ["🚑", "Garage", "#F97316", "/garage"],
+                ["👥", "Squadra", "#1E3A8A", "/squadra"],
+                ["🏠", "Sedi", "#9333EA", "/sedi"],
+                ["🎨", "Associazione", "#DB2777", "/associazione"],
+              ]],
+              ["Mercato", [
+                ["🛒", "Presidi", "#374151", "/negozio"],
+                ["🏷️", "Usato e aste", "#B45309", "/usate"],
+                ["💼", "Offerte e acquisti", "#1E3A8A", "/offerte"],
+              ]],
+              ["Altre associazioni", [
+                ["🤝", "Alleanza", "#15803D", "/alleanza"],
+                ["🔗", "Gemellaggio", "#0E7490", "/gemellaggio"],
+                ["🏆", "Classifica", "#B45309", "/classifica"],
+              ]],
+              ["Numeri", [
+                ["📈", "Statistiche", "#1E40AF", "/statistiche"],
+                ["📊", "Entrate e uscite", "#166534", "/finanze"],
+                ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
+              ]],
+              ["Impostazioni", [
+                ["📖", "Tutorial", "#2563EB", "__tutorial__"],
+                [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
+                ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
+                ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
+              ]],
+            ] as [string, [string, string, string, string][]][]).map(([group, items]) => (
+              <Fragment key={group}>
+              <div className="fs-drawer-group">{group}</div>
+              {items.map(([icon, label, color, href]) => {
+                const badge = href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
+                  : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
+                  : href === "/obiettivi" ? objReady : 0;
+                return (
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
                   if (href === "__notify__") {
@@ -1027,9 +1084,11 @@ export default function GameMap() {
                 }}>
                 <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
-                {href === "/alleanza" && notes.length > 0 && <b className="fs-drawer-badge">{notes.length}</b>}
-                {href === "/obiettivi" && objReady > 0 && <b className="fs-drawer-badge">{objReady}</b>}
+                {badge > 0 && <b className="fs-drawer-badge">{badge}</b>}
               </button>
+                );
+              })}
+              </Fragment>
             ))}
             <div style={{ flex: 1 }} />
             <button className="fs-drawer-item fs-drawer-exit" onClick={logout}>
@@ -1054,6 +1113,33 @@ export default function GameMap() {
           <button onClick={() => setMooring(null)} style={{ border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>Annulla</button>
         </div>
       )}
+      {/* Legenda dei simboli sulla mappa */}
+      <div className="fs-legend">
+        <button className="fs-legend-btn" onClick={() => setLegendOpen((o) => !o)} aria-expanded={legendOpen}>{legendOpen ? "✕" : "ℹ️ Legenda"}</button>
+        {legendOpen && (
+          <div className="fs-legend-box">
+            <div className="fs-legend-h">Servizi (gocce)</div>
+            {([["✚", "Emergenza 118"], ["O", "Ordinario / dimissione"], ["⇄", "Trasferimento"], ["≈", "Soccorso in mare"]] as const).map(([g, l]) => (
+              <div key={g} className="fs-legend-row"><span className="fs-legend-drop" style={{ background: "#6B7280" }}><b>{g}</b></span>{l}</div>
+            ))}
+            <div className="fs-legend-row" style={{ gap: 4 }}>
+              {(["rosso", "giallo", "verde", "nessuno"] as const).map((c) => (
+                <span key={c} title={c} style={{ width: 14, height: 14, borderRadius: 4, background: CODE_COLOR[c], display: "inline-block" }} />
+              ))}
+              <span style={{ marginLeft: 4 }}>rosso · giallo · verde · ordinario</span>
+            </div>
+            <div className="fs-legend-row">⚔️ Conteso: vince chi arriva primo</div>
+            <div className="fs-legend-row"><span style={{ background: "#2563EB", color: "#fff", borderRadius: 999, fontSize: 10, padding: "0 4px" }}>🚑</span> Ci sta andando un tuo mezzo</div>
+            <div className="fs-legend-h">Sedi (quadrati)</div>
+            <div className="fs-legend-row">🏠 Sede · ⭐ Sede principale</div>
+            <div className="fs-legend-row"><span style={{ width: 14, height: 14, borderRadius: 4, border: "3px solid #111", display: "inline-block" }} /> Bordo nero spesso = tua</div>
+            <div className="fs-legend-row"><span style={{ width: 10, height: 10, borderRadius: 999, background: "#22C55E", display: "inline-block" }} /> Proprietario online</div>
+            <div className="fs-legend-h">Altro</div>
+            <div className="fs-legend-row">🆘 Maxi-emergenza · 🔥 Incendio · ⚓ Porto · 🏥 Ospedale</div>
+            <div className="fs-legend-row"><span style={{ width: 14, height: 14, borderRadius: 999, background: "#DC2626", color: "#fff", fontSize: 10, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>!</span> Tua barca aspetta l&apos;ambulanza</div>
+          </div>
+        )}
+      </div>
       <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} className="fs-map" style={{ width: "100%" }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -1126,7 +1212,7 @@ export default function GameMap() {
         ))}
 
         {bases.map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online)}
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters)}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
               <div style={{ minWidth: 210 }}>
@@ -1291,11 +1377,7 @@ export default function GameMap() {
         })}
 
         {missions.filter((m) => m.category !== "grande_evento").map((m) => (
-          <CircleMarker key={m.id} center={[m.lat, m.lng]} radius={m.contestable ? 12 : 10}
-                        pathOptions={m.contestable
-                          ? { color: "#111", weight: 3, dashArray: "4 4", fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
-                          : m.category === "mare" ? { color: "#0369A1", weight: 4, fillColor: CODE_COLOR[m.code], fillOpacity: 0.85 }
-                          : { color: CODE_COLOR[m.code], fillOpacity: 0.8 }}
+          <Marker key={m.id} position={[m.lat, m.lng]} icon={missionIcon(m, (m.my_vehicles ?? 0) > 0)}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
             <Popup className="fs-mis-popup">
@@ -1304,6 +1386,7 @@ export default function GameMap() {
                 <span className="fs-mis-code">{m.code === "nessuno" ? "ordinario" : m.code}</span>
               </div>
               <div className="fs-mis-body">
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#555", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>{missionKind(m).glyph} {missionKind(m).label}</div>
               {m.category === "mare" && <div style={{ fontSize: 12, color: "#0369A1", fontWeight: 700 }}>🌊 Servizio in mare: ci va solo la barca, poi un&apos;ambulanza prende il paziente al porto.</div>}
               {m.slots_taken > 0 && (
                 <div style={{ margin: "6px 0", background: "#f6f6f4", borderRadius: 8, padding: "6px 8px", fontSize: 12 }}>
@@ -1391,7 +1474,7 @@ export default function GameMap() {
               )}
               </div>
             </Popup>
-          </CircleMarker>
+          </Marker>
         ))}
 
         {Array.from(sceneCount.entries()).map(([k, c]) => (
@@ -1518,7 +1601,7 @@ export default function GameMap() {
                       : <div className="fs-amb-free">✅ Disponibile: puoi già rimandarlo</div>}
                     {a.status === "in_viaggio" && now < new Date(a.arrives_at).getTime() && (
                       <button className="fs-amb-cancel" onClick={async () => {
-                          if (!window.confirm("Annullare il viaggio? L'ambulanza torna libera subito, senza premio.")) return;
+                          if (!(await gameConfirm("Annullare il viaggio? L'ambulanza torna libera subito, senza premio."))) return;
                           const { error } = await supabase.rpc("cancel_assignment", { p_assignment: a.id });
                           if (error) { showToast("Non si può più annullare: è già sul posto."); return; }
                           showToast("↩️ Viaggio annullato: scegli un altro servizio sulla mappa.");
@@ -1585,6 +1668,15 @@ export default function GameMap() {
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 116px; }
         .fs-fire-pin { box-shadow: 0 0 0 4px rgba(194,65,12,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
+        .fs-drawer-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #888; padding: 12px 14px 4px; }
+        .fs-legend { position: absolute; left: 10px; bottom: 96px; z-index: 1000; font-family: system-ui, sans-serif; }
+        .fs-legend-btn { border: none; border-radius: 999px; padding: 7px 12px; background: #fff; color: #111; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+        .fs-legend-box { margin-bottom: 8px; position: absolute; bottom: 38px; left: 0; width: 250px; max-height: 60vh; overflow: auto; background: #fff; color: #111; border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.3); font-size: 12.5px; }
+        .fs-legend-h { font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #666; margin: 8px 0 4px; }
+        .fs-legend-h:first-child { margin-top: 0; }
+        .fs-legend-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+        .fs-legend-drop { width: 16px; height: 16px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .fs-legend-drop b { transform: rotate(45deg); color: #fff; font-size: 10px; }
         .fs-handoff-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.1s infinite; }
         .fs-maxi-pin { box-shadow: 0 0 0 4px rgba(220,38,38,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
         @keyframes maxi-pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(220,38,38,.45), 0 3px 10px rgba(0,0,0,.5) }

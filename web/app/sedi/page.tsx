@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
@@ -58,7 +59,7 @@ export default function Sedi() {
   async function buy() {
     if (!point || !org) return;
     const n = name.trim() || `Sede ${bases.length + 1}`;
-    if (!window.confirm(`Comprare la sede "${n}" per ${euro(cost)}?`)) return;
+    if (!(await gameConfirm(`Comprare la sede "${n}" per ${euro(cost)}?`))) return;
     setBusy(true); setMsg(null);
     const { error } = await supabase.rpc("build_base", { p_name: n, p_lng: point.lng, p_lat: point.lat });
     setBusy(false);
@@ -70,7 +71,7 @@ export default function Sedi() {
 
   async function upgrade(b: Base) {
     const c = UPGRADE[b.level];
-    if (!c || !window.confirm(`Ampliare "${b.name}" al livello ${b.level + 1} (${b.vehicle_capacity + 1} posti) per ${euro(c)}?`)) return;
+    if (!c || !(await gameConfirm(`Ampliare "${b.name}" al livello ${b.level + 1} (${b.vehicle_capacity + 1} posti) per ${euro(c)}?`))) return;
     setBusy(true); setMsg(null);
     const { error } = await supabase.rpc("upgrade_base", { p_base: b.id });
     setBusy(false);

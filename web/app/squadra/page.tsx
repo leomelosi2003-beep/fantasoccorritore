@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
@@ -66,7 +67,7 @@ export default function Squadra() {
   async function startClass() {
     if (!classTarget || classSel.length === 0) return;
     const label = classTarget === "autista" ? "autisti" : "soccorritori avanzati";
-    if (!window.confirm(`Avviare il corso per ${label} con ${classSel.length} ${classSel.length === 1 ? "persona" : "persone"}?\n\nCosto 8.000 € per tutta la classe. Dura 1 ora.`)) return;
+    if (!(await gameConfirm(`Avviare il corso per ${label} con ${classSel.length} ${classSel.length === 1 ? "persona" : "persone"}?\n\nCosto 8.000 € per tutta la classe. Dura 1 ora.`))) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("training_class", { p_cards: classSel, p_target: classTarget });
     setBusy(false);
@@ -84,7 +85,7 @@ export default function Squadra() {
 
   // Pacchetti a pagamento
   async function buyPack(kind: string, price: number, label?: string) {
-    if (!window.confirm(`Comprare il pacchetto ${label ?? kind} per ${price.toLocaleString("it-IT")} €?`)) return;
+    if (!(await gameConfirm(`Comprare il pacchetto ${label ?? kind} per ${price.toLocaleString("it-IT")} €?`))) return;
     setBusy(true); setError(null);
     const { data, error } = await supabase.rpc("buy_pack", { p_kind: kind });
     if (error) {
@@ -108,7 +109,7 @@ export default function Squadra() {
 
   // Negozio carte: carte create dall'admin con un prezzo
   async function buyCard(c: Card & { shop_price: number }) {
-    if (!window.confirm(`Comprare ${c.first_name} ${c.last_name} per ${c.shop_price.toLocaleString("it-IT")} €?`)) return;
+    if (!(await gameConfirm(`Comprare ${c.first_name} ${c.last_name} per ${c.shop_price.toLocaleString("it-IT")} €?`))) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("buy_card", { p_volunteer: c.volunteer_id });
     setBusy(false);
@@ -127,7 +128,7 @@ export default function Squadra() {
     const ids = list.filter((c) => (c.refill_cost ?? 0) > 0).map((c) => c.id);
     const cost = list.reduce((t, c) => t + (c.refill_cost ?? 0), 0);
     if (!ids.length) return;
-    if (!window.confirm(`Ricaricare l'energia di ${ids.length} ${ids.length === 1 ? "volontario" : "volontari"} per ${cost.toLocaleString("it-IT")} €?`)) return;
+    if (!(await gameConfirm(`Ricaricare l'energia di ${ids.length} ${ids.length === 1 ? "volontario" : "volontari"} per ${cost.toLocaleString("it-IT")} €?`))) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("refill_energy", { p_cards: ids });
     setBusy(false);
