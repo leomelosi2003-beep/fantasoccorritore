@@ -43,6 +43,36 @@ export const RARITY: Record<Card["rarity"], { label: string; border: string; glo
   leggendaria: { label: "Leggendaria", border: "#F59E0B", glow: "0 0 18px rgba(245,158,11,.6)", text: "#B45309" },
 };
 
+// Esperienza: si sale di livello facendo servizi (stessa scala di card_level nel database)
+const LEVELS = [
+  { min: 0, name: "Recluta", icon: "🔰" }, { min: 25, name: "Esperto", icon: "🎖️" },
+  { min: 100, name: "Veterano", icon: "🏅" }, { min: 300, name: "Senior", icon: "🥈" },
+  { min: 600, name: "Istruttore", icon: "🥇" },
+];
+export function cardLevel(services: number) {
+  let i = 0;
+  while (i + 1 < LEVELS.length && services >= LEVELS[i + 1].min) i++;
+  const next = LEVELS[i + 1];
+  return { level: i + 1, ...LEVELS[i], next: next?.min ?? null };
+}
+function LevelBar({ services }: { services: number }) {
+  const l = cardLevel(services);
+  const prev = LEVELS[l.level - 1].min;
+  const pct = l.next ? ((services - prev) / (l.next - prev)) * 100 : 100;
+  return (
+    <div title={`Livello ${l.level}: ${l.level > 1 ? `+${l.level - 1}% sul premio dei servizi` : "nessun bonus ancora"}`}
+         style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
+        <span>{l.icon} Liv. {l.level} · {l.name}{l.level > 1 && <b style={{ color: "#15803D" }}> +{l.level - 1}%</b>}</span>
+        <strong>{l.next ? `${services}/${l.next} servizi` : `${services} servizi`}</strong>
+      </div>
+      <div style={{ height: 5, background: "#eee", borderRadius: 4 }}>
+        <div style={{ width: `${Math.min(100, pct)}%`, height: 5, borderRadius: 4, background: "#7C3AED" }} />
+      </div>
+    </div>
+  );
+}
+
 function stateLabel(c: Card) {
   if (c.state === "scaduta") return { text: "Contratto scaduto", color: "#6B7280" };
   if (c.state === "in_servizio") return { text: "In servizio", color: "#2563EB" };
@@ -100,6 +130,8 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
           {c.cons.map((p) => <div key={p} style={{ color: "#B91C1C" }}>－ {p}</div>)}
         </div>
       )}
+
+      {c.id !== c.volunteer_id && <LevelBar services={c.services_completed ?? 0} />}
 
       {!expired && (
         <div style={{ marginTop: 8 }}>
