@@ -37,6 +37,7 @@ export type MissionPin = {
   first_arrival?: string | null;
   my_vehicles?: number;
   transport?: string | null;
+  bonus_tag?: string | null;
   lat: number;
   lng: number;
 };

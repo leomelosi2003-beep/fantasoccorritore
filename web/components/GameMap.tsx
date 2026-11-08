@@ -658,6 +658,16 @@ export default function GameMap() {
     return () => clearInterval(t);
   }, [org]);
 
+  // Meteo attuale (cambia ogni 3 ore): influisce su quanti servizi escono e su quanto pagano
+  const [weather, setWeather] = useState<{ kind: string; icon: string; label: string; reward: number; night: boolean;
+                                            night_bonus: number; ends_at: string } | null>(null);
+  useEffect(() => {
+    const load = () => supabase.rpc("current_weather").then(({ data }) => { if (data) setWeather(data); });
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 5 * 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Obiettivi completati da ritirare (pallino nel menu)
   const [objReady, setObjReady] = useState(0);
   useEffect(() => {
@@ -851,6 +861,18 @@ export default function GameMap() {
             })()}
           </button>
         )}
+        {weather && (() => {
+          const bonus = Math.round(((weather.reward * (weather.night ? weather.night_bonus : 1)) - 1) * 100);
+          const until = new Date(weather.ends_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+          const text = `${weather.label}${weather.night ? " · Notte: emergenze pagate di più" : ""}. ` +
+            (bonus > 0 ? `I nuovi servizi pagano +${bonus}%. ` : "") + `Fino alle ${until}.`;
+          return (
+            <button className="fs-fleet-btn fs-weather-btn" title={text} onClick={() => showToast(`${weather.icon} ${text}`)}>
+              <span style={{ fontSize: 20 }}>{weather.night && weather.kind === "sereno" ? "🌙" : weather.icon}</span>
+              {bonus > 0 && <strong style={{ color: "#15803D" }}>+{bonus}%</strong>}
+            </button>
+          );
+        })()}
       </div>
 
       {/* Le mie ambulanze con il conto alla rovescia */}
@@ -1246,6 +1268,7 @@ export default function GameMap() {
                 <span>💶 {m.reward_funds.toLocaleString("it-IT")} €</span>
                 <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
               </div>
+              {m.bonus_tag && <div style={{ fontSize: 12, fontWeight: 700, color: "#15803D", marginBottom: 4 }}>✨ Bonus: {m.bonus_tag}</div>}
               {m.requires?.length > 0 && <div className="fs-mis-req">🧰 {m.requires.map((r) => REQ[r] ?? r).join(", ")}</div>}
               {m.won_by_automedica && (
                 <div style={{ marginTop: 8, background: "#FEE2E2", color: "#7F1D1D", borderRadius: 8, padding: "6px 8px", fontSize: 12, fontWeight: 700 }}>
@@ -1460,6 +1483,7 @@ export default function GameMap() {
         .fs-rep { color: #92400E; font-weight: 800; margin-left: 6px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 1px 8px; font-size: 12.5px; }
         .fs-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
         .fs-top > .fs-pill { min-width: 0; }
+        .fs-weather-btn { flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 6px 10px !important; white-space: nowrap; }
         .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 150px; text-align: left; }
         .fs-fuel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
         .fs-fuel-head strong { font-variant-numeric: tabular-nums; }
