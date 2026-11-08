@@ -946,6 +946,7 @@ export default function GameMap() {
             </div>
             {([
               ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
+              ["📰", "Notizie", "#374151", "/notizie"],
               ["🚑", "Garage", "#F97316", "/garage"],
               ["👥", "Squadra", "#1E3A8A", "/squadra"],
               ["🤝", "Alleanza", "#15803D", "/alleanza"],
