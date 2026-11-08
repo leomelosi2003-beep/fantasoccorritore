@@ -76,3 +76,8 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Menu laterale a gruppi (Gioco, La mia associazione, Mercato, Altre associazioni, Numeri, Impostazioni); le note hanno `href` per andare alla pagina giusta.
 - Conferme: `gameConfirm(testo)` in `lib/confirm.ts` (prima riga = titolo), al posto di `window.confirm`.
 - Il tema scuro c'è già per tutte le pagine (`lib/darkTheme.ts`: sostituisce i colori degli stili inline).
+
+## Modalità automatica a turni (migr. 188)
+- Tabella `auto_shifts(base_id, org_id, shifts)` bitmask: 1=8-14, 2=14-20, 4=20-24, 8=0-8 (ora italiana); 15 = H24, max 3 sedi H24 (`TOO_MANY_H24`). RPC `set_auto_shifts(base, shifts)`, `my_auto_prices()`.
+- `refresh_auto_bases()` (chiamata da `charge_auto_mode` ogni minuto e a ogni modifica) riscrive `organizations.auto_base_ids` con le sedi aperte ADESSO (`auto_open_bases`): `auto_dispatch_org`/`auto_medical` non sono cambiate.
+- Costo: `auto_shift_hour_cost` = ceil(auto_hour_cost_org/3) × sedi aperte in quell'ora; addebito allineato all'ora piena (auto_paid_until = prossima ora tonda), all'attivazione solo la parte d'ora restante. `set_auto_bases` (vecchio) ora mette le sedi H24.

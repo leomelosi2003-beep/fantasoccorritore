@@ -13,7 +13,14 @@ const CODES = [
   { key: "ordinari", label: "Servizi ordinari", hint: "Dialisi e dimissioni", color: "#3B82F6" },
   { key: "trasferimenti", label: "Trasferimenti", hint: "Tra ospedali, anche fuori regione", color: "#0E7490" },
 ];
-const MAX_AUTO_BASES = 4; // uguale al limite in set_auto_bases (migrazione 147)
+// Turni delle sedi in automatico (migr. 188): bit 1=8-14, 2=14-20, 4=20-24, 8=0-8; H24 = tutti (max 3 sedi)
+const SHIFTS = [
+  { bit: 1, label: "8–14", icon: "🌅" }, { bit: 2, label: "14–20", icon: "☀️" },
+  { bit: 4, label: "20–24", icon: "🌆" }, { bit: 8, label: "0–8", icon: "🌙" },
+];
+const H24 = 15, MAX_H24 = 3;
+const SHIFT_HOURS: Record<number, number> = { 1: 6, 2: 6, 4: 4, 8: 8 };
+type Prices = { base_hour: number; now_hour: number; current_shift: number; day_estimate: number };
 const CODE_DOT: Record<string, string> = { rosso: "#DC2626", giallo: "#CA8A04", verde: "#16A34A", nessuno: "#3B82F6" };
 const STATUS: Record<string, string> = { in_viaggio: "🚑 in viaggio", sul_posto: "📍 sul posto", conclusa: "✅ concluso", annullata: "↩️ annullato" };
 
@@ -34,6 +41,15 @@ export default function Automatico() {
   const [fleet, setFleet] = useState(0);
   const [bases, setBases] = useState<{ id: string; name: string; is_headquarters: boolean }[]>([]);
   const [autoBases, setAutoBases] = useState<string[]>([]);
+  const [shifts, setShifts] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Prices | null>(null);
+  const loadShifts = async () => {
+    const [{ data: sh }, { data: pr }] = await Promise.all([
+      supabase.from("auto_shifts").select("base_id,shifts"), supabase.rpc("my_auto_prices"),
+    ]);
+    setShifts(Object.fromEntries(((sh as { base_id: string; shifts: number }[]) ?? []).map((x) => [x.base_id, x.shifts])));
+    if (pr) setPrices(pr as Prices);
+  };
   const [ambulances, setAmbulances] = useState<{ id: string; call_sign: string; base_name: string | null; only: boolean }[]>([]);
   const [log, setLog] = useState<Log[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -71,6 +87,7 @@ export default function Automatico() {
           .sort((a, b) => (a.base_name ?? "").localeCompare(b.base_name ?? "") || a.call_sign.localeCompare(b.call_sign)));
       }
       supabase.rpc("my_auto_hour_cost").then(({ data }) => setHourCost(typeof data === "number" ? data : null));
+      loadShifts();
       setLoaded(true);
       loadLog();
     })();
@@ -112,16 +129,29 @@ export default function Automatico() {
     setMsg({ ok: true, text: on ? `🚐 ${v.call_sign}: solo dimissioni e trasferimenti.` : `🚑 ${v.call_sign}: di nuovo su tutti i servizi.` });
   }
 
-  async function toggleBase(id: string) {
-    const prev = autoBases;
-    const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-    if (next.length > MAX_AUTO_BASES) { setMsg({ ok: false, text: `Puoi scegliere al massimo ${MAX_AUTO_BASES} sedi: togline una prima.` }); return; }
-    setAutoBases(next); setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("set_auto_bases", { p_bases: next });
+  async function setBaseShifts(id: string, value: number) {
+    const prev = shifts[id] ?? 0;
+    const h24 = Object.entries(shifts).filter(([b, v]) => b !== id && v === H24).length;
+    if (value === H24 && h24 >= MAX_H24) {
+      setMsg({ ok: false, text: "Puoi avere al massimo " + MAX_H24 + " sedi H24: togli H24 a un'altra sede prima." });
+      return;
+    }
+    setShifts((s) => ({ ...s, [id]: value })); setBusy(true); setMsg(null);
+    const { data, error } = await supabase.rpc("set_auto_shifts", { p_base: id, p_shifts: value });
     setBusy(false);
-    if (error) { setAutoBases(prev); setMsg({ ok: false, text: "Non riesco a salvare, riprova." }); return; }
-    setMsg({ ok: true, text: next.length ? `🏠 Modalità automatica su ${next.length === 1 ? "1 sede" : `${next.length} sedi`}.` : "Nessuna sede scelta: la modalità automatica non manderà mezzi." });
+    if (error) {
+      setShifts((s) => ({ ...s, [id]: prev }));
+      setMsg({ ok: false, text: error.message.includes("TOO_MANY_H24") ? "Al massimo " + MAX_H24 + " sedi H24." : "Non riesco a salvare, riprova." });
+      return;
+    }
+    const d = data as { open_now: string[]; hour_cost: number };
+    setAutoBases(d.open_now ?? []); setHourCost(d.hour_cost ?? null);
+    const name = bases.find((b) => b.id === id)?.name ?? "Sede";
+    setMsg({ ok: true, text: value === 0 ? name + ": chiusa in automatico." : value === H24 ? name + ": aperta H24."
+      : name + ": aperta " + SHIFTS.filter((x) => value & x.bit).map((x) => x.label).join(", ") + "." });
+    loadShifts();
   }
+
 
   return (
     <main style={shell}>
@@ -145,8 +175,10 @@ export default function Automatico() {
                     Sceglie il mezzo più vicino e l&apos;equipaggio più riposato.
                   </div>
                   <div style={{ fontSize: 13, marginTop: 6, fontWeight: 700, color: "#0F766E" }}>
-                    💶 Costa <strong>{hourCost != null ? `${hourCost.toLocaleString("it-IT")} €` : "…"} all&apos;ora</strong> (500 € + 0,1% del patrimonio, + 0,05% della parte sopra 1 milione),
-                    pagati all&apos;inizio di ogni ora. Se finiscono i soldi si spegne da sola.
+                    💶 Si paga per ogni sede aperta: <strong>{prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} all&apos;ora a sede</strong>.
+                    In quest&apos;ora: <strong>{hourCost != null ? hourCost.toLocaleString("it-IT") + " €" : "…"}</strong>
+                    {prices && <> · al giorno circa <strong>{Number(prices.day_estimate).toLocaleString("it-IT")} €</strong></>}.
+                    Si paga a ogni ora piena; se finiscono i soldi si spegne da sola.
                     {enabled && paidUntil && new Date(paidUntil).getTime() > Date.now() &&
                       <> · Pagata fino alle {new Date(paidUntil).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</>}
                   </div>
@@ -161,31 +193,51 @@ export default function Automatico() {
               {msg && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
             </div>
 
-            <div style={{ ...card, border: enabled && autoBases.length === 0 ? "2px solid #DC2626" : undefined }}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>🏠 Sedi in automatico (massimo {MAX_AUTO_BASES})</div>
+            <div style={{ ...card, border: enabled && Object.values(shifts).every((v) => !v) ? "2px solid #DC2626" : undefined }}>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>🕐 Turni delle sedi</div>
               <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
-                La modalità automatica usa solo i mezzi di queste sedi: ambulanze, automediche, barche, officina e ricarica dei volontari.
-                I mezzi delle altre sedi restano a te, da usare a mano.
+                Scegli in quali turni ogni sede lavora in automatico. Fuori turno i suoi mezzi restano a te, da usare a mano.
+                <strong> H24</strong> = tutti e 4 i turni: al massimo {MAX_H24} sedi (anche nessuna). Le altre sedi possono fare i turni che vuoi.
+                Ogni turno costa {prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} l&apos;ora per sede.
               </div>
-              {enabled && autoBases.length === 0 && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Scegli almeno una sede, altrimenti non parte nessun mezzo.</div>}
+              {enabled && Object.values(shifts).every((v) => !v) && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Nessuna sede ha un turno: non parte nessun mezzo.</div>}
               <div style={{ display: "grid", gap: 8 }}>
                 {bases.map((b) => {
-                  const on = autoBases.includes(b.id);
-                  const full = !on && autoBases.length >= MAX_AUTO_BASES;
+                  const v = shifts[b.id] ?? 0;
+                  const isH24 = v === H24;
+                  const h24Full = !isH24 && Object.entries(shifts).filter(([id, x]) => id !== b.id && x === H24).length >= MAX_H24;
+                  const openNow = prices ? (v & prices.current_shift) !== 0 : false;
+                  const hours = SHIFTS.reduce((t, x) => t + ((v & x.bit) ? SHIFT_HOURS[x.bit] : 0), 0);
+                  const chip = (on: boolean, now: boolean): CSSProperties => ({ padding: "7px 0", borderRadius: 10, font: "inherit", fontSize: 12.5, fontWeight: 700,
+                    cursor: busy ? "default" : "pointer", border: on ? "2px solid #0F766E" : "1px solid #ddd",
+                    background: on ? "#0F766E" : "#fff", color: on ? "#fff" : "#555", outline: now ? "2px dashed #F59E0B" : "none", outlineOffset: 1 });
                   return (
-                    <button key={b.id} disabled={busy || full} onClick={() => toggleBase(b.id)}
-                            style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "10px 12px", borderRadius: 12,
-                                     cursor: full ? "not-allowed" : "pointer", font: "inherit", border: on ? "2px solid #0F766E" : "1px solid #ddd",
-                                     background: on ? "#f0fdfa" : "#fff", color: full ? "#999" : "#111" }}>
-                      <span style={{ flex: 1 }}>
-                        <strong>{b.name}</strong>
-                        {b.is_headquarters && <span style={{ fontSize: 12, color: "#666" }}> · sede principale</span>}
-                      </span>
-                      <span style={{ fontSize: 20 }}>{on ? "✅" : "⬜"}</span>
-                    </button>
+                    <div key={b.id} style={{ border: v ? "2px solid #0F766E" : "1px solid #ddd", borderRadius: 12, padding: 10, background: v ? "#f0fdfa" : "#fff" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <strong style={{ flex: 1, minWidth: 0 }}>{b.name}{b.is_headquarters && <span style={{ fontSize: 12, color: "#666", fontWeight: 400 }}> · principale</span>}</strong>
+                        {openNow && <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: "#16A34A", borderRadius: 999, padding: "2px 8px" }}>APERTA ORA</span>}
+                        {v > 0 && <span style={{ fontSize: 11, color: "#666" }}>{hours} h/giorno</span>}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+                        {SHIFTS.map((x) => {
+                          const next = v ^ x.bit;
+                          const blocked = next === H24 && h24Full;   // completare i 4 turni = H24
+                          return (
+                            <button key={x.bit} disabled={busy || blocked} onClick={() => setBaseShifts(b.id, next)}
+                                    title={blocked ? "Hai già " + MAX_H24 + " sedi H24" : x.bit === prices?.current_shift ? "Turno in corso" : undefined}
+                                    style={{ ...chip((v & x.bit) !== 0, x.bit === prices?.current_shift), opacity: blocked ? 0.4 : 1 }}>{x.icon} {x.label}</button>
+                          );
+                        })}
+                        <button disabled={busy || h24Full} onClick={() => setBaseShifts(b.id, isH24 ? 0 : H24)}
+                                title={h24Full ? "Hai già " + MAX_H24 + " sedi H24" : undefined}
+                                style={{ ...chip(isH24, false), background: isH24 ? "#B45309" : "#fff", border: isH24 ? "2px solid #B45309" : "1px solid #ddd",
+                                         opacity: h24Full ? 0.4 : 1, cursor: h24Full ? "not-allowed" : "pointer" }}>H24</button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>Il bordo arancione tratteggiato indica il turno in corso.</div>
             </div>
 
             <div style={card}>

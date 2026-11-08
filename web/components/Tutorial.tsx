@@ -21,7 +21,7 @@ const STEPS: Step[] = [
   { icon: "🤝", title: "Alleanze e trasferimenti",
     body: "Collabora con altre associazioni, scambia sedi, mezzi e volontari, e guadagna con i trasferimenti tra ospedali." },
   { icon: "🤖", title: "Modalità automatica",
-    body: "Attivala per far lavorare le tue sedi da sole mentre sei via: scegli quali codici seguire e quante sedi mettere in automatico." },
+    body: "Attivala per far lavorare le tue sedi da sole mentre sei via: scegli quali codici seguire e i turni di ogni sede (8-14, 14-20, 20-24, 0-8). Al massimo 3 sedi H24. Paghi per ogni sede aperta, ogni ora." },
   { icon: "🎯", title: "Obiettivi, meteo e stagioni",
     body: "Ogni giorno e ogni settimana hai obiettivi con premio. Il meteo cambia ogni 3 ore: col brutto tempo e di notte i servizi pagano di più. Ogni mese c'è una nuova stagione in Classifica, con titoli per i migliori. I volontari salgono di livello facendo servizi." },
   { icon: "🎉", title: "Sei pronto!",
