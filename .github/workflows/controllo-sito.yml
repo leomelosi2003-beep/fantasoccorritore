@@ -1,0 +1,47 @@
+# Controllo del sito dall'esterno: ogni 15 minuti GitHub prova ad aprire il gioco.
+# Se il sito passa da "acceso" a "spento" il controllo fallisce e GitHub manda una email
+# (una sola volta per ogni caduta, non ogni 15 minuti). Non serve nessun account in piu'.
+name: Controllo sito
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stato precedente
+        uses: actions/cache/restore@v4
+        with:
+          path: stato.txt
+          key: stato-${{ github.run_id }}
+          restore-keys: stato-
+
+      - name: Provo ad aprire il sito
+        id: prova
+        run: |
+          PREV=$(cat stato.txt 2>/dev/null || echo su)
+          NOW=giu
+          for i in 1 2 3; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 https://desktop-f0qb534.tail9a3baf.ts.net/api/version || true)
+            if [ "$CODE" = "200" ]; then NOW=su; break; fi
+            sleep 60
+          done
+          echo "$NOW" > stato.txt
+          echo "prima=$PREV adesso=$NOW"
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+          echo "now=$NOW" >> "$GITHUB_OUTPUT"
+
+      - name: Salvo lo stato
+        uses: actions/cache/save@v4
+        with:
+          path: stato.txt
+          key: stato-${{ github.run_id }}
+
+      - name: Avviso
+        if: steps.prova.outputs.prev == 'su' && steps.prova.outputs.now == 'giu'
+        run: |
+          echo "::error::Il gioco non risponde: https://desktop-f0qb534.tail9a3baf.ts.net (PC spento, Docker fermo o tunnel giu')"
+          exit 1
