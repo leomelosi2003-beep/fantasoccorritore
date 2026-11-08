@@ -5,7 +5,8 @@ import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
-import VolunteerCard, { ROLE, type Card } from "@/components/VolunteerCard";
+import VolunteerCard, { ROLE, RARITY, RoleBadge, cardLevel, type Card } from "@/components/VolunteerCard";
+import { avatarSvg } from "@/components/avatar";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
@@ -34,6 +35,17 @@ export default function Squadra() {
   const [classSel, setClassSel] = useState<string[]>([]);
   const [shop, setShop] = useState<(Card & { shop_price: number; owned: boolean })[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // pagina a schede: niente più scorrimento infinito
+  const [tab, setTab] = useState<"squadra" | "pacchetti" | "negozio" | "corsi">("squadra");
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [view, setView] = useState<"lista" | "carte">("lista");
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => {
+    try { const t = localStorage.getItem("fs_squadra_tab"); if (t === "pacchetti" || t === "negozio" || t === "corsi") setTab(t);
+          if (localStorage.getItem("fs_squadra_view") === "carte") setView("carte"); } catch {}
+  }, []);
+  const goTab = (t: typeof tab) => { setTab(t); try { localStorage.setItem("fs_squadra_tab", t); } catch {} };
+  const goView = (v: typeof view) => { setView(v); try { localStorage.setItem("fs_squadra_view", v); } catch {} };
   // prezzi veri dal database (pack_catalog) e quanti volontari restano da trovare per ruolo
   const [catalog, setCatalog] = useState<{ kind: string; price: number; role?: string }[]>([]);
   const [roleAvail, setRoleAvail] = useState<Record<string, number>>({});
@@ -155,11 +167,10 @@ export default function Squadra() {
   if (!org) return <main style={shell} />;
 
   const active = cards.filter((c) => c.state !== "scaduta");
-  const counts = [
-    { ...ROLE.autista, n: active.filter((c) => c.role === "autista" && !c.avanzato).length },
-    { label: "Autista avanzato", icon: "🚑", n: active.filter((c) => c.role === "autista" && c.avanzato).length },
-    ...(["soccorritore_base", "soccorritore_avanzato", "infermiere", "medico"] as const).map((k) => ({ ...ROLE[k], n: active.filter((c) => c.role === k).length })),
-  ];
+  const ROLE_KEYS = ["autista", "soccorritore_base", "soccorritore_avanzato", "infermiere", "medico", "bagnino", "aib"] as const;
+  const counts = ROLE_KEYS.map((k) => ({ key: k, ...ROLE[k], n: active.filter((c) => c.role === k).length })).filter((c) => c.n > 0);
+  const shown = active.filter((c) => !roleFilter || (roleFilter === "stanchi" ? (c.refill_cost ?? 0) > 0 : c.role === roleFilter));
+  const packReady = !!pack && !pack.opened;
   const nextPack = pack?.next_pack_at ? new Date(pack.next_pack_at) : null;
 
   return (
@@ -181,7 +192,22 @@ export default function Squadra() {
         </div>
       </div>
 
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#f4f4f1", borderBottom: "1px solid #e5e5e0" }}>
+        <div style={{ ...wrap, paddingTop: 8, paddingBottom: 8, display: "flex", gap: 6, overflowX: "auto" }}>
+          {([["squadra", "👥 Squadra", active.length], ["pacchetti", "📦 Pacchetti", packReady ? "!" : null],
+             ["negozio", "🛒 Negozio", shop.filter((c) => !c.owned).length || null], ["corsi", "📚 Corsi", null]] as const).map(([k, l, n]) => (
+            <button key={k} onClick={() => goTab(k)}
+                    style={{ padding: "9px 14px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 700, fontSize: 14,
+                             background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+              {l}{n != null && <span style={{ marginLeft: 6, fontSize: 12, padding: "1px 7px", borderRadius: 999,
+                background: n === "!" ? "#F97316" : tab === k ? "rgba(255,255,255,.2)" : "#eee", color: n === "!" ? "#fff" : "inherit" }}>{n}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div style={wrap}>
+        {tab === "pacchetti" && (<>
         {/* Pacchetto settimanale */}
         <div style={{ background: "linear-gradient(135deg,#1E3A8A,#111827)", color: "#fff", borderRadius: 16, padding: 18,
                       display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
@@ -263,8 +289,11 @@ export default function Squadra() {
           </div>
         )}
 
+        </>)}
+
         {/* Negozio carte */}
-        {shop.length > 0 && (
+        {tab === "negozio" && shop.length === 0 && <div style={{ color: "#777", padding: 12 }}>Nessuna carta in vendita al momento.</div>}
+        {tab === "negozio" && shop.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 800, fontSize: 18, margin: "4px 0 8px" }}>🛒 Negozio carte</div>
             <div style={grid}>
@@ -284,7 +313,7 @@ export default function Squadra() {
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12, marginBottom: 12 }}>{error}</div>}
 
         {/* Corso di formazione */}
-        {(() => {
+        {tab === "corsi" && (() => {
           const students = active.filter((c) => c.role === "soccorritore_base" && !c.lent_from && !c.lent_to && c.state !== "in_servizio");
           return (
             <div style={{ background: "#fff", borderRadius: 14, padding: 14, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)",
@@ -325,7 +354,7 @@ export default function Squadra() {
         })()}
 
         {/* Ricarica energia di tutti */}
-        {(() => {
+        {tab === "squadra" && (() => {
           const tired = active.filter((c) => (c.refill_cost ?? 0) > 0 && !c.lent_from && !c.lent_to);
           const cost = tired.reduce((t, c) => t + (c.refill_cost ?? 0), 0);
           return tired.length > 0 && (
@@ -343,22 +372,33 @@ export default function Squadra() {
           );
         })()}
 
-        {/* Riepilogo ruoli */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          {counts.map((c) => (
-            <div key={c.label} style={{ background: "#fff", borderRadius: 10, padding: "8px 12px", fontSize: 14,
-                                         boxShadow: "0 1px 3px rgba(0,0,0,.06)" }}>
-              {c.icon} {c.label}: <strong>{c.n}</strong>
-            </div>
+        {/* Squadra: filtri per ruolo + elenco compatto (tocca per aprire la carta) */}
+        {tab === "squadra" && (<>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+          {[{ key: null as string | null, icon: "👥", label: "Tutti", n: active.length },
+            ...counts.map((c) => ({ key: c.key as string | null, icon: c.icon, label: c.label, n: c.n })),
+            ...(active.some((c) => (c.refill_cost ?? 0) > 0) ? [{ key: "stanchi" as string | null, icon: "😴", label: "Stanchi", n: active.filter((c) => (c.refill_cost ?? 0) > 0).length }] : []),
+          ].map((c) => (
+            <button key={c.label} onClick={() => setRoleFilter(roleFilter === c.key ? null : c.key)}
+                    style={{ border: "none", borderRadius: 999, padding: "7px 11px", fontSize: 13, cursor: "pointer", fontWeight: 600,
+                             background: roleFilter === c.key ? "#111" : "#fff", color: roleFilter === c.key ? "#fff" : "#111",
+                             boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+              {c.icon} {c.label} <strong>{c.n}</strong>
+            </button>
           ))}
+          <div style={{ flex: 1 }} />
+          <button onClick={() => goView(view === "lista" ? "carte" : "lista")}
+                  style={{ border: "1px solid #ddd", background: "#fff", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13 }}>
+            {view === "lista" ? "🃏 Mostra carte" : "☰ Mostra elenco"}
+          </button>
         </div>
 
         {active.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 14, padding: 24, textAlign: "center", color: "#666" }}>
-            Nessun volontario. Apri il pacchetto per formare la tua prima squadra!
+            Nessun volontario. Vai su «📦 Pacchetti» e apri il pacchetto settimanale per formare la tua prima squadra!
           </div>
-        ) : (
-          <div style={grid}>{active.map((c) => (
+        ) : view === "carte" ? (
+          <div style={grid}>{shown.map((c) => (
             <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <VolunteerCard c={c} />
               {(c.refill_cost ?? 0) > 0 && !c.lent_from && !c.lent_to && (
@@ -369,7 +409,59 @@ export default function Squadra() {
               )}
             </div>
           ))}</div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+            {shown.map((c, i) => {
+              const lv = cardLevel(c.services_completed ?? 0);
+              const rest = c.state === "riposo" && c.rest_until && new Date(c.rest_until) > new Date();
+              const st = c.state === "in_servizio" ? ["🚑", "In servizio", "#2563EB"] : rest ? ["😴", "Riposo", "#A16207"]
+                : c.training_until && new Date(c.training_until) > new Date() ? ["📚", "Corso", "#7C3AED"] : ["●", "Pronto", "#16A34A"];
+              const isOpen = open === c.id;
+              return (
+                <div key={c.id} style={{ borderTop: i ? "1px solid #f0f0f0" : "none" }}>
+                  <button onClick={() => setOpen(isOpen ? null : c.id)}
+                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", border: "none",
+                                   background: isOpen ? "#f6f6f4" : "transparent", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit" }}>
+                    <span style={{ lineHeight: 0, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: `2px solid ${RARITY[c.rarity].border}` }}>
+                      {c.avatar_url ? <img src={c.avatar_url} alt="" style={{ width: 40, height: 40, objectFit: "cover" }} />
+                        : <span dangerouslySetInnerHTML={{ __html: avatarSvg(c.volunteer_id, c.gender, c.rarity, 40) }} />}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: "block", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {c.first_name} {c.last_name}{c.rarity !== "comune" && <span style={{ color: RARITY[c.rarity].text, fontSize: 11 }}> · {RARITY[c.rarity].label}</span>}
+                      </span>
+                      <span style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
+                        <RoleBadge c={c} small />
+                        <span style={{ fontSize: 11, color: "#666" }}>{lv.icon} Liv. {lv.level}</span>
+                      </span>
+                    </span>
+                    <span style={{ width: 70, flexShrink: 0 }} title={`Energia ${Math.round(c.energy)}%`}>
+                      <span style={{ display: "block", fontSize: 11, color: st[2] as string, fontWeight: 700, textAlign: "right" }}>{st[0]} {st[1]}</span>
+                      <span style={{ display: "block", height: 6, background: "#eee", borderRadius: 4, marginTop: 4 }}>
+                        <span style={{ display: "block", width: `${c.energy}%`, height: 6, borderRadius: 4,
+                                       background: c.energy >= 60 ? "#16A34A" : c.energy >= 30 ? "#EAB308" : "#DC2626" }} />
+                      </span>
+                    </span>
+                    <span style={{ color: "#999", fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "4px 12px 12px", display: "grid", gap: 8, maxWidth: 360 }}>
+                      <VolunteerCard c={c} />
+                      {(c.refill_cost ?? 0) > 0 && !c.lent_from && !c.lent_to && (
+                        <button disabled={busy} onClick={() => refill([c])}
+                                style={{ ...btn, background: "#16A34A", fontSize: 13, padding: "8px 10px" }}>
+                          ⚡ Ricarica energia · {(c.refill_cost ?? 0).toLocaleString("it-IT")} €
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {shown.length === 0 && <div style={{ padding: 16, color: "#888", textAlign: "center" }}>Nessun volontario con questo filtro.</div>}
+          </div>
         )}
+        </>)}
 
       </div>
 
