@@ -125,6 +125,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
 
   const reloadRef = useRef<() => Promise<void>>(async () => {});
   const crewRef = useRef<HTMLDivElement>(null);
+  // pannello ordinato: mezzo ed equipaggio già pronti, gli elenchi si aprono solo se vuoi cambiare
+  const [showVehicles, setShowVehicles] = useState(false);
+  const [allVehicles, setAllVehicles] = useState(false);
+  const [showCrew, setShowCrew] = useState(false);
+  const [showHeli, setShowHeli] = useState(false);
+  const [crewTouched, setCrewTouched] = useState(false);
   // elisoccorso a pagamento: si attiva per 10 minuti, vale per un solo servizio
   const [heli, setHeli] = useState<{ price: number; active_until: string | null; funds: number } | null>(null);
   const loadHeli = () => supabase.rpc("heli_status").then(({ data }) => setHeli(((data as { price: number; active_until: string | null; funds: number }[]) ?? [])[0] ?? null));
@@ -267,6 +273,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const unavailable = cards.filter((c) => !ready(c));
 
   function toggle(id: string) {
+    setCrewTouched(true);
     setCrew((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= (isAm ? 2 : isBoat ? 3 : 4) ? cur : [...cur, id]);
   }
 
@@ -324,6 +331,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     }
     setCrew(chosen.map((c) => c.id));
   }
+
+  useEffect(() => {
+    if (!vehicleId || crewTouched || !cards.length) return;
+    autoCrew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicleId, cards.length, crewTouched]);
 
   async function activateHeli() {
     if (!heli) return;
@@ -396,7 +409,16 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       </div>
 
       <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
-        {(mission.category === "emergenza_118" || mission.category === "mare") && heli && (() => {
+        {(mission.category === "emergenza_118" || mission.category === "mare") && heli && !showHeli && (
+          <button onClick={() => setShowHeli(true)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, border: "1px solid #FDBA74", background: "#FFF7ED",
+                           color: "#9A3412", borderRadius: 10, padding: "7px 10px", marginBottom: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+            🚁 Elisoccorso: arriva prima e vince a tavolino
+            {heli.active_until && new Date(heli.active_until).getTime() > now && <span style={{ color: "#15803D" }}>· ATTIVO</span>}
+            <span style={{ marginLeft: "auto" }}>▾</span>
+          </button>
+        )}
+        {(mission.category === "emergenza_118" || mission.category === "mare") && heli && showHeli && (() => {
           const left = heli.active_until ? Math.max(0, Math.floor((new Date(heli.active_until).getTime() - now) / 1000)) : 0;
           return (
             <div style={{ background: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", border: "2px solid #EA580C", borderRadius: 12, padding: 10, marginBottom: 12, fontSize: 13 }}>
@@ -501,8 +523,43 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           {mission.requires.length > 0 && <><br /><strong>Presidi:</strong> {mission.requires.map((r) => REQ[r] ?? r).join(", ")}</>}
         </div>
 
+        {/* Riepilogo: chi parte */}
+        {(() => {
+          const v = vehicles.find((x) => x.id === vehicleId);
+          return v ? (
+            <div style={{ border: "2px solid " + code.color, borderRadius: 12, padding: 10, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 22 }}>{v.boat ? "⛵" : v.moto ? "🛵" : v.automedica ? "🩺" : v.aib ? "🚒" : "🚑"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800 }}>{v.call_sign}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>
+                </div>
+                <button onClick={() => setShowVehicles((o) => !o)}
+                        style={{ ...btn, background: "#eee", color: "#111", fontSize: 12, padding: "6px 10px" }}>{showVehicles ? "Chiudi" : "Cambia"}</button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                {crewCards.length === 0 && <span style={{ fontSize: 13, color: "#B91C1C" }}>Nessun volontario pronto per questo mezzo.</span>}
+                {crewCards.map((c) => (
+                  <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f6f6f4", borderRadius: 999, padding: "2px 8px 2px 2px", fontSize: 12 }}>
+                    <span style={{ lineHeight: 0 }} dangerouslySetInnerHTML={{ __html: c.avatar_url
+                      ? `<img src="${c.avatar_url}" width="22" height="22" style="border-radius:999px;object-fit:cover"/>`
+                      : avatarSvg(c.volunteer_id, c.gender, c.rarity, 22) }} />
+                    {c.first_name} <RoleBadge c={c} small />
+                  </span>
+                ))}
+                <button onClick={() => setShowCrew((o) => !o)}
+                        style={{ ...btn, background: "#eee", color: "#111", fontSize: 12, padding: "4px 10px", marginLeft: "auto" }}>{showCrew ? "Chiudi" : "Cambia equipaggio"}</button>
+              </div>
+              {missing.length > 0 && crewCards.length > 0 && (
+                <div style={{ fontSize: 12, color: "#B91C1C", marginTop: 6 }}>Manca: {missing.map((r) => ROLE[r as Card["role"]]?.label ?? r).join(", ")}</div>
+              )}
+            </div>
+          ) : null;
+        })()}
+
         {/* Mezzo */}
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>1. Mezzo</div>
+        {(showVehicles || !vehicleId) && (<>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Scegli il mezzo</div>
         {vehicles.length === 0 && <div style={{ color: "#666", fontSize: 14 }}>Non hai mezzi: comprane uno nel garage.</div>}
         {vehicles.length > 0 && sortedVehicles.every((v) => vehicleProblem(v)) && (() => {
           // Aiuto: nessun mezzo va bene -> spiego che cosa serve per questo tipo di servizio
@@ -522,11 +579,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           );
         })()}
         <div style={{ display: "grid", gap: 6 }}>
-          {sortedVehicles.map((v, i) => {
+          {(allVehicles ? sortedVehicles : sortedVehicles.filter((v) => !vehicleProblem(v)).slice(0, 8)).map((v, i) => {
             const prob = vehicleProblem(v);
             const sel = vehicleId === v.id;
             return (
-              <button key={v.id} disabled={!!prob} onClick={() => { setVehicleId(v.id); setUserPicked(true); }}
+              <button key={v.id} disabled={!!prob} onClick={() => { setVehicleId(v.id); setUserPicked(true); setShowVehicles(false); }}
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
@@ -536,11 +593,22 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             );
           })}
         </div>
+        {(() => {
+          const ok = sortedVehicles.filter((v) => !vehicleProblem(v)).length, hidden = sortedVehicles.length - Math.min(8, ok);
+          return hidden > 0 && (
+            <button onClick={() => setAllVehicles((a) => !a)}
+                    style={{ ...btn, background: "transparent", color: "#2563EB", fontSize: 13, padding: "6px 0" }}>
+              {allVehicles ? "Mostra solo i più vicini" : `Mostra tutti i mezzi (${hidden} in più, anche quelli non disponibili)`}
+            </button>
+          );
+        })()}
+        </>)}
 
         {/* Equipaggio */}
+        {(showCrew || !vehicleId) && (<>
         <div ref={crewRef} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 6px", scrollMarginTop: 8 }}>
           <div style={{ fontWeight: 700 }}>2. Equipaggio <span style={{ fontWeight: 400, color: "#888" }}>({crew.length}/4)</span></div>
-          <button onClick={autoCrew} style={{ ...btn, fontSize: 12, padding: "6px 10px", background: "#1E3A8A" }}>⚡ Automatico</button>
+          <button onClick={() => { setCrewTouched(false); autoCrew(); }} style={{ ...btn, fontSize: 12, padding: "6px 10px", background: "#1E3A8A" }}>⚡ Automatico</button>
         </div>
         {missing.length > 0 && crew.length > 0 && (
           <div style={{ fontSize: 12, color: "#B91C1C", marginBottom: 6 }}>
@@ -603,6 +671,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.lent_to ? "prestato" : c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
           </div>
         )}
+        </>)}
       </div>
 
       {/* Partenza */}
