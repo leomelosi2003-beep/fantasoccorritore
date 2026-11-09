@@ -17,6 +17,7 @@ import OneFingerZoom from "@/components/ThumbZoom";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
+import { perf, getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
@@ -294,7 +295,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
     let raf = 0, last = 0;
     const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
-      if (ts - last < 33) return; // ~30 fotogrammi al secondo bastano e risparmiano batteria
+      if (ts - last < (perf.lite ? 250 : 33)) return; // ~30 fotogrammi al secondo (4 in modalità leggera)
       last = ts;
       const m = ref.current; if (!m) return;
       const t = serverNow();
@@ -501,6 +502,19 @@ export default function GameMap() {
   useEffect(() => { setSound(soundOn()); }, []);
   const [notif, setNotif] = useState(false);
   useEffect(() => { setNotif(notifyOn()); }, []);
+  // Modalità leggera: si attiva da sola se la mappa va a scatti
+  const [perfMode, setPerfModeState] = useState<PerfMode>("auto");
+  const [lite, setLite] = useState(false);
+  const liteRef = useRef(false);
+  useEffect(() => { const m = getPerfMode(); setPerfModeState(m); setLite(m === "on" || (m === "auto" && autoLiteRemembered())); }, []);
+  useEffect(() => { liteRef.current = lite; applyLite(lite); }, [lite]);
+  useEffect(() => {
+    if (perfMode !== "auto" || lite) return;
+    return watchFps(() => {
+      rememberAutoLite(); setLite(true);
+      showToast("⚡ La mappa andava a scatti: ho attivato la modalità leggera (la cambi dal menu, Impostazioni).");
+    });
+  }, [perfMode, lite]); // eslint-disable-line react-hooks/exhaustive-deps
   const reloadRef = useRef<() => void>(() => {});
   // ambulanze di una sede: caricate quando apro il popup della sede
   const [baseCars, setBaseCars] = useState<Record<string, BaseCar[] | null>>({});
@@ -691,7 +705,12 @@ export default function GameMap() {
     reloadRef.current = loadAssignments;
     const t1 = setInterval(() => { if (document.visibilityState === "visible") loadAssignments(); }, 25_000);
     syncClock().then(() => setNow(serverNow()));
-    const t2 = setInterval(() => setNow(serverNow()), 1000);
+    let sec = 0;
+    const t2 = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (liteRef.current && ++sec % 3) return;
+      setNow(serverNow());
+    }, 1000);
     const t3 = setInterval(syncClock, 300_000);
     // con barche o elisoccorso in giro si aggiorna più spesso, per vederli partire subito
     const t4 = setInterval(() => { if (fastRef.current && document.visibilityState === "visible") loadAssignments(); }, 8_000);
@@ -1062,6 +1081,8 @@ export default function GameMap() {
               ["Impostazioni", [
                 ["📖", "Tutorial", "#2563EB", "__tutorial__"],
                 [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
+                ["⚡", perfMode === "on" ? "Modalità leggera: sempre" : perfMode === "off" ? "Modalità leggera: mai"
+                       : lite ? "Modalità leggera: automatica (attiva)" : "Modalità leggera: automatica", "#CA8A04", "__perf__"],
                 ["👆", oneFinger ? "Zoom col pollice sul bordo: attivo" : "Zoom col pollice sul bordo: spento", "#2563EB", "__thumb__"],
                 ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
                 ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
@@ -1075,6 +1096,13 @@ export default function GameMap() {
                   : href === "/obiettivi" ? objReady : 0;
                 return (
               <button key={href} className="fs-drawer-item" onClick={() => {
+                  if (href === "__perf__") {
+                    const m: PerfMode = perfMode === "auto" ? "on" : perfMode === "on" ? "off" : "auto";
+                    setPerfMode(m); setPerfModeState(m); setLite(m === "on");
+                    showToast(m === "on" ? "⚡ Modalità leggera sempre attiva" : m === "off" ? "Modalità leggera spenta: animazioni sempre accese"
+                              : "⚡ Modalità leggera automatica: si accende da sola se la mappa va a scatti");
+                    return;
+                  }
                   if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
                   if (href === "__thumb__") {
                     const v = !oneFinger; setOneFinger(v); try { localStorage.setItem("fs_onefinger", v ? "1" : "0"); } catch {}
@@ -1551,7 +1579,7 @@ export default function GameMap() {
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
-        {flt.othersVehicles && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
+        {flt.othersVehicles && !lite && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
@@ -1689,6 +1717,8 @@ export default function GameMap() {
 
       <style>{`
         .fs-map { height: 100vh; height: 100dvh; }
+        body.fs-lite *, body.fs-lite *::before, body.fs-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
+        body.fs-lite .leaflet-marker-pane *, body.fs-lite .leaflet-marker-pane { filter: none !important; }
         .fs-top { position: absolute; top: 10px; left: 62px; z-index: 1000; max-width: calc(100% - 72px); }
         .fs-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
           border: 1px solid rgba(0,0,0,.05); border-radius: 14px; padding: 6px 12px 6px 8px;
