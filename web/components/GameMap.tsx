@@ -19,7 +19,7 @@ import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
 import { getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
-import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
+import { fetchLeg, getLeg, legKey, onRoadsLoaded, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
 type Hospital = { id: string; name: string; capabilities: string[]; lat: number; lng: number };
@@ -804,6 +804,8 @@ export default function GameMap() {
     return () => clearInterval(t);
   }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // strade nuove arrivate: un solo ridisegno ogni 3 s al massimo
+  useEffect(() => { onRoadsLoaded(() => setRoadsLoaded((n) => n + 1)); return () => onRoadsLoaded(null); }, []);
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
   useEffect(() => {
     const tNow = serverNow();
@@ -815,7 +817,7 @@ export default function GameMap() {
         if (new Date(q.t).getTime() < tNow) continue; // tratto già percorso: non serve
         if (p.lat === q.lat && p.lng === q.lng) continue;
         if (isSea(p) || isSea(q)) continue; // la barca va in linea dritta sul mare
-        fetchLeg(p, q, Math.min(2, ahead++)).then(() => setRoadsLoaded((n) => n + 1));
+        fetchLeg(p, q, Math.min(2, ahead++));
       }
     }
   }, [assignments, others]);
@@ -1641,7 +1643,7 @@ export default function GameMap() {
               const r = a.route as RoutePoint[];
               const pos = alongRoute(r, now);
               const ahead = alongRoute(r, now + 3000);
-              const path = remainingPath(r, pos.leg, pos.f);
+              const path = a.mine && routeFor === a.vehicle_id ? remainingPath(r, pos.leg, pos.f) : [];
               const img = livery(a.vehicle_image, a.org_type) ?? "/vehicles/b-marlin.png";
               return (
                 <Fragment key={`boat-${a.id}`}>
@@ -1688,7 +1690,7 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
-          const path = remainingPath(route, pos.leg, pos.f);
+          const path = routeFor === a.vehicle_id ? remainingPath(route, pos.leg, pos.f) : [];
           const left = Math.max(0, Math.round((pos.until - now) / 60000));
           const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
           return (

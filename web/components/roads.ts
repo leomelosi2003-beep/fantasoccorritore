@@ -3,20 +3,32 @@ export type LatLng = [number, number];
 export type Leg = { pts: LatLng[]; cum: number[] }; // punti e distanza cumulata (metri)
 
 const mem = new Map<string, Leg | "loading" | number>(); // number = momento del fallimento (si riprova dopo un po')
-const KEY = "fs-roads-v2";
+const KEY = "fs-roads-v3";
 const RETRY_MS = 45_000;
+const MAX_STORED = 150;
 
+// L'archivio delle strade si legge UNA volta sola e si riscrive al massimo ogni 15 s
+// (prima veniva riletto e riscritto per intero a ogni strada scaricata: diversi MB → la pagina si bloccava).
+let store: Record<string, LatLng[]> | null = null;
 function loadStore(): Record<string, LatLng[]> {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { return {}; }
+  if (store) return store;
+  try { localStorage.removeItem("fs-roads-v2"); } catch {} // vecchio archivio, troppo grande
+  try { store = JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { store = {}; }
+  return store!;
 }
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function saveStore(k: string, pts: LatLng[]) {
-  try {
-    const s = loadStore();
-    s[k] = pts;
-    const keys = Object.keys(s);
-    for (const old of keys.slice(0, Math.max(0, keys.length - 400))) delete s[old]; // tieni gli ultimi 400
-    localStorage.setItem(KEY, JSON.stringify(s));
-  } catch { /* storage non disponibile */ }
+  const s = loadStore();
+  delete s[k]; s[k] = pts;
+  const keys = Object.keys(s);
+  for (const old of keys.slice(0, Math.max(0, keys.length - MAX_STORED))) delete s[old]; // tieni gli ultimi
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    const write = () => { try { localStorage.setItem(KEY, JSON.stringify(loadStore())); } catch { /* pieno o non disponibile */ } };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+    if (ric) ric(write); else write();
+  }, 15_000);
 }
 
 export function legKey(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
@@ -64,7 +76,11 @@ async function download(a: { lat: number; lng: number }, b: { lat: number; lng: 
       const j = await r.json();
       const coords: [number, number][] = j?.routes?.[0]?.geometry?.coordinates ?? [];
       if (!coords.length) return null;
-      return coords.map(([lng, lat]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5]);
+      const all: LatLng[] = coords.map(([lng, lat]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5]);
+      const out: LatLng[] = [all[0]];
+      for (let i = 1; i < all.length - 1; i++) if (meters(out[out.length - 1], all[i]) >= 25) out.push(all[i]);
+      if (all.length > 1) out.push(all[all.length - 1]);
+      return out;
     } catch {
       srv = (srv + 1) % SERVERS.length; // prova l'altro server
     }
@@ -80,11 +96,20 @@ async function worker() {
     const job = Array.from(jobs.values()).sort((x, y) => x.prio - y.prio)[0];
     jobs.delete(job.k);
     const pts = await download(job.a, job.b);
-    if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); } else mem.set(job.k, Date.now());
+    if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); roadsArrived(); } else mem.set(job.k, Date.now());
     job.done.forEach((f) => f());
     await new Promise((res) => setTimeout(res, 350));
   }
   running = false;
+}
+
+// Chi disegna la mappa si iscrive qui: viene avvisato al massimo ogni 3 s che sono arrivate strade nuove
+let onRoads: (() => void) | null = null;
+let roadsTimer: ReturnType<typeof setTimeout> | null = null;
+export function onRoadsLoaded(cb: (() => void) | null) { onRoads = cb; }
+function roadsArrived() {
+  if (roadsTimer) return;
+  roadsTimer = setTimeout(() => { roadsTimer = null; onRoads?.(); }, 3000);
 }
 
 // prio: 0 = tratto in corso, 1 = prossimo, 2 = più avanti
