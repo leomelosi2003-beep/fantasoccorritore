@@ -17,7 +17,7 @@ import OneFingerZoom from "@/components/ThumbZoom";
 import ThemeToggle from "@/components/ThemeToggle";
 import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
-import { perf, getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
+import { getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
 import { fetchLeg, getLeg, legKey, pointAt, slice, type LatLng } from "@/components/roads";
 
@@ -276,8 +276,9 @@ function sirens(code: string, pos: { moving: boolean; text: string }) {
   return (code === "giallo" || code === "rosso") && pos.moving && pos.text !== "Rientro in sede";
 }
 
-// Ambulanza che si muove in modo fluido: la posizione viene ricalcolata a ogni fotogramma
-// direttamente su Leaflet (senza ridisegnare la pagina), l'icona cambia solo quando cambia verso o lampeggianti.
+// Ambulanza che si muove in modo fluido: una volta al secondo le si dà la posizione che avrà tra 1 s
+// e lo scorrimento lo fa la scheda grafica (transizione CSS su .fs-mv), quindi resta fluido anche se la pagina è impegnata.
+// L'icona cambia solo quando cambia verso o lampeggianti.
 function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
   route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode;
   makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
@@ -292,22 +293,21 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
   });
   const keyRef = useRef(start.key);
   useEffect(() => {
-    let raf = 0, last = 0;
-    const tick = (ts: number) => {
-      raf = requestAnimationFrame(tick);
-      if (ts - last < (perf.lite ? 250 : 33)) return; // ~30 fotogrammi al secondo (4 in modalità leggera)
-      last = ts;
+    const tick = () => {
       const m = ref.current; if (!m) return;
       const t = serverNow();
       const p = alongRoute(routeRef.current, t);
-      m.setLatLng([p.lat, p.lng]);
       const ah = alongRoute(routeRef.current, t + 4000);
       const facing = Math.abs(ah.lng - p.lng) < 1e-7 ? keyRef.current.endsWith("true") : ah.lng > p.lng;
       const key = `${!sirens(code, p)}|${facing}`;
       if (key !== keyRef.current) { keyRef.current = key; m.setIcon(makeRef.current(!sirens(code, p), facing)); }
+      m.getElement()?.classList.add("fs-mv");
+      const next = alongRoute(routeRef.current, t + 1000);
+      m.setLatLng([next.lat, next.lng]);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const first = requestAnimationFrame(tick); // dopo il primo disegno, così la transizione parte
+    const iv = setInterval(tick, 1000);
+    return () => { cancelAnimationFrame(first); clearInterval(iv); };
   }, [code]);
   return <Marker ref={ref} position={start.pos} icon={start.icon} zIndexOffset={zIndexOffset}>{children}</Marker>;
 }
@@ -472,6 +472,14 @@ const DEFAULT_FILTERS: MapFilters = {
 };
 const kindOf = (m: Pick<MissionPin, "category" | "transport">): keyof MapFilters["kinds"] =>
   m.transport === "trasferimento" ? "trasf" : m.category === "mare" ? "mare" : m.category === "ordinario" ? "ordinario" : "e118";
+
+function ZoomGuard() {
+  useMapEvents({
+    zoomstart: (e) => { e.target.getContainer().classList.add("fs-zooming"); },
+    zoomend: (e) => { const c = e.target.getContainer(); requestAnimationFrame(() => requestAnimationFrame(() => c.classList.remove("fs-zooming"))); },
+  });
+  return null;
+}
 
 export default function GameMap() {
   const router = useRouter();
@@ -1239,6 +1247,7 @@ export default function GameMap() {
       </div>
       <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} zoomSnap={0} zoomDelta={0.5} wheelPxPerZoomLevel={90} className="fs-map" style={{ width: "100%" }}>
         <OneFingerZoom enabled={oneFinger} />
+        <ZoomGuard />
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -1717,7 +1726,10 @@ export default function GameMap() {
 
       <style>{`
         .fs-map { height: 100vh; height: 100dvh; }
-        body.fs-lite *, body.fs-lite *::before, body.fs-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
+        .leaflet-marker-icon.fs-mv { transition: transform 1s linear; }
+        .fs-zooming .leaflet-marker-icon.fs-mv { transition: none; }
+        .leaflet-zoom-anim .leaflet-marker-icon.fs-mv { transition: transform .25s cubic-bezier(0,0,.25,1); }
+        body.fs-lite *:not(.fs-mv), body.fs-lite *::before, body.fs-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
         body.fs-lite .leaflet-marker-pane *, body.fs-lite .leaflet-marker-pane { filter: none !important; }
         .fs-top { position: absolute; top: 10px; left: 62px; z-index: 1000; max-width: calc(100% - 72px); }
         .fs-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
