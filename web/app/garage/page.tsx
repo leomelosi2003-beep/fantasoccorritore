@@ -8,7 +8,7 @@ import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
 import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 
-type Model = { id: string; name: string; base_cost: number; speed_factor: number;
+type Model = { id: string; name: string; base_cost: number; speed_factor: number; vmax_kmh?: number | null; agility?: number | null;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
   tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; transfer_only?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
@@ -83,10 +83,10 @@ const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto
 const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
-function Bar({ label, value, color = "#111" }: { label: string; value: number; color?: string }) {
+function Bar({ label, value, color = "#111", text }: { label: string; value: number; color?: string; text?: string }) {
   return (
     <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}><span>{label}</span><span>{Math.round(value)}</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}><span>{label}</span><span>{text ?? Math.round(value)}</span></div>
       <div style={{ height: 6, background: "#eee", borderRadius: 3 }}>
         <div style={{ width: `${Math.min(100, value)}%`, height: 6, background: color, borderRadius: 3 }} />
       </div>
@@ -481,7 +481,13 @@ export default function Garage() {
                       <span style={{ fontWeight: 800 }}>{m.name}</span><span style={{ fontWeight: 800 }}>{euro(m.base_cost)}</span>
                     </div>
                     {m.ability_label && <div style={{ fontSize: 12, fontWeight: 700, color: "#1E40AF", margin: "4px 0" }}>{m.ability_label}</div>}
-                    <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />
+                    {m.vmax_kmh
+                      ? <>
+                          <Bar label="🛣️ Velocità massima" value={((m.vmax_kmh - 90) / 130) * 100} text={`${m.vmax_kmh} km/h`} color="#3B82F6" />
+                          <Bar label="🌀 Agilità in città e curve" value={((Number(m.agility ?? 1) - 0.7) / 0.85) * 100}
+                               text={Number(m.agility ?? 1) >= 1.3 ? "altissima" : Number(m.agility ?? 1) >= 1.08 ? "alta" : Number(m.agility ?? 1) >= 0.95 ? "media" : "bassa"} color="#0EA5E9" />
+                        </>
+                      : <Bar label="Velocità" value={m.speed_factor * 80} color="#3B82F6" />}
                     <Bar label="Affidabilità" value={m.base_reliability} color="#16A34A" />
                     <Bar label="Durata" value={m.base_durability} color="#9333EA" />
                     {m.electric && <Bar label={`Autonomia ${m.range_km ?? 0} km`} value={Math.min(100, ((m.range_km ?? 0) / 150) * 100)} color="#16A34A" />}

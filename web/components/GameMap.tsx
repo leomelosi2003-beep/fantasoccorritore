@@ -895,8 +895,19 @@ export default function GameMap() {
   const showBase = (b: BasePin) => b.org_id === org?.id || flt.bases === "tutte"
     || (flt.bases === "alleati" && !!myAlliance && b.alliance === myAlliance);
   // i servizi dove sta andando un mio mezzo si vedono sempre
-  const showMission = (m: MissionPin) => (m.my_vehicles ?? 0) > 0 || (flt.codes[m.code] && flt.kinds[kindOf(m)]
-    && (!flt.onlyFree || (m.status === "aperta" && m.slots_taken < m.slots_total) || !!m.contestable));
+  // servizi che i miei mezzi hanno già lasciato (verso l'ospedale o la sede): spariscono subito, senza aspettare il server
+  const leftScene = new Set<string>(), stillThere = new Set<string>();
+  for (const a of assignments) {
+    if (a.status === "annullata" || !a.route?.length || now >= new Date(a.route_ends_at).getTime()) continue;
+    const k = `${a.lat.toFixed(4)},${a.lng.toFixed(4)}`;
+    let until = 0;
+    for (const p of a.route) if (Math.abs(p.lat - a.lat) < 0.0008 && Math.abs(p.lng - a.lng) < 0.0008) until = Math.max(until, new Date(p.t).getTime());
+    if (until && now > until) leftScene.add(k); else stillThere.add(k);
+  }
+  const goneKey = Array.from(leftScene).filter((k) => !stillThere.has(k)).sort().join("|");
+  const gone = new Set(goneKey ? goneKey.split("|") : []);
+  const showMission = (m: MissionPin) => !gone.has(`${m.lat.toFixed(4)},${m.lng.toFixed(4)}`) && ((m.my_vehicles ?? 0) > 0 || (flt.codes[m.code] && flt.kinds[kindOf(m)]
+    && (!flt.onlyFree || (m.status === "aperta" && m.slots_taken < m.slots_total) || !!m.contestable)));
   // l'elisoccorso resta sempre visibile (anche quando è sul posto), non entra nel conteggio dei mezzi sul posto
   if (org) for (const a of onTheRoad(assignments, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, org.id, org.type, org.logo_url ?? null);
   if (flt.othersVehicles) for (const a of onTheRoad(others, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
@@ -1595,7 +1606,7 @@ export default function GameMap() {
             </Popup>
           </Marker>
         // l'orologio conta solo se ho un servizio aperto (classifica d'arrivo); altrimenti si aggiorna ogni 30 s
-        )), [missions, flt, responders, org, openMission ? now : Math.floor(now / 30_000)])}
+        )), [missions, flt, responders, org, goneKey, openMission ? now : Math.floor(now / 30_000)])}
 
         {Array.from(sceneCount.entries()).map(([k, c]) => (
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
