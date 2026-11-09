@@ -81,3 +81,9 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Tabella `auto_shifts(base_id, org_id, shifts)` bitmask: 1=8-14, 2=14-20, 4=20-24, 8=0-8 (ora italiana); 15 = H24, max 3 sedi H24 (`TOO_MANY_H24`). RPC `set_auto_shifts(base, shifts)`, `my_auto_prices()`.
 - `refresh_auto_bases()` (chiamata da `charge_auto_mode` ogni minuto e a ogni modifica) riscrive `organizations.auto_base_ids` con le sedi aperte ADESSO (`auto_open_bases`): `auto_dispatch_org`/`auto_medical` non sono cambiate.
 - Costo: `auto_shift_hour_cost` = ceil(auto_hour_cost_org/3) × sedi aperte in quell'ora; addebito allineato all'ora piena (auto_paid_until = prossima ora tonda), all'attivazione solo la parte d'ora restante. `set_auto_bases` (vecchio) ora mette le sedi H24.
+
+## Prestazioni (9/11/2026, migr. 190-192)
+- Il tick durava 4-16 s: `resolve_races` ordinava tutte le assegnazioni mai fatte (ora solo i servizi con mezzi in giro), `auto_dispatch_org` faceva un controllo "mezzo più vicino" per ogni servizio candidato (ora sottoquery ordinata + `offset 0` e si ferma al primo valido; presidi precalcolati in `_auto_free.provides`; `plan_cache_mode = force_custom_plan` sulla funzione). Ora 0,3-2,7 s.
+- `my_objectives` usa `objective_metrics` (una sola lettura). Vista `my_assignments` limitata agli ultimi 2 giorni + indice `mission_assignments_org_assigned_idx`.
+- Dopo uno spegnimento brusco Postgres perde le statistiche (autovacuum/analyze "non sa" quante righe ci sono): se il sito è lento dopo un riavvio, `vacuum (analyze) missions; vacuum (analyze) mission_assignments;`.
+- Misurare: `cron.job_run_details` (durata game-tick) e `pg_stat_statements` (+ `set local pg_stat_statements.track='all'` per vedere dentro le funzioni).
