@@ -78,7 +78,7 @@ async function download(a: { lat: number; lng: number }, b: { lat: number; lng: 
       if (!coords.length) return null;
       const all: LatLng[] = coords.map(([lng, lat]) => [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5]);
       const out: LatLng[] = [all[0]];
-      for (let i = 1; i < all.length - 1; i++) if (meters(out[out.length - 1], all[i]) >= 25) out.push(all[i]);
+      for (let i = 1; i < all.length - 1; i++) if (meters(out[out.length - 1], all[i]) >= 12) out.push(all[i]);
       if (all.length > 1) out.push(all[all.length - 1]);
       return out;
     } catch {

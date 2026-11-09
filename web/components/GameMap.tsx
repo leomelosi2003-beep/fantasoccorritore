@@ -287,6 +287,8 @@ function sirens(code: string, pos: { moving: boolean; text: string }) {
 // Ambulanza che si muove in modo fluido: una volta al secondo le si dà la posizione che avrà tra 1 s
 // e lo scorrimento lo fa la scheda grafica (transizione CSS su .fs-mv), quindi resta fluido anche se la pagina è impegnata.
 // L'icona cambia solo quando cambia verso o lampeggianti.
+// passo del movimento: corto, così tra un punto e l'altro il mezzo resta sulla strada anche nelle curve
+const STEP_MS = 250;
 function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
   route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode;
   makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
@@ -310,11 +312,11 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
       const key = `${!sirens(code, p)}|${facing}`;
       if (key !== keyRef.current) { keyRef.current = key; m.setIcon(makeRef.current(!sirens(code, p), facing)); }
       m.getElement()?.classList.add("fs-mv");
-      const next = alongRoute(routeRef.current, t + 1000);
+      const next = alongRoute(routeRef.current, t + STEP_MS);
       m.setLatLng([next.lat, next.lng]);
     };
     const first = requestAnimationFrame(tick); // dopo il primo disegno, così la transizione parte
-    const iv = setInterval(tick, 1000);
+    const iv = setInterval(tick, STEP_MS);
     return () => { cancelAnimationFrame(first); clearInterval(iv); };
   }, [code]);
   return <Marker ref={ref} position={start.pos} icon={start.icon} zIndexOffset={zIndexOffset}>{children}</Marker>;
@@ -1737,7 +1739,7 @@ export default function GameMap() {
 
       <style>{`
         .fs-map { height: 100vh; height: 100dvh; }
-        .leaflet-marker-icon.fs-mv { transition: transform 1s linear; }
+        .leaflet-marker-icon.fs-mv { transition: transform .25s linear; }
         .fs-zooming .leaflet-marker-icon.fs-mv { transition: none; }
         .leaflet-zoom-anim .leaflet-marker-icon.fs-mv { transition: transform .25s cubic-bezier(0,0,.25,1); }
         body.fs-lite *:not(.fs-mv), body.fs-lite *::before, body.fs-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
