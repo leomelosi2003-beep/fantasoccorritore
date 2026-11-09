@@ -457,6 +457,21 @@ function missionIcon(m: MissionPin, mineGoing: boolean) {
   return ic;
 }
 
+// Filtri della mappa (salvati sul dispositivo): servizi per codice/tipo, sedi, mezzi degli altri, punti fissi
+type MapFilters = {
+  codes: Record<"rosso" | "giallo" | "verde" | "nessuno", boolean>;
+  kinds: Record<"e118" | "ordinario" | "trasf" | "mare", boolean>;
+  onlyFree: boolean; bases: "tutte" | "alleati" | "mie"; othersVehicles: boolean;
+  hospitals: boolean; ports: boolean; events: boolean;
+};
+const DEFAULT_FILTERS: MapFilters = {
+  codes: { rosso: true, giallo: true, verde: true, nessuno: true },
+  kinds: { e118: true, ordinario: true, trasf: true, mare: true },
+  onlyFree: false, bases: "tutte", othersVehicles: true, hospitals: true, ports: true, events: true,
+};
+const kindOf = (m: Pick<MissionPin, "category" | "transport">): keyof MapFilters["kinds"] =>
+  m.transport === "trasferimento" ? "trasf" : m.category === "mare" ? "mare" : m.category === "ordinario" ? "ordinario" : "e118";
+
 export default function GameMap() {
   const router = useRouter();
   const [missions, setMissions] = useState<MissionPin[]>([]);
@@ -475,6 +490,12 @@ export default function GameMap() {
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [flt, setFlt] = useState<MapFilters>(DEFAULT_FILTERS);
+  useEffect(() => { try { const v = localStorage.getItem("fs_map_filters"); if (v) setFlt({ ...DEFAULT_FILTERS, ...JSON.parse(v) }); } catch {} }, []);
+  const saveFlt = (next: MapFilters) => { setFlt(next); try { localStorage.setItem("fs_map_filters", JSON.stringify(next)); } catch {} };
+  const hiddenCount = Object.values(flt.codes).filter((v) => !v).length + Object.values(flt.kinds).filter((v) => !v).length
+    + (flt.onlyFree ? 1 : 0) + (flt.bases !== "tutte" ? 1 : 0) + (flt.othersVehicles ? 0 : 1) + (flt.hospitals ? 0 : 1) + (flt.ports ? 0 : 1) + (flt.events ? 0 : 1);
   const [oneFinger, setOneFinger] = useState(true);
   useEffect(() => { try { if (localStorage.getItem("fs_onefinger") === "0") setOneFinger(false); } catch {} }, []);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -851,9 +872,15 @@ export default function GameMap() {
     const o = cur.orgs.get(orgId) ?? { type, logo, n: 0 };
     o.n += 1; cur.orgs.set(orgId, o); sceneCount.set(k, cur);
   };
+  const myAlliance = bases.find((b) => b.org_id === org?.id)?.alliance ?? null;
+  const showBase = (b: BasePin) => b.org_id === org?.id || flt.bases === "tutte"
+    || (flt.bases === "alleati" && !!myAlliance && b.alliance === myAlliance);
+  // i servizi dove sta andando un mio mezzo si vedono sempre
+  const showMission = (m: MissionPin) => (m.my_vehicles ?? 0) > 0 || (flt.codes[m.code] && flt.kinds[kindOf(m)]
+    && (!flt.onlyFree || (m.status === "aperta" && m.slots_taken < m.slots_total) || !!m.contestable));
   // l'elisoccorso resta sempre visibile (anche quando è sul posto), non entra nel conteggio dei mezzi sul posto
   if (org) for (const a of onTheRoad(assignments, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, org.id, org.type, org.logo_url ?? null);
-  for (const a of onTheRoad(others, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
+  if (flt.othersVehicles) for (const a of onTheRoad(others, now)) if (onScene(a, now) && !isHeli(a)) addScene(a.lat, a.lng, a.org_id, a.org_type, a.logo_url);
 
   return (
     <div style={{ position: "relative", fontFamily: "system-ui, sans-serif" }}>
@@ -1124,7 +1151,55 @@ export default function GameMap() {
       )}
       {/* Legenda dei simboli sulla mappa */}
       <div className="fs-legend">
-        <button className="fs-legend-btn" onClick={() => setLegendOpen((o) => !o)} aria-expanded={legendOpen}>{legendOpen ? "✕" : "ℹ️ Legenda"}</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="fs-legend-btn" onClick={() => { setFiltersOpen((o) => !o); setLegendOpen(false); }} aria-expanded={filtersOpen}
+                  style={hiddenCount ? { background: "#111", color: "#fff" } : undefined}>
+            {filtersOpen ? "✕" : <>🔍 Filtri{hiddenCount > 0 && <b style={{ marginLeft: 5, background: "#F97316", color: "#fff", borderRadius: 999, padding: "0 6px", fontSize: 11 }}>{hiddenCount}</b>}</>}
+          </button>
+          <button className="fs-legend-btn" onClick={() => { setLegendOpen((o) => !o); setFiltersOpen(false); }} aria-expanded={legendOpen}>{legendOpen ? "✕" : "ℹ️ Legenda"}</button>
+        </div>
+        {filtersOpen && (() => {
+          const chip = (on: boolean, label: string, click: () => void, color?: string) => (
+            <button key={label} onClick={click}
+                    style={{ border: on ? `2px solid ${color ?? "#111"}` : "1px solid #ddd", background: on ? (color ? color + "22" : "#f1f1f1") : "#fff",
+                             color: on ? "#111" : "#999", borderRadius: 999, padding: "5px 10px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                             textDecoration: on ? "none" : "line-through" }}>{label}</button>
+          );
+          return (
+            <div className="fs-legend-box" style={{ width: 280 }}>
+              <div className="fs-legend-h">Servizi: codice</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {(["rosso", "giallo", "verde", "nessuno"] as const).map((c) =>
+                  chip(flt.codes[c], c === "nessuno" ? "Ordinari" : c[0].toUpperCase() + c.slice(1),
+                       () => saveFlt({ ...flt, codes: { ...flt.codes, [c]: !flt.codes[c] } }), CODE_COLOR[c]))}
+              </div>
+              <div className="fs-legend-h">Servizi: tipo</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {([["e118", "✚ 118"], ["ordinario", "O Ordinari"], ["trasf", "⇄ Trasferimenti"], ["mare", "≈ Mare"]] as const).map(([k, l]) =>
+                  chip(flt.kinds[k], l, () => saveFlt({ ...flt, kinds: { ...flt.kinds, [k]: !flt.kinds[k] } })))}
+              </div>
+              <div style={{ marginTop: 6 }}>{chip(flt.onlyFree, "Solo servizi ancora liberi", () => saveFlt({ ...flt, onlyFree: !flt.onlyFree }), "#16A34A")}</div>
+              <div className="fs-legend-h">Sedi</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {([["tutte", "Tutte"], ["alleati", "Mie e alleati"], ["mie", "Solo le mie"]] as const).map(([k, l]) =>
+                  chip(flt.bases === k, l, () => saveFlt({ ...flt, bases: k })))}
+              </div>
+              <div className="fs-legend-h">Altro</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {chip(flt.othersVehicles, "🚑 Mezzi degli altri", () => saveFlt({ ...flt, othersVehicles: !flt.othersVehicles }))}
+                {chip(flt.hospitals, "🏥 Ospedali", () => saveFlt({ ...flt, hospitals: !flt.hospitals }))}
+                {chip(flt.ports, "⚓ Porti", () => saveFlt({ ...flt, ports: !flt.ports }))}
+                {chip(flt.events, "🏟️ Eventi", () => saveFlt({ ...flt, events: !flt.events }))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, fontSize: 12, color: "#666" }}>
+                <span>I servizi dove vanno i tuoi mezzi, maxi-emergenze e incendi si vedono sempre.</span>
+              </div>
+              {hiddenCount > 0 && <button onClick={() => saveFlt(DEFAULT_FILTERS)}
+                      style={{ marginTop: 8, width: "100%", border: "none", borderRadius: 10, padding: "8px", background: "#111", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                Mostra tutto</button>}
+            </div>
+          );
+        })()}
         {legendOpen && (
           <div className="fs-legend-box">
             <div className="fs-legend-h">Servizi (gocce)</div>
@@ -1162,12 +1237,12 @@ export default function GameMap() {
           return <CircleMarker center={[p.lat, p.lng]} radius={26 + ((now / 1000) % 2) * 6}
                                pathOptions={{ color: "#2563EB", weight: 4, fillColor: "#60A5FA", fillOpacity: 0.15 }} />;
         })()}
-        {heliBases.map((p) => (
+        {flt.hospitals && heliBases.map((p) => (
           <Marker key={`heli-${p.id}`} position={[p.lat, p.lng]} icon={heliIcon}>
             <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
           </Marker>
         ))}
-        {ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
+        {flt.ports && ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
@@ -1211,7 +1286,7 @@ export default function GameMap() {
             </Popup>
           </Marker>
         ))}
-        {hospitals.map((h) => (
+        {flt.hospitals && hospitals.map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
             <Popup>
               <strong>🏥 {h.name}</strong><br />
@@ -1221,7 +1296,7 @@ export default function GameMap() {
           </Marker>
         ))}
 
-        {bases.map((b) => (
+        {bases.filter(showBase).map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters)}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
@@ -1288,7 +1363,7 @@ export default function GameMap() {
           </Marker>
         ))}
 
-        {upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
+        {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);
           const opensAt = new Date(new Date(e.starts_at).getTime() - 2 * 3600 * 1000);
           return (
@@ -1310,7 +1385,7 @@ export default function GameMap() {
                   pathOptions={{ color: "#C2410C", weight: 2, opacity: 0.8, fillColor: "#F97316", fillOpacity: 0.12 + Math.min(0.3, f.intensity / 300) }} />
         ))}
 
-        {missions.filter((m) => m.category === "grande_evento").map((m) => {
+        {missions.filter((m) => m.category === "grande_evento" && (flt.events || !m.event_id || (m.my_vehicles ?? 0) > 0)).map((m) => {
           const isFire = !m.event_id && m.venue === "AIB";
           const isMaxi = !m.event_id && m.venue !== "AIB";
           const fire = fires.find((x) => x.mission_id === m.id);
@@ -1386,7 +1461,7 @@ export default function GameMap() {
           );
         })}
 
-        {missions.filter((m) => m.category !== "grande_evento").map((m) => (
+        {missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={missionIcon(m, (m.my_vehicles ?? 0) > 0)}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
@@ -1491,7 +1566,7 @@ export default function GameMap() {
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
-        {onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
+        {flt.othersVehicles && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
