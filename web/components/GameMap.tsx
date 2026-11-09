@@ -479,9 +479,7 @@ export default function GameMap() {
   const [bases, setBases] = useState<BasePin[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
   const [notes, setNotes] = useState<{ id: string; text: string; href: string }[]>([]);
-  const [moneyPops, setMoneyPops] = useState<{ key: number; amount: number; label: string }[]>([]);
   const [shownFunds, setShownFunds] = useState<number | null>(null);
-  const [fundsFlash, setFundsFlash] = useState(false);
 
   const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -671,19 +669,16 @@ export default function GameMap() {
     async function loadAssignments() {
       const { data } = await supabase.from("my_assignments").select("*");
       const list = (data as Assignment[]) ?? [];
+      let earned = false;
       for (const a of list) {
         if (prev.get(a.id) && prev.get(a.id) !== "annullata" && prev.get(a.id) !== "conclusa" && a.status === "annullata"
             && !a.route?.some((p) => p.label === "Viaggio annullato")) {
           showToast(`⚔️ ${a.call_sign}: servizio perso, un'altra ambulanza è arrivata prima. Rientra in sede.`);
         }
-        if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") {
-          const amount = a.reward_funds ?? 0, key = Date.now() + Math.random();
-          playSound("money");
-          setMoneyPops((p) => [...p, { key, amount, label: `${a.call_sign} · ${a.title.split(" — ")[0]}` }]);
-          setTimeout(() => setMoneyPops((p) => p.filter((x) => x.key !== key)), 1900);
-          refreshOrg();
-        }
+        // servizio concluso: niente avvisi né animazioni, solo il saldo aggiornato (una richiesta sola)
+        if (prev.get(a.id) && prev.get(a.id) !== "conclusa" && a.status === "conclusa") earned = true;
       }
+      if (earned) refreshOrg();
       prev = new Map(list.map((a) => [a.id, a.status]));
       fastRef.current = list.some((a) => (isBoat(a) || isHeli(a)) && serverNow() < new Date(a.route_ends_at).getTime());
       setAssignments(list);
@@ -703,27 +698,9 @@ export default function GameMap() {
     return () => { clearInterval(t1); clearInterval(t2); clearInterval(t3); clearInterval(t4); };
   }, []);
 
-  // I soldi in alto salgono contando, con un lampo verde quando entrano
-  useEffect(() => {
-    if (!org) return;
-    const target = org.funds;
-    setShownFunds((from) => {
-      if (from === null || from === target) return target;
-      if (target > from) {
-        const start = performance.now(), dur = 1400, base = from;
-        setFundsFlash(true);
-        setTimeout(() => setFundsFlash(false), 1800);
-        const step = (t: number) => {
-          const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
-          setShownFunds(Math.round(base + (target - base) * e));
-          if (k < 1) requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
-        return from;
-      }
-      return target;
-    });
-  }, [org?.funds]); // eslint-disable-line react-hooks/exhaustive-deps
+  // saldo in alto: si aggiorna direttamente (niente animazione, che ridisegnava tutta la mappa)
+  useEffect(() => { if (org) setShownFunds(org.funds); }, [org?.funds]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Richieste e proposte per me (inviti in alleanza, offerte di acquisto): controllo ogni 20 secondi
   useEffect(() => {
@@ -896,7 +873,7 @@ export default function GameMap() {
             <span className="fs-pill-text">
               <span className="fs-name">{org.name}</span>
               {org.auto_enabled && <span className="fs-auto">🤖 AUTO</span>}
-              <span className={`fs-money${fundsFlash ? " fs-money-flash" : ""}`}>💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
+              <span className="fs-money">💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € <span className="fs-rep">⭐ {org.reputation}</span></span>
               {stats && (
                 <span className="fs-chips">
                   <span title="Entrate meno uscite nell'ultima ora" style={{ color: stats.net_1h >= 0 ? "#15803D" : "#DC2626" }}>
@@ -1030,12 +1007,6 @@ export default function GameMap() {
         </div>
       )}
 
-      {/* Soldi che entrano: monete che volano e cifra grande */}
-      {moneyPops.map((p, i) => (
-        <div key={p.key} className="fs-pop" style={{ top: `${13 + i * 6}%` }}>
-          <span className="fs-pop-chip">💶 +{p.amount.toLocaleString("it-IT")} €<span className="fs-pop-sub">{p.label}</span></span>
-        </div>
-      ))}
 
       {/* Modalità scura */}
       <ThemeToggle className="fs-theme-btn" />
