@@ -75,7 +75,7 @@ function alongRoute(route: RoutePoint[], now: number) {
 const isHeli = (a: { vehicle_image?: string | null }) => !!a.vehicle_image?.includes("h-pegaso");
 const isBoat = (a: { vehicle_image?: string | null }) => /\/b-(marlin|sprint)/.test(a.vehicle_image ?? "");
 type HeliRow = { id: string; status: string; route: RoutePoint[] | null; arrives_at: string; route_ends_at: string; lat: number; lng: number;
-  title: string; hospital: string | null; vehicle_image: string | null; org_name: string; org_type: string | null; call_sign: string; mine: boolean };
+  title: string; hospital: string | null; vehicle_image: string | null; org_name: string; org_type: string | null; call_sign: string; mine: boolean; vehicle_id?: string | null };
 const boatIcons = new Map<string, L.DivIcon>();
 function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: boolean, badge = "⛵ IN MARE") {
   const k = `${img}|${facingRight}|${w}|${moving}|${badge}`;
@@ -560,12 +560,15 @@ export default function GameMap() {
   // "Localizza": centra la mappa sul mezzo e lo evidenzia per qualche secondo
   const mapRef = useRef<L.Map | null>(null);
   const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
+  // percorso blu: solo del mezzo selezionato (tocco sul mezzo o "Localizza")
+  const [routeFor, setRouteFor] = useState<string | null>(null);
   function locate(vehicleId: string) {
     const a = assignments.filter((x) => x.vehicle_id === vehicleId).sort((x, y) => (x.assigned_at < y.assigned_at ? 1 : -1))[0];
     if (!a) { showToast("Questo mezzo non è in servizio."); return; }
     const pos = alongRoute(routeOf(a), serverNow());
     mapRef.current?.flyTo([pos.lat, pos.lng], Math.max(mapRef.current.getZoom(), 14), { duration: 1.2 });
     setLocated({ vehicle: vehicleId, until: serverNow() + 8000 });
+    setRouteFor(vehicleId);
     showToast(`📍 ${a.call_sign}: ${pos.text}`);
   }
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([]);
@@ -1149,6 +1152,17 @@ export default function GameMap() {
           <button onClick={() => setMooring(null)} style={{ border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>Annulla</button>
         </div>
       )}
+      {routeFor && (() => {
+        const a = assignments.find((x) => x.vehicle_id === routeFor);
+        return a ? (
+          <button onClick={() => setRouteFor(null)}
+                  style={{ position: "absolute", zIndex: 1001, left: "50%", transform: "translateX(-50%)", bottom: "calc(150px + env(safe-area-inset-bottom))",
+                           border: "none", borderRadius: 999, background: "#2563EB", color: "#fff", fontWeight: 700, fontSize: 13,
+                           padding: "7px 12px", boxShadow: "0 2px 10px rgba(0,0,0,.3)", cursor: "pointer" }}>
+            🛣️ Percorso di {a.call_sign} ✕
+          </button>
+        ) : null;
+      })()}
       {/* Legenda dei simboli sulla mappa */}
       <div className="fs-legend">
         <div style={{ display: "flex", gap: 6 }}>
@@ -1599,7 +1613,7 @@ export default function GameMap() {
         {/* Elisoccorso: livello dedicato, posizione ricalcolata ogni secondo, sempre visibile dal decollo al rientro */}
         {([...assignments.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
                 lat: x.lat, lng: x.lng, title: x.title, hospital: x.hospital, vehicle_image: x.vehicle_image, org_name: "", org_type: org?.type ?? null,
-                call_sign: x.call_sign, mine: true })),
+                call_sign: x.call_sign, mine: true, vehicle_id: x.vehicle_id })),
            ...others.map((x) => ({ id: x.id, status: x.status, route: x.route, arrives_at: x.arrives_at, route_ends_at: x.route_ends_at,
                 lat: (x as unknown as { lat: number }).lat, lng: (x as unknown as { lng: number }).lng, title: x.title, hospital: x.hospital,
                 vehicle_image: x.vehicle_image, org_name: x.org_name, org_type: x.org_type, call_sign: x.call_sign, mine: false }))] as HeliRow[])
@@ -1614,14 +1628,14 @@ export default function GameMap() {
               const img = livery(a.vehicle_image, a.org_type) ?? "/vehicles/b-marlin.png";
               return (
                 <Fragment key={`boat-${a.id}`}>
-                  {a.mine && path.map((seg, i) => (
+                  {a.mine && routeFor === a.vehicle_id && path.map((seg, i) => (
                     <Polyline key={`boat-${a.id}-${i}`} positions={seg}
                               pathOptions={{ color: "#0369A1", weight: i === 0 ? 4 : 3, opacity: i === 0 ? 0.85 : 0.45, dashArray: i === 0 ? undefined : "8 8" }} />
                   ))}
                   <Marker position={[pos.lat, pos.lng]} icon={boatMoveIcon(img, ahead.lng > pos.lng, a.mine ? 72 : 58, pos.moving,
                           pos.moving ? (pos.text.startsWith("Rientro") ? "⛵ RIENTRA ALL'ORMEGGIO" : "⛵ IN NAVIGAZIONE")
                           : pos.text.startsWith("In porto") ? "⚓ IN PORTO · ASPETTA L'AMBULANZA" : pos.text.startsWith("Soccorso") ? "🛟 SOCCORSO IN MARE" : "⛵ IN MARE")} zIndexOffset={2500}>
-                    <Popup>
+                    <Popup eventHandlers={{ add: () => { if (a.mine && a.vehicle_id) setRouteFor(a.vehicle_id); } }}>
                       <strong>⛵ {a.call_sign}</strong>{a.mine ? "" : ` · ${a.org_name}`}<br />
                       {a.title}<br />{pos.text}
                     </Popup>
@@ -1662,7 +1676,7 @@ export default function GameMap() {
           const back = Math.max(0, Math.round((new Date(a.completes_at).getTime() - now) / 60000));
           return (
             <Fragment key={a.id}>
-            {path.map((seg, i) => (
+            {routeFor === a.vehicle_id && path.map((seg, i) => (
               <Polyline key={`${a.id}-p${i}`} positions={seg}
                         pathOptions={i === 0 && pos.moving
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
@@ -1670,7 +1684,7 @@ export default function GameMap() {
             ))}
             {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
-              <Popup className="fs-amb-popup">
+              <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
                   <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
                     <span style={{ fontSize: 17 }}>🚑</span>
