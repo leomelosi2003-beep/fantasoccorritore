@@ -106,8 +106,15 @@ while ($true) {
       # rete Wi-Fi da usare: quella salvata con "Connetti automaticamente"
       $wifi = (netsh wlan show profiles | Select-String ':\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -First 1)
     }
-    Log "Internet assente ($offline). Ricollego la Wi-Fi '$wifi'..." Yellow
-    if ($wifi) { netsh wlan connect name="$wifi" *> $null }
+    # Se la Wi-Fi risulta ancora collegata e' un buco di internet (modem/linea): forzare la riconnessione
+    # farebbe solo cadere la Wi-Fi. Ricollego subito solo se e' davvero scollegata, altrimenti dopo 6 minuti.
+    $wifiUp = [bool](netsh wlan show interfaces | Select-String '^\s*(Stato|State)\s*:\s*(connessa|connected)\s*$')
+    if (-not $wifiUp -or $offline -ge 3) {
+      Log "Internet assente ($offline, Wi-Fi $(if ($wifiUp) { 'collegata' } else { 'scollegata' })). Ricollego la Wi-Fi '$wifi'..." Yellow
+      if ($wifi) { netsh wlan connect name="$wifi" *> $null }
+    } else {
+      Log "Internet assente ($offline) ma la Wi-Fi e' collegata: aspetto che torni." Yellow
+    }
     if ($offline % 5 -eq 0) {
       # ogni 10 minuti senza rete provo anche a riaccendere la scheda Wi-Fi (serve l'amministratore: se non c'e', pazienza)
       Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceDescription -match 'Wireless|Wi-?Fi|802\.11' } |

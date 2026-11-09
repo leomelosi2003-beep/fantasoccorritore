@@ -7,7 +7,8 @@ Write-Host "== Riavvio FantaSoccorritore ==" -ForegroundColor Cyan
 
 # 1) Wi-Fi
 $rete = (netsh wlan show profiles | Select-String ':\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -First 1)
-if ($rete) { Write-Host "Ricollego la Wi-Fi '$rete'..."; netsh wlan connect name="$rete" | Out-Null; Start-Sleep 10 }
+$wifiUp = [bool](netsh wlan show interfaces | Select-String '^s*(Stato|State)s*:s*(connessa|connected)s*$')
+if ($rete -and -not $wifiUp) { Write-Host "Ricollego la Wi-Fi '$rete'..."; netsh wlan connect name="$rete" | Out-Null; Start-Sleep 10 }
 $ok = $false
 foreach ($i in 1..6) {
   try { $c = New-Object Net.Sockets.TcpClient; if ($c.ConnectAsync("1.1.1.1", 443).Wait(5000) -and $c.Connected) { $ok = $true }; $c.Close() } catch {}
