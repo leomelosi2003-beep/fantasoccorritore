@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Circle, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
@@ -126,24 +126,32 @@ const portIcon = L.divIcon({
 });
 type Handoff = { boat_assignment: string; boat_call_sign: string; port_id: number; port_name: string; at_port: string; wait_until: string;
                  id: string; lat: number; lng: number };
+// Cache delle icone: se l'icona è uguale riuso lo stesso oggetto (Leaflet altrimenti rifà il simbolo da capo)
+const iconCache = new Map<string, L.DivIcon>();
+function memoIcon(key: string, make: () => L.DivIcon): L.DivIcon {
+  let ic = iconCache.get(key);
+  if (!ic) { ic = make(); if (iconCache.size > 2000) iconCache.clear(); iconCache.set(key, ic); }
+  return ic;
+}
+
 // Porto con una mia barca che aspetta l'ambulanza: bandierina rossa con "!" che pulsa
 function handoffIcon(n: number) {
-  return L.divIcon({
+  return memoIcon(`handoff|${n}`, () => L.divIcon({
     className: "",
     html: `<div class="fs-handoff-pin" style="position:relative;width:34px;height:34px;border-radius:50%;background:#DC2626;border:3px solid #fff;
            display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;font-family:system-ui">!
            <span style="position:absolute;right:-8px;bottom:-6px;background:#E0F2FE;border:2px solid #0369A1;border-radius:6px;font-size:11px;
            padding:0 2px;line-height:14px">⚓${n > 1 ? n : ""}</span></div>`,
     iconSize: [34, 34], iconAnchor: [17, 17],
-  });
+  }));
 }
 function boatIcon(img: string | null) {
-  return L.divIcon({
+  return memoIcon(`boat|${img}`, () => L.divIcon({
     className: "",
     html: `<div style="position:relative"><img src="${(img ?? "/vehicles/b-marlin.png").replace(/\.png$/, "-map.png")}" style="width:54px;height:auto;display:block" alt=""/>
            <span style="position:absolute;right:-4px;top:-6px;background:#0369A1;color:#fff;border-radius:999px;font-size:10px;padding:0 4px">⚓</span></div>`,
     iconSize: [54, 34], iconAnchor: [27, 30],
-  });
+  }));
 }
 
 // Strada ancora da fare: resto del tratto attuale + tratti successivi
@@ -198,35 +206,35 @@ const KIND_ICON: Record<string, string> = { calcio: "⚽", basket: "🏀", conce
 // Icona dei grandi eventi: emoji del tipo su cerchio (viola se prenotabile, grigio se apre più tardi)
 function eventIcon(kind: string, open: boolean) {
   const s = open ? 40 : 32;
-  return L.divIcon({
+  return memoIcon(`ev|${kind}|${open}`, () => L.divIcon({
     className: "",
     html: `<div style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
            font-size:${open ? 22 : 17}px;background:${open ? "#7C3AED" : "#fff"};border:3px solid ${open ? "#fff" : "#7C3AED"};
            box-shadow:0 2px 6px rgba(0,0,0,.4);${open ? "animation:ev-pulse 1.4s infinite" : "opacity:.85"}">${KIND_ICON[kind] ?? "🎪"}</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
-  });
+  }));
 }
 
 // Icona dell'incendio boschivo.
 function fireIcon() {
   const s = 50;
-  return L.divIcon({
+  return memoIcon("fire", () => L.divIcon({
     className: "",
     html: `<div class="fs-fire-pin" style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
            font-size:26px;background:radial-gradient(circle at 50% 32%,#FDBA74,#C2410C 70%);border:3px solid #fff;">🔥</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
-  });
+  }));
 }
 
 // Icona speciale della maxi-emergenza: grande, rossa, pulsante.
 function maxiIcon() {
   const s = 54;
-  return L.divIcon({
+  return memoIcon("maxi", () => L.divIcon({
     className: "",
     html: `<div class="fs-maxi-pin" style="width:${s}px;height:${s}px;border-radius:50%;display:flex;align-items:center;justify-content:center;
            font-size:27px;background:radial-gradient(circle at 50% 32%,#FCA5A5,#DC2626 70%);border:3px solid #fff;">🆘</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
-  });
+  }));
 }
 
 // Ambulanza in movimento: lampeggia se in viaggio, ferma sul posto durante l'intervento
@@ -253,11 +261,11 @@ function sceneBadge(orgs: SceneOrg[]) {
     `<span style="display:inline-flex;align-items:center;gap:3px;background:#fff;color:#111;border-radius:999px;padding:1px 6px 1px 2px;
        box-shadow:0 1px 3px rgba(0,0,0,.4);font:800 12px system-ui">
        <span style="display:inline-flex;width:16px;height:16px;border-radius:50%;overflow:hidden;align-items:center;justify-content:center">${emblemSvg(o.type, 16, o.logo)}</span>🚑${o.n}</span>`).join("");
-  return L.divIcon({
+  return memoIcon("scene|" + chips, () => L.divIcon({
     className: "",
     html: `<div style="display:flex;gap:3px;white-space:nowrap;pointer-events:none">${chips}</div>`,
     iconSize: [60 * orgs.length, 20], iconAnchor: [-6, 26],
-  });
+  }));
 }
 
 // Per ogni mezzo, solo il servizio più recente, finché il percorso (rientro compreso) non è finito
@@ -414,7 +422,7 @@ function lastSeen(t: string) {
 function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false) {
   const svg = emblemSvg(type, mine ? (logo ? 36 : 28) : (logo ? 28 : 20), logo);
   const s = mine ? 44 : 34;
-  return L.divIcon({
+  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}`, () => L.divIcon({
     className: "",
     html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:10px;background:#fff;display:flex;
            align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
@@ -424,7 +432,7 @@ function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null
            ? `<span title="Online" style="position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;
               background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}</div>`,
     iconSize: [s, s], iconAnchor: [s / 2, s / 2],
-  });
+  }));
 }
 
 // Icona del servizio: "goccia" che punta il luogo, colore = codice, simbolo = tipo di servizio
@@ -1259,16 +1267,16 @@ export default function GameMap() {
           return <CircleMarker center={[p.lat, p.lng]} radius={26 + ((now / 1000) % 2) * 6}
                                pathOptions={{ color: "#2563EB", weight: 4, fillColor: "#60A5FA", fillOpacity: 0.15 }} />;
         })()}
-        {flt.hospitals && heliBases.map((p) => (
+        {useMemo(() => flt.hospitals && heliBases.map((p) => (
           <Marker key={`heli-${p.id}`} position={[p.lat, p.lng]} icon={heliIcon}>
             <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
           </Marker>
-        ))}
-        {flt.ports && ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
+        )), [flt.hospitals, heliBases])}
+        {useMemo(() => flt.ports && ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
-        ))}
+        )), [flt.ports, ports, handoffs])}
         {[...new Set(handoffs.map((h) => h.port_id))].map((pid) => {
           const list = handoffs.filter((h) => h.port_id === pid);
           const hm = (s: string) => new Date(s).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -1308,7 +1316,7 @@ export default function GameMap() {
             </Popup>
           </Marker>
         ))}
-        {flt.hospitals && hospitals.map((h) => (
+        {useMemo(() => flt.hospitals && hospitals.map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
             <Popup>
               <strong>🏥 {h.name}</strong><br />
@@ -1316,9 +1324,9 @@ export default function GameMap() {
                 pediatria: "Pediatria", dialisi: "Dialisi" } as Record<string, string>)[c] ?? c).join(" · ")}
             </Popup>
           </Marker>
-        ))}
+        )), [flt.hospitals, hospitals])}
 
-        {bases.filter(showBase).map((b) => (
+        {useMemo(() => bases.filter(showBase).map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters)}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
@@ -1383,7 +1391,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        ))}
+        )), [bases, flt.bases, org?.id, baseCars])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);
@@ -1483,7 +1491,7 @@ export default function GameMap() {
           );
         })}
 
-        {missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
+        {useMemo(() => missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={missionIcon(m, (m.my_vehicles ?? 0) > 0)}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
@@ -1582,7 +1590,8 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        ))}
+        // l'orologio conta solo se ho un servizio aperto (classifica d'arrivo); altrimenti si aggiorna ogni 30 s
+        )), [missions, flt, responders, org, openMission ? now : Math.floor(now / 30_000)])}
 
         {Array.from(sceneCount.entries()).map(([k, c]) => (
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
