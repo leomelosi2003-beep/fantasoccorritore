@@ -25,7 +25,7 @@ jobs:
           PREV=$(cat stato.txt 2>/dev/null || echo su)
           NOW=giu
           for i in 1 2 3; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 https://desktop-f0qb534.tail9a3baf.ts.net/api/version || true)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 https://web-kappa-ten-1vwv7qwb59.vercel.app/api/version || true)
             if [ "$CODE" = "200" ]; then NOW=su; break; fi
             sleep 60
           done
@@ -43,5 +43,5 @@ jobs:
       - name: Avviso
         if: steps.prova.outputs.prev == 'su' && steps.prova.outputs.now == 'giu'
         run: |
-          echo "::error::Il gioco non risponde: https://desktop-f0qb534.tail9a3baf.ts.net (PC spento, Docker fermo o tunnel giu')"
+          echo "::error::Il gioco non risponde: https://web-kappa-ten-1vwv7qwb59.vercel.app"
           exit 1

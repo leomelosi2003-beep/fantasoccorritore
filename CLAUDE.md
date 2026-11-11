@@ -5,6 +5,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 **Regola d'oro: non cancellare mai i dati di gioco** (associazioni, mezzi, volontari, soldi, storico).
 
 ## Architettura
+- Link del gioco: https://web-kappa-ten-1vwv7qwb59.vercel.app
 - **Dall'11/11/2026 il gioco ufficiale è di nuovo su Supabase CLOUD (`saagkulmwofgvlssiucw`, piano Free, PG17) + Vercel** (trasloco con `locale/6-torna-sul-cloud.ps1`).
   Le modifiche al database si fanno sul cloud (MCP Supabase). Il vecchio contenuto del cloud (6/11) è nello schema `public_cloud_20261106` e in `C:\fantasoccorritore\backup-finale` sul PC.
   Il Supabase locale sul PC è FERMO ma intatto (attività "Avvia gioco" e "Backup notturno" disattivate, docker compose stop, funnel tolto): resta come riserva. Limite Free 500 MB: tenere d'occhio `pg_database_size`.
