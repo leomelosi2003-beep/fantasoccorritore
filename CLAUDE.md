@@ -99,6 +99,11 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - GameMap ridisegna tutto ogni secondo (orologio `now`): i livelli fermi (elibasi, porti, ospedali, sedi, servizi) sono dentro `useMemo` con le loro dipendenze, e i servizi dipendono da `now` solo se un popup di servizio è aperto. Le icone passano da `memoIcon(chiave, ...)`: stessa chiave = stesso oggetto, così Leaflet non ricostruisce il simbolo. Prima le 89 sedi venivano rifatte da zero ogni secondo e la mappa si bloccava.
 - Strade (`components/roads.ts`): l'archivio nel browser (`fs-roads-v3`, max 150 tratti, punti semplificati ogni ~12 m) si legge una volta e si riscrive al massimo ogni 15 s. Prima ogni strada scaricata rileggeva/riscriveva tutto `fs-roads-v2` (MB) e ridisegnava la mappa → blocchi ogni pochi secondi. Ridisegno per strade nuove: `onRoadsLoaded`, al massimo ogni 3 s. `remainingPath` si calcola solo per il mezzo selezionato (`routeFor`).
 
+## Cloud Free: prestazioni (migr. 195, 11/11/2026)
+- Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
+- `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).
+- Misurare le pagine come utente: DO block con set_config jwt + `set local role authenticated`, cronometrando ogni vista/RPC.
+
 ## Velocità reali (migr. 193-194, 9/11/2026)
 - `vehicle_models.vmax_kmh` + `agility` (1 = normale; T5/V-Transporto 1,10, Sprinter 0,90, motorino Y-Scootix 1,45-1,50). `drive_seconds(a, b, vmax, agi, modo, boost)`: strada = linea d'aria × 1,3; i primi 3 km in città a 50/44/35 km/h × agilità (rosso/giallo/normale), il resto a min(vmax×0,80, 130) / min(vmax×0,75, 115) / min(vmax×0,65, 90); boost = 1 + 0,12 × speed_level. I rientri usano il modo normale ('rientro').
 - Usata in `claim_mission_as` (tolti il tetto di 1 ora e la compressione a 4-10 minuti: `if false then -- (193)`), `change_hospital`, `cancel_assignment`, `hospital_options`, `travel_estimate`. AIB: `aib_fire_route(..., 55 × agilità × boost)`. Barche invariate.
