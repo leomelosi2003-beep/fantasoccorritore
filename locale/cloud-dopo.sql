@@ -8,7 +8,6 @@ begin;
 \echo regole storage
 -- 1) trigger e regole storage (come migr. 155) puntati al nuovo schema public
 drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 drop policy if exists "admin delete volunteer photos" on storage.objects;
 create policy "admin delete volunteer photos" on storage.objects for delete to authenticated using (bucket_id = 'volunteer-photos' and public.is_admin());
 drop policy if exists "admin edit volunteer photos" on storage.objects;
@@ -47,6 +46,8 @@ select 'utenti ' || pg_temp.upsert_auth('users', :'users'::json, 'id');
 select 'identita ' || pg_temp.upsert_auth('identities', :'idents'::json, null);
 
 -- 2b) il collegamento profili -> utenti (pg_restore non riesce a crearlo prima che arrivino gli utenti nuovi)
+-- il trigger del nuovo utente si riattiva solo ora (i profili ci sono gia')
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 \echo collegamento profili
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'profiles_id_fkey' and conrelid = 'public.profiles'::regclass) then
