@@ -16,6 +16,12 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - `locale/`: script per far girare tutto sul PC Windows di Leonardo (Supabase in Docker + Next + tunnel Cloudflare + aggiornamento automatico da GitHub ogni 2 min).
   In modalità locale `NEXT_PUBLIC_SUPABASE_URL=same-origin` e Next inoltra `/sb/*` a `http://localhost:8000`.
 
+## Trasloco su server gratuito (preparato l'11/11/2026)
+- Destinazione: Oracle Cloud Always Free, VM Ubuntu ARM (VM.Standard.A1.Flex 2 OCPU / 12 GB, quota gratuita dal 15/6/2026), Tailscale col nome `fantaserver`.
+- `server/installa.sh <tskey>` (Docker, Node 20, Tailscale SSH, servizi systemd `fs-web`, timer `fs-guardiano` ogni 2 min = build/aggiornamenti/funnel, `fs-backup` 04:00). Tutto in `/opt/fantasoccorritore` (repo, supabase, backup, gioco.log).
+- `locale/5-sposta-sul-server.ps1` dal PC: pausa pg_cron, pg_dump -Fc + tar di `supabase/` (senza volumes/db/data), scp, `server/ricevi-dati.sh` (pg_restore come supabase_admin, confronto righe per tabella, se diverso NON accende), poi sposta il nome ts.net `desktop-f0qb534` sul server (PC rinominato `pc-leonardo`). Se fallisce prima, riaccende il PC. La copia sul PC resta (docker compose stop, task disattivati, non cancellati).
+- Dopo il trasloco le modifiche al DB vanno fatte sul server: `ssh root@fantaserver` poi `docker exec supabase-db psql -U postgres`.
+
 ## Motore del gioco
 - Un solo job pg_cron `game-tick` ogni 30 s: `call public.game_tick()` (procedura SENZA security definer / set, altrimenti niente COMMIT).
   Esegue `run_tick_task(task)` con cadenze in `tick_state`: races 30, complete 30, dispatch 60, missions 120, maint 60, wake 60, charge_auto 60, recharge 180, auctions 300, base_auctions 300, transfers 300, events 300, parse 300, medical 30, wealth 3600, sea 120.
