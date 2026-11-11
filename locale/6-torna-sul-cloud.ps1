@@ -13,20 +13,22 @@ $REF = "saagkulmwofgvlssiucw"; $CLOUD = "https://$REF.supabase.co"
 $OLD = "public_cloud_20261106"
 function Say($m, $c = "Cyan") { Write-Host $m -ForegroundColor $c; Add-Content $log "$(Get-Date -Format 'HH:mm:ss') $m" }
 
-Say "Supabase > progetto > pulsante Connect > 'Session pooler': copia la stringa e metti la password del database al posto di [YOUR-PASSWORD]."
-$conn = (Read-Host "Stringa").Trim()
-if ($conn -notmatch '^postgres(?:ql)?://([^:]+):(.+)@([^@:/]+):(\d+)/([^?]+)') { Say "Stringa non valida." Red; exit 1 }
-$cu = $Matches[1]; $cp = $Matches[2]; $ch = $Matches[3]; $cport = $Matches[4]; $cdb = $Matches[5]
-if ($cp -match 'YOUR-PASSWORD') { Say "Manca la password al posto di [YOUR-PASSWORD]." Red; exit 1 }
-Say "Supabase > Project Settings > API Keys: copia la chiave 'service_role' (o una 'secret')."
-$svc = (Read-Host "Chiave").Trim()
-
+$cp = (Read-Host "Incolla la PASSWORD del database e premi Invio").Trim()
+$svc = (Read-Host "Incolla la CHIAVE service_role e premi Invio").Trim()
+$cu = "postgres.$REF"; $cport = "5432"; $cdb = "postgres"; $ch = $null
 $cenv = @("-e", "PGHOST=$ch", "-e", "PGPORT=$cport", "-e", "PGUSER=$cu", "-e", "PGPASSWORD=$cp", "-e", "PGDATABASE=$cdb", "-e", "PGSSLMODE=require", "-e", "PGOPTIONS=-c client_min_messages=warning")
 function L($sql) { $r = docker exec supabase-db psql -U postgres -d postgres -qAtc $sql; if ($LASTEXITCODE -ne 0) { throw "errore sul PC: $sql" }; $r }
 function C($sql) { $r = docker exec @cenv supabase-db psql -qAtc $sql; if ($LASTEXITCODE -ne 0) { throw "errore sul cloud: $sql" }; $r }
 function CSh($cmd) { docker exec @cenv supabase-db sh -c $cmd; if ($LASTEXITCODE -ne 0) { throw "errore sul cloud: $cmd" } }
 
-try { C "select 1" | Out-Null } catch { Say "Non riesco a collegarmi al cloud: controlla stringa e password." Red; exit 1 }
+foreach ($h in "aws-1-eu-west-1.pooler.supabase.com", "aws-0-eu-west-1.pooler.supabase.com") {
+  $ch = $h
+  $cenv = @("-e", "PGHOST=$ch", "-e", "PGPORT=$cport", "-e", "PGUSER=$cu", "-e", "PGPASSWORD=$cp", "-e", "PGDATABASE=$cdb", "-e", "PGSSLMODE=require", "-e", "PGOPTIONS=-c client_min_messages=warning")
+  docker exec @cenv supabase-db psql -qAtc "select 1" *> $null
+  if ($LASTEXITCODE -eq 0) { break } else { $ch = $null }
+}
+if (-not $ch) { Say "Non riesco a collegarmi al cloud: la password e' giusta?" Red; exit 1 }
+Say "Collegato al cloud." Green
 if ((C "select count(*) from pg_namespace where nspname = '$OLD'") -ne "0") { Say "Il trasloco risulta gia' fatto (esiste $OLD sul cloud). Mi fermo." Yellow; exit 1 }
 $hdr = @{ Authorization = "Bearer $svc"; apikey = $svc }
 try { Invoke-RestMethod -Headers $hdr "$CLOUD/storage/v1/bucket" | Out-Null } catch { Say "La chiave service_role non funziona." Red; exit 1 }
