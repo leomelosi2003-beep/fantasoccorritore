@@ -40,7 +40,7 @@ $countSql = "select relname||' '||n from (select c.relname, (xpath('/row/n/text(
 
 # --- 1. fermo il gioco sul PC
 $attivi = @(L "select jobname from cron.job where active")
-$jobsSql = (L "select format('select cron.schedule(%L, %L, %L); select cron.alter_job(jobid, active := %s) from cron.job where jobname = %L;', jobname, schedule, command, active, jobname) from cron.job") -join "`n"
+$jobsSql = (L "select format('select cron.schedule(%L, %L, %L); select cron.alter_job(jobid, active := %L) from cron.job where jobname = %L;', jobname, schedule, command, active, jobname) from cron.job") -join "`n"
 [IO.File]::WriteAllText((Join-Path $out "jobs.sql"), $jobsSql + "`n")
 $renamed = $false
 function Riattiva-PC {

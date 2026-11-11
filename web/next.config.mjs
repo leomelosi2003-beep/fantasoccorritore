@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const target = process.env.SUPABASE_PROXY_TARGET; // solo sul server locale
-// Il gioco ufficiale gira sul PC di Leonardo: il sito su Vercel rimanda tutti li'.
-// Per tornare a Vercel basta togliere questa riga (redirect temporaneo, i browser non lo memorizzano).
-const OFFICIAL_URL = "https://desktop-f0qb534.tail9a3baf.ts.net";
+// Dall'11/11/2026 il gioco ufficiale e' di nuovo su Vercel + Supabase cloud: nessun rimando.
+// (Per rimandare a un altro indirizzo, metterlo qui; null = nessun rimando.)
+const OFFICIAL_URL = null;
 const nextConfig = {
   async redirects() {
-    return process.env.VERCEL === "1"
+    return process.env.VERCEL === "1" && OFFICIAL_URL
       ? [{ source: "/:path*", destination: `${OFFICIAL_URL}/:path*`, permanent: false }]
       : [];
   },

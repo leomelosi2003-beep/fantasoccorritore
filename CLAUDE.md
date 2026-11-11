@@ -5,10 +5,11 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 **Regola d'oro: non cancellare mai i dati di gioco** (associazioni, mezzi, volontari, soldi, storico).
 
 ## Architettura
-- **Dal 6/11/2026 il gioco ufficiale gira sul PC di Leonardo**: https://desktop-f0qb534.tail9a3baf.ts.net (Tailscale Funnel sulla porta 3000).
-  Le modifiche al database vanno fatte sul Supabase LOCALE (`docker exec supabase-db psql -U postgres`, password in `C:\fantasoccorritore\supabase\.env`),
-  non più sul cloud. Il cloud `saagkulmwofgvlssiucw` è fermo (job pg_cron disattivati con `cron.alter_job(..., active := false)`, non cancellati) e resta come copia.
-- `web/` Next.js 14 + react-leaflet v4. Su Vercel ogni pagina rimanda al link del PC (`redirects()` in `web/next.config.mjs`, solo con `VERCEL=1`).
+- **Dall'11/11/2026 il gioco ufficiale è di nuovo su Supabase CLOUD (`saagkulmwofgvlssiucw`, piano Free, PG17) + Vercel** (trasloco con `locale/6-torna-sul-cloud.ps1`).
+  Le modifiche al database si fanno sul cloud (MCP Supabase). Il vecchio contenuto del cloud (6/11) è nello schema `public_cloud_20261106` e in `C:\fantasoccorritore\backup-finale` sul PC.
+  Il Supabase locale sul PC è FERMO ma intatto (attività "Avvia gioco" e "Backup notturno" disattivate, docker compose stop, funnel tolto): resta come riserva. Limite Free 500 MB: tenere d'occhio `pg_database_size`.
+  Il PC (Tailscale ts.net) non serve più; i giocatori usano il sito Vercel.
+- `web/` Next.js 14 + react-leaflet v4. Su Vercel nessun rimando (`OFFICIAL_URL = null` in `web/next.config.mjs`).
   Un push fatto dal PC stesso NON fa ricompilare il sito locale (HEAD = upstream): riavviare `locale/3-avvia-gioco.ps1`.
 - Database e logica di gioco: Supabase. Quasi tutta la logica è in funzioni SQL/RPC.
 - **Invio dei mezzi: le regole stanno SOLO in `claim_mission_as(org, ...)`**. `claim_mission` (chiamata dal sito) è un involucro che la richiama (migr. 181). Le patch vanno fatte su `claim_mission_as`.
