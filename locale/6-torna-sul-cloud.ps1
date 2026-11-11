@@ -64,7 +64,7 @@ try {
   Say "2/7 Copia dei dati del PC..."
   docker exec supabase-db sh -c "pg_dump -U postgres -d postgres -n public -Fc -f /tmp/pub.dump"
   if ($LASTEXITCODE -ne 0) { throw "pg_dump fallito" }
-  docker exec supabase-db sh -c "psql -U postgres -d postgres -qAtc 'select coalesce(json_agg(u), ''[]'') from auth.users u' > /tmp/users.json && psql -U postgres -d postgres -qAtc 'select coalesce(json_agg(i), ''[]'') from auth.identities i' > /tmp/idents.json"
+  docker exec supabase-db sh -c "psql -U postgres -d postgres -qAtc 'select coalesce(json_agg(u), json_build_array()) from auth.users u' > /tmp/users.json && psql -U postgres -d postgres -qAtc 'select coalesce(json_agg(i), json_build_array()) from auth.identities i' > /tmp/idents.json"
   if ($LASTEXITCODE -ne 0) { throw "lettura utenti fallita" }
   docker cp supabase-db:/tmp/pub.dump (Join-Path $out "pub.dump") | Out-Null
   $countPc = @(L $countSql)
