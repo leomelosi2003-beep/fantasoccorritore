@@ -30,6 +30,9 @@ foreach ($h in "aws-1-eu-west-1.pooler.supabase.com", "aws-0-eu-west-1.pooler.su
 if (-not $ch) { Say "Non riesco a collegarmi al cloud: la password e' giusta?" Red; exit 1 }
 Say "Collegato al cloud." Green
 if ((C "select count(*) from pg_namespace where nspname = '$OLD'") -ne "0") { Say "Il trasloco risulta gia' fatto (esiste $OLD sul cloud). Mi fermo." Yellow; exit 1 }
+foreach ($f in @(C "select nspname from pg_namespace where nspname like 'public_fallito_%'")) {
+  if ($f) { Say "Tolgo dal cloud la copia del tentativo precedente ($f): i dati sono sul PC."; C "drop schema $f cascade" | Out-Null }
+}
 $hdr = @{ Authorization = "Bearer $svc"; apikey = $svc }
 try { Invoke-RestMethod -Headers $hdr "$CLOUD/storage/v1/bucket" | Out-Null } catch { Say "La chiave service_role non funziona." Red; exit 1 }
 
@@ -87,7 +90,10 @@ try {
 
   Say "5/7 Utenti, regole, indirizzi delle foto..."
   docker cp (Join-Path $PSScriptRoot "cloud-dopo.sql") supabase-db:/tmp/cloud-dopo.sql | Out-Null
-  CSh "psql -qAt -f /tmp/cloud-dopo.sql"
+  $r = docker exec @cenv supabase-db sh -c "psql -qAt -f /tmp/cloud-dopo.sql 2>&1"
+  $code = $LASTEXITCODE
+  $r | ForEach-Object { Add-Content $log "   $_" }
+  if ($code -ne 0) { throw "passo 5 fallito: $($r | Select-Object -Last 3)" }
 } catch {
   Say "ERRORE: $_" Red
   Ripristina-Cloud

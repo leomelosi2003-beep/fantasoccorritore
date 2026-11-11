@@ -5,6 +5,7 @@
 \set idents `cat /tmp/idents.json`
 begin;
 
+\echo regole storage
 -- 1) trigger e regole storage (come migr. 155) puntati al nuovo schema public
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
@@ -23,6 +24,7 @@ create policy "org logos read" on storage.objects for select to authenticated us
 drop policy if exists "org logos update" on storage.objects;
 create policy "org logos update" on storage.objects for update to authenticated using (bucket_id = 'org-logos' and (storage.foldername(name))[1] = public.my_org_id()::text);
 
+\echo utenti
 -- 2) utenti: aggiorno/aggiungo quelli del PC (password comprese), senza toccare le colonne generate
 create function pg_temp.upsert_auth(tbl text, data json, conflict text) returns int language plpgsql as $f$
 declare cols text; sets text; n int;
@@ -44,24 +46,37 @@ end $f$;
 select 'utenti ' || pg_temp.upsert_auth('users', :'users'::json, 'id');
 select 'identita ' || pg_temp.upsert_auth('identities', :'idents'::json, null);
 
+-- 2b) il collegamento profili -> utenti (pg_restore non riesce a crearlo prima che arrivino gli utenti nuovi)
+\echo collegamento profili
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_id_fkey' and conrelid = 'public.profiles'::regclass) then
+    alter table public.profiles add constraint profiles_id_fkey foreign key (id) references auth.users(id) on delete cascade;
+  end if;
+end $$;
+
+\echo profili
 -- 3) profili per eventuali utenti senza profilo (come migr. 155)
 insert into public.profiles (id, username)
 select u.id, coalesce(u.raw_user_meta_data->>'username', split_part(u.email, '@', 1) || '_' || substr(u.id::text, 1, 4))
   from auth.users u where not exists (select 1 from public.profiles p where p.id = u.id)
 on conflict do nothing;
 
+\echo indirizzi foto
 -- 4) indirizzi di stemmi e foto: dal PC al cloud
 do $$ declare r record; begin
   for r in select c.table_name t, c.column_name c from information_schema.columns c
              join information_schema.tables x on x.table_schema = c.table_schema and x.table_name = c.table_name
             where c.table_schema = 'public' and x.table_type = 'BASE TABLE' and c.data_type in ('text', 'character varying') loop
+    execute format('alter table public.%I disable trigger user', r.t);
     execute format('update public.%I set %I = replace(%I, %L, %L) where %I like %L', r.t, r.c, r.c,
       'https://desktop-f0qb534.tail9a3baf.ts.net/sb/storage/', 'https://saagkulmwofgvlssiucw.supabase.co/storage/', r.c, '%desktop-f0qb534.tail9a3baf.ts.net/sb/storage/%');
     execute format('update public.%I set %I = %L || substr(%I, 13) where %I like %L', r.t, r.c,
       'https://saagkulmwofgvlssiucw.supabase.co/storage/', r.c, r.c, '/sb/storage/%');
+    execute format('alter table public.%I enable trigger user', r.t);
   end loop;
 end $$;
 
+\echo realtime
 -- 5) le vecchie tabelle del cloud escono dal realtime (restano salvate nello schema public_cloud_20261106)
 do $$ declare r record; begin
   for r in select schemaname, tablename from pg_publication_tables where pubname = 'supabase_realtime' and schemaname like 'public_cloud_%' loop
