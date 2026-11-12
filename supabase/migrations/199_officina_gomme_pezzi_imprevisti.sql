@@ -17,3 +17,5 @@
 -- FIX prestazioni: il conducente si cerca solo nell'ULTIMO servizio del mezzo
 --   (subquery limit 1 su mission_assignments + indice mission_assignments_vehicle_assigned_idx (vehicle_id, assigned_at desc)).
 --   Prima la ricerca leggeva tutti i servizi del mezzo (>1 s per rientro) e il tick arrivava a 110 s.
+-- mount_tires_bulk(p_model, p_base default null): monta il treno a tutti i mezzi di terra fermi in sede (o solo a una sede),
+--   prima i più consumati, finché c'è magazzino e soldi (120 € l'uno); ritorna mounted/needed/missing/cost.

@@ -227,8 +227,10 @@ export default function Garage() {
   }, [byId]);
   const kmEm = (v: Vehicle) => Math.max(0, Number(v.odometer_km ?? 0) - Number(v.overhaul_km ?? 0));
   const kmServ = (v: Vehicle) => Math.max(0, Number(v.odometer_km ?? 0) - Number(v.service_km ?? 0));
+  const needsCare = (v: Vehicle) => !!v.issue_open || Number(v.body_damage ?? 0) > 0 || (!isBoatM(v) && kmServ(v) >= SERVICE_KM - SERVICE_WARN);
   const serviceCost = (v: Vehicle) => 5000 + Math.round(0.1 * (byId.model[v.model_id]?.base_cost ?? 40000));
   const isBoat = (v: Vehicle) => !!byId.model[v.model_id]?.boat;
+  function isBoatM(v: Vehicle) { return !!byId.model[v.model_id]?.boat; }
   const kindCounts = useMemo(() => {
     const c: Partial<Record<Kind, number>> = {};
     for (const v of vehicles) { const k = kindOf(v); c[k] = (c[k] ?? 0) + 1; }
@@ -830,6 +832,7 @@ export default function Garage() {
                                  background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px",
                                  boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
                   <span style={{ fontSize: 18 }}>{icon}</span>
+                  {list.some(needsCare) && <span title="Ci sono mezzi da sistemare (Officina)" style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
                   <span style={{ flex: 1, fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
                   {groupBy === "sede" && (
                     <span style={{ fontSize: 12, opacity: 0.9, whiteSpace: "nowrap" }}>
@@ -856,7 +859,7 @@ export default function Garage() {
                           const km = kmEm(v);
                           return (
                             <tr key={v.id} style={{ borderTop: "1px solid #eee" }}>
-                              <td style={{ padding: "7px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>{v.call_sign}{v.km_retired && " ⛔"}</td>
+                              <td style={{ padding: "7px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>{needsCare(v) && <span style={{ color: v.issue_open ? "#DC2626" : "#CA8A04", fontWeight: 900 }}>! </span>}{v.call_sign}{v.km_retired && " ⛔"}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{k.icon} {k.label}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{groupBy === "sede" ? byId.model[v.model_id]?.name : byId.base[v.base_id]?.name}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{STATUS[v.status]}</td>
@@ -887,6 +890,7 @@ export default function Garage() {
                   <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={livery(m?.image_url, org.type)} stripe={stripe} height={80} /></div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                     <strong style={{ fontSize: 17 }}>
+                      {needsCare(v) && <span title="Da sistemare in Officina" style={{ background: v.issue_open ? "#DC2626" : "#FACC15", color: v.issue_open ? "#fff" : "#111", borderRadius: 999, padding: "0 7px", marginRight: 4, fontWeight: 900 }}>!</span>}
                       {v.call_sign}{" "}
                       <button onClick={() => rename(v)} title="Cambia nome"
                               style={{ border: "none", background: "#f1f1f1", borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 13 }}>✏️</button>

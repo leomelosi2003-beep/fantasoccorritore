@@ -106,6 +106,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 
 ## Officina (migr. 199, 12/11/2026)
 - Pagina `/officina` (link nel Garage e nel menu con pallino = guasti + segnalazioni non lette): schede Mezzi (per sede, guasti, gomme, pezzi, carrozzeria), Gomme (negozio + magazzino), Segnalazioni (volontari; aprendo la scheda `mark_reports_seen`).
+- Gomme in blocco: `mount_tires_bulk(model, base|null)`; in Officina "Monta a tutta la sede" e "Monta a tutti" con "ti mancano X treni". Punto esclamativo giallo (rosso se guasto) su banner sede e mezzo, in Officina e Garage.
 - Imprevisti nel trigger `vehicles_road_events` al rientro (aumento odometro). Mezzo con `issue_open` non parte (`VEHICLE_BROKEN`), l'automatico lo ripara da solo. Mezzi guasti vendibili all'asta: `auction_conditions()` mostra guasti/gomme/pezzi in `/usate`, il valore scende.
 - Dettagli in `supabase/migrations/199_officina_gomme_pezzi_imprevisti.sql`.
 

@@ -9,7 +9,7 @@ type Org = { id: string; name: string; funds: number };
 type Base = { id: string; name: string; is_headquarters: boolean };
 type Model = { id: string; name: string; boat: boolean | null; electric: boolean | null };
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; status: string; maintenance_until: string | null;
-  odometer_km: number; tire_model_id: string | null; tire_wear_km: number; issue_open: boolean; body_damage: number; wear: number };
+  odometer_km: number; tire_model_id: string | null; tire_wear_km: number; issue_open: boolean; body_damage: number; wear: number; service_km: number };
 type Tire = { id: string; brand: string; name: string; season: "estiva" | "invernale" | "4stagioni"; price: number; life_km: number; grip: number; sort: number };
 type PartType = { code: string; name: string; life_km: number; cost: number; minutes: number; kind: string; sort: number };
 type Part = { vehicle_id: string; part_code: string; installed_km: number };
@@ -77,6 +77,7 @@ export default function Officina() {
   const [only, setOnly] = useState<"tutti" | "problemi">("tutti");
   const [qty, setQty] = useState<Record<string, number>>({});
   const [pickTire, setPickTire] = useState<Record<string, string>>({});
+  const [bulkBase, setBulkBase] = useState<Record<string, string>>({}); // gomma -> sede ("" = tutte)
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -89,7 +90,7 @@ export default function Officina() {
     const [bs, ms, vs, ts, pt, st, rp] = await Promise.all([
       supabase.from("bases").select("id,name,is_headquarters").eq("org_id", o.id).order("built_at"),
       supabase.from("vehicle_models").select("id,name,boat,electric"),
-      supabase.from("vehicles").select("id,call_sign,base_id,model_id,status,maintenance_until,odometer_km,tire_model_id,tire_wear_km,issue_open,body_damage,wear")
+      supabase.from("vehicles").select("id,call_sign,base_id,model_id,status,maintenance_until,odometer_km,tire_model_id,tire_wear_km,issue_open,body_damage,wear,service_km")
         .eq("org_id", o.id).order("call_sign"),
       supabase.from("tire_models").select("*").order("sort"),
       supabase.from("vehicle_part_types").select("*").order("sort"),
@@ -139,8 +140,11 @@ export default function Officina() {
     const due = partsOf(v.id).filter((p) => { const pt = ptByCode[p.part_code]; return pt && (v.odometer_km - p.installed_km) / pt.life_km >= 0.8; });
     const wrongSeason = !!t && ((winter && t.season === "estiva") || (!winter && t.season === "invernale"));
     const iss = issues.filter((i) => i.vehicle_id === v.id);
-    const problems = iss.length > 0 || tr >= 0.8 || due.length > 0 || Number(v.body_damage) > 0 || wrongSeason;
-    return { t, tr, due, wrongSeason, iss, problems };
+    const serviceDue = v.odometer_km - Number(v.service_km ?? 0) >= 15000;
+    const problems = iss.length > 0 || tr >= 0.8 || due.length > 0 || Number(v.body_damage) > 0 || wrongSeason || serviceDue;
+    const reasons = [iss.length ? "guasto" : "", tr >= 1 ? "gomme finite" : tr >= 0.8 ? "gomme quasi finite" : "", wrongSeason ? "gomme fuori stagione" : "",
+      due.length ? `${due.length} pezzi da cambiare` : "", Number(v.body_damage) > 0 ? "carrozzeria" : "", serviceDue ? "revisione scaduta" : ""].filter(Boolean);
+    return { t, tr, due, wrongSeason, iss, problems, reasons, serviceDue };
   }
 
   async function call(fn: string, args: Record<string, unknown>, ok: string, confirm?: string) {
@@ -151,6 +155,29 @@ export default function Officina() {
     setBusy(false);
     if (error) { setMsg({ ok: false, text: shopError(error.message) }); return; }
     setMsg({ ok: true, text: ok });
+    load();
+  }
+
+  // quanti mezzi (di terra) in quella sede/tutte non hanno ancora quella gomma, e quanti treni mancano
+  function bulkInfo(tireId: string, baseId: string) {
+    const scope = land.filter((v) => (!baseId || v.base_id === baseId) && v.tire_model_id !== tireId);
+    const have = stock[tireId] ?? 0;
+    return { need: scope.length, free: scope.filter((v) => v.status === "disponibile").length, have, missing: Math.max(0, scope.length - have) };
+  }
+  async function bulkMount(tireId: string, baseId: string) {
+    const t = tireById[tireId]; if (!t) return;
+    const info = bulkInfo(tireId, baseId);
+    const where = baseId ? bases.find((b) => b.id === baseId)?.name ?? "sede" : "tutte le sedi";
+    if (info.free === 0) { setMsg({ ok: false, text: "Nessun mezzo fermo in sede a cui montarle (quelli in servizio si fanno dopo)." }); return; }
+    if (info.have === 0) { setMsg({ ok: false, text: `Non hai treni ${t.brand} ${t.name} in magazzino: te ne servono ${info.need}.` }); return; }
+    const n = Math.min(info.free, info.have);
+    if (!(await gameConfirm(`Montare ${t.brand} ${t.name} · ${where}\n\n${n} mezzi su ${info.need} (${info.have} treni in magazzino${info.missing ? `, te ne mancano ${info.missing}` : ""}).\nMontaggio ${euro(n * 120)} · ogni mezzo resta in officina 15 minuti.`))) return;
+    setBusy(true); setMsg(null);
+    const { data, error } = await supabase.rpc("mount_tires_bulk", { p_model: tireId, p_base: baseId || null });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: shopError(error.message) }); return; }
+    const r = data as { mounted: number; needed: number; missing: number; cost: number };
+    setMsg({ ok: true, text: `🛞 Montate su ${r.mounted} mezzi (${euro(r.cost)}).${r.missing ? ` Ne restano ${r.missing}: ti mancano treni o sono in servizio.` : " Fatto per tutti!"}` });
     load();
   }
 
@@ -210,6 +237,7 @@ export default function Officina() {
               {groups.map(({ b, list }) => {
                 const isOpen = !!open[b.id];
                 const nProb = list.filter((v) => health(v).iss.length).length;
+                const nNeed = land.filter((v) => v.base_id === b.id && health(v).problems).length;
                 return (
                   <div key={b.id}>
                     <button onClick={() => setOpen((o) => ({ ...o, [b.id]: !o[b.id] }))}
@@ -217,12 +245,34 @@ export default function Officina() {
                                      background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px" }}>
                       <span style={{ fontSize: 18 }}>{b.is_headquarters ? "⭐" : "🏠"}</span>
                       <span style={{ flex: 1, fontWeight: 800 }}>{b.name}</span>
+                      {nNeed > 0 && <span title={`${nNeed} mezzi hanno bisogno di interventi`} style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
                       {nProb > 0 && <span style={{ background: "#DC2626", borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 800 }}>⚠️ {nProb}</span>}
                       <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>
                       <span style={{ fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
                     </button>
                     {isOpen && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                        <div style={{ ...box, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", fontSize: 13 }}>
+                          <strong>🛞 Gomme a tutta la sede:</strong>
+                          <select value={pickTire["__base_" + b.id] ?? ""} onChange={(e) => setPickTire((p) => ({ ...p, ["__base_" + b.id]: e.target.value }))}
+                                  style={{ flex: 1, minWidth: 160, fontSize: 12, padding: "4px 6px", borderRadius: 8 }}>
+                            <option value="">Scegli le gomme…</option>
+                            {tires.map((t) => { const i = bulkInfo(t.id, b.id); return (
+                              <option key={t.id} value={t.id}>{SEASON[t.season].icon} {t.brand} {t.name} · in magazzino {i.have}{i.missing ? ` · ne mancano ${i.missing}` : ""}</option>
+                            ); })}
+                          </select>
+                          {pickTire["__base_" + b.id] && (() => { const i = bulkInfo(pickTire["__base_" + b.id], b.id); return (
+                            <>
+                              <span style={{ fontSize: 12, color: i.missing ? "#B45309" : "#15803D" }}>
+                                Servono {i.need} treni · ne hai {i.have}{i.missing ? ` · ti mancano ${i.missing}` : " ✓"}
+                              </span>
+                              <button disabled={busy || !i.have || !i.free} onClick={() => bulkMount(pickTire["__base_" + b.id], b.id)}
+                                      style={{ ...small, opacity: busy || !i.have || !i.free ? 0.4 : 1 }}>Monta a tutta la sede</button>
+                              {i.missing > 0 && <button onClick={() => { setQty((q) => ({ ...q, [pickTire["__base_" + b.id]]: i.missing })); setTab("gomme"); }}
+                                                        style={{ ...small, background: "#0369A1" }}>Compra i {i.missing} mancanti</button>}
+                            </>
+                          ); })()}
+                        </div>
                         {list.map((v) => {
                           const h = health(v);
                           const exp = openV === v.id;
@@ -231,6 +281,7 @@ export default function Officina() {
                             <div key={v.id} style={{ ...box, padding: 12, border: h.iss.length ? "2px solid #DC2626" : undefined }}>
                               <button onClick={() => setOpenV(exp ? null : v.id)}
                                       style={{ display: "flex", width: "100%", alignItems: "center", gap: 8, border: "none", background: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                                {h.problems && <span title={h.reasons.join(", ")} style={{ background: h.iss.length ? "#DC2626" : "#FACC15", color: h.iss.length ? "#fff" : "#111", borderRadius: 999, width: 20, height: 20, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, flexShrink: 0 }}>!</span>}
                                 <strong style={{ fontSize: 15 }}>{v.call_sign}</strong>
                                 <span style={{ fontSize: 12, color: "#666", flex: 1 }}>{models[v.model_id]?.name} · {kmFmt(v.odometer_km)}</span>
                                 <span style={{ fontSize: 12, whiteSpace: "nowrap" }}>
@@ -241,6 +292,7 @@ export default function Officina() {
                                   {exp ? "▲" : "▼"}
                                 </span>
                               </button>
+                              {h.problems && <div style={{ fontSize: 12, color: h.iss.length ? "#991B1B" : "#92400E", marginTop: 4 }}>❗ Da sistemare: {h.reasons.join(" · ")}</div>}
                               {!free && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{v.status === "manutenzione" ? `🔧 In officina${v.maintenance_until ? ` fino alle ${new Date(v.maintenance_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}` : v.status === "in_servizio" ? "🚨 In servizio: i lavori si fanno quando rientra" : "Non disponibile"}</div>}
                               {h.iss.map((i) => (
                                 <div key={i.id} style={{ marginTop: 8, background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "6px 8px", fontSize: 13 }}>
@@ -339,6 +391,23 @@ export default function Officina() {
                           Durata {kmFmt(t.life_km)} · aderenza {"★".repeat(t.grip)}{"☆".repeat(5 - t.grip)}
                         </div>
                         <div style={{ fontSize: 12, color: "#555" }}>In magazzino: <strong>{stock[t.id] ?? 0}</strong> treni</div>
+                        {(() => { const bb = bulkBase[t.id] ?? ""; const i = bulkInfo(t.id, bb); return (
+                          <div style={{ marginTop: 6, padding: 6, background: "#f6f6f4", borderRadius: 8 }}>
+                            <select value={bb} onChange={(e) => setBulkBase((x) => ({ ...x, [t.id]: e.target.value }))}
+                                    style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 8 }}>
+                              <option value="">Tutte le sedi</option>
+                              {bases.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                            <div style={{ fontSize: 11, color: i.missing ? "#B45309" : "#15803D", marginTop: 3 }}>
+                              {i.need === 0 ? "Le hanno già tutti ✓" : `Servono ${i.need} treni · ${i.missing ? `ti mancano ${i.missing}` : "li hai tutti ✓"}`}
+                            </div>
+                            <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                              {i.missing > 0 && <button onClick={() => setQty((x) => ({ ...x, [t.id]: Math.min(50, i.missing) }))} style={{ ...small, flex: 1, background: "#555" }}>Quantità mancante</button>}
+                              <button disabled={busy || !i.have || !i.free} onClick={() => bulkMount(t.id, bb)}
+                                      style={{ ...small, flex: 1, opacity: busy || !i.have || !i.free ? 0.4 : 1 }}>Monta a tutti</button>
+                            </div>
+                          </div>
+                        ); })()}
                         <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
                           <input type="number" min={1} max={50} value={q} onChange={(e) => setQty((x) => ({ ...x, [t.id]: Number(e.target.value) }))}
                                  style={{ width: 54, padding: "4px 6px", borderRadius: 8, border: "1px solid #ccc" }} />
