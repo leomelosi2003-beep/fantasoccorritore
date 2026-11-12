@@ -19,8 +19,25 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
-  speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean; long_emergency?: boolean };
+  speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean; long_emergency?: boolean;
+  odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null };
 const SPEED_COST = [6000, 12000, 24000];
+// Limite chilometrico per le emergenze (come le regole sui mezzi di soccorso): oltre, l'ambulanza fa solo ordinari
+const KM_LIMIT = 400000;
+const KM_OVERHAUL_FROM = 300000; // la revisione generale si può fare da qui in poi
+const kmFmt = (n: number) => Math.round(n).toLocaleString("it-IT") + " km";
+// Tipo di mezzo nel garage (per ordinare e filtrare)
+type Kind = "emergenza" | "ordinaria" | "passo_lungo" | "automedica" | "moto" | "barca" | "aib";
+const KINDS: { k: Kind; icon: string; label: string }[] = [
+  { k: "emergenza", icon: "🚑", label: "Emergenza" },
+  { k: "ordinaria", icon: "🚗", label: "Ordinarie" },
+  { k: "passo_lungo", icon: "🚐", label: "Passo lungo" },
+  { k: "automedica", icon: "🩺", label: "Automediche" },
+  { k: "moto", icon: "🛵", label: "Moto" },
+  { k: "barca", icon: "⛵", label: "Barche" },
+  { k: "aib", icon: "🔥", label: "Antincendio" },
+];
+const kindRank = (k: Kind) => KINDS.findIndex((x) => x.k === k);
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
 
 const CERT: Record<Cert, { label: string; color: string }> = {
@@ -181,18 +198,61 @@ export default function Garage() {
     base: Object.fromEntries(bases.map((b) => [b.id, b])),
   }), [models, builders, bases]);
 
-  // Mezzi raggruppati per sede (così non si scorre troppo), con sezioni richiudibili
+  // Mezzi ordinati: per sede o per tipo, con filtro per tipo e scelta dell'ordine; sezioni richiudibili
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [groupBy, setGroupBy] = useState<"sede" | "tipo">("sede");
+  const [kindFilter, setKindFilter] = useState<Kind | "tutti">("tutti");
+  const [sortBy, setSortBy] = useState<"tipo" | "nome" | "km" | "usura">("tipo");
+  const [layout, setLayout] = useState<"schede" | "elenco">("schede");
+  useEffect(() => {
+    try {
+      const g = JSON.parse(localStorage.getItem("fs_garage_view") ?? "{}");
+      if (g.groupBy) setGroupBy(g.groupBy); if (g.sortBy) setSortBy(g.sortBy); if (g.layout) setLayout(g.layout);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("fs_garage_view", JSON.stringify({ groupBy, sortBy, layout })); } catch {}
+  }, [groupBy, sortBy, layout]);
+  const kindOf = useCallback((v: Vehicle): Kind => {
+    const m = byId.model[v.model_id];
+    if (!m) return "emergenza";
+    if (m.boat) return "barca";
+    if (m.aib) return "aib";
+    if (m.moto) return "moto";
+    if (m.automedica) return "automedica";
+    if (m.ordinaria || v.converted_ordinaria) return "ordinaria";
+    if (m.transfer_only) return "passo_lungo";
+    return "emergenza";
+  }, [byId]);
+  const kmEm = (v: Vehicle) => Math.max(0, Number(v.odometer_km ?? 0) - Number(v.overhaul_km ?? 0));
+  const kindCounts = useMemo(() => {
+    const c: Partial<Record<Kind, number>> = {};
+    for (const v of vehicles) { const k = kindOf(v); c[k] = (c[k] ?? 0) + 1; }
+    return c;
+  }, [vehicles, kindOf]);
   const garageGroups = useMemo(() => {
-    const groups: { key: string; name: string; list: Vehicle[] }[] = [];
-    for (const bs of bases) {
-      const list = vehicles.filter((v) => v.base_id === bs.id);
-      if (list.length) groups.push({ key: bs.id, name: bs.name, list });
+    const list0 = vehicles.filter((v) => kindFilter === "tutti" || kindOf(v) === kindFilter);
+    const cmp = (a: Vehicle, b: Vehicle) =>
+      sortBy === "nome" ? a.call_sign.localeCompare(b.call_sign, "it", { numeric: true })
+      : sortBy === "km" ? Number(b.odometer_km ?? 0) - Number(a.odometer_km ?? 0)
+      : sortBy === "usura" ? b.wear - a.wear
+      : kindRank(kindOf(a)) - kindRank(kindOf(b)) || a.call_sign.localeCompare(b.call_sign, "it", { numeric: true });
+    const groups: { key: string; name: string; icon: string; list: Vehicle[] }[] = [];
+    if (groupBy === "tipo") {
+      for (const k of KINDS) {
+        const list = list0.filter((v) => kindOf(v) === k.k).sort(cmp);
+        if (list.length) groups.push({ key: "k_" + k.k, name: k.label, icon: k.icon, list });
+      }
+    } else {
+      for (const bs of bases) {
+        const list = list0.filter((v) => v.base_id === bs.id).sort(cmp);
+        if (list.length) groups.push({ key: bs.id, name: bs.name, icon: bs.is_headquarters ? "⭐" : "🏠", list });
+      }
+      const others = list0.filter((v) => !bases.some((bs) => bs.id === v.base_id)).sort(cmp);
+      if (others.length) groups.push({ key: "__altri__", name: "Altri mezzi", icon: "🏠", list: others });
     }
-    const others = vehicles.filter((v) => !bases.some((bs) => bs.id === v.base_id));
-    if (others.length) groups.push({ key: "__altri__", name: "Altri mezzi", list: others });
     return groups;
-  }, [vehicles, bases]);
+  }, [vehicles, bases, groupBy, kindFilter, sortBy, kindOf]);
 
   function openShop() {
     setWiz(1); setCustomKit(false);
@@ -347,6 +407,17 @@ export default function Garage() {
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
     const r = ((data as { vehicles: number; cost: number }[]) ?? [])[0];
     setMsg({ ok: true, text: r && r.vehicles ? `🔧 ${r.vehicles} mezzi in officina per ${euro(Number(r.cost))}.` : "Soldi insufficienti per la manutenzione." });
+    load();
+  }
+
+  async function overhaul(v: Vehicle, cost: number) {
+    setMsg(null);
+    if (!(await gameConfirm(`Revisione generale di ${v.call_sign} · ${euro(cost)}\n\nIl contachilometri delle emergenze riparte da zero, l'usura torna a 0 e il mezzo torna a fare le emergenze. I km totali restano scritti nel libretto.`))) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("overhaul_vehicle", { p_vehicle: v.id });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    setMsg({ ok: true, text: `🔧 ${v.call_sign} revisionata: torna a fare le emergenze per altri ${kmFmt(KM_LIMIT)}.` });
     load();
   }
 
@@ -670,13 +741,57 @@ export default function Garage() {
 
         {/* I miei mezzi */}
         <h2>I tuoi mezzi</h2>
+        {vehicles.length > 0 && (
+          <div style={{ ...box, marginBottom: 12, padding: 12 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button onClick={() => setKindFilter("tutti")}
+                      style={{ ...btn, padding: "6px 10px", fontSize: 13, background: kindFilter === "tutti" ? "#111" : "#eee", color: kindFilter === "tutti" ? "#fff" : "#111" }}>
+                Tutti · {vehicles.length}
+              </button>
+              {KINDS.filter((k) => kindCounts[k.k]).map((k) => (
+                <button key={k.k} onClick={() => setKindFilter(k.k)}
+                        style={{ ...btn, padding: "6px 10px", fontSize: 13, background: kindFilter === k.k ? "#111" : "#eee", color: kindFilter === k.k ? "#fff" : "#111" }}>
+                  {k.icon} {k.label} · {kindCounts[k.k]}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 13, alignItems: "center" }}>
+              <label>Raggruppa{" "}
+                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as "sede" | "tipo")} style={{ fontSize: 13, padding: "4px 6px", borderRadius: 8 }}>
+                  <option value="sede">per sede</option><option value="tipo">per tipo</option>
+                </select>
+              </label>
+              <label>Ordina{" "}
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "tipo" | "nome" | "km" | "usura")} style={{ fontSize: 13, padding: "4px 6px", borderRadius: 8 }}>
+                  <option value="tipo">per tipo</option><option value="nome">per nome</option>
+                  <option value="km">per km (più alti prima)</option><option value="usura">per usura</option>
+                </select>
+              </label>
+              <span style={{ display: "inline-flex", borderRadius: 8, overflow: "hidden", border: "1px solid #ccc" }}>
+                {(["schede", "elenco"] as const).map((l) => (
+                  <button key={l} onClick={() => setLayout(l)}
+                          style={{ border: "none", padding: "5px 10px", fontSize: 13, cursor: "pointer", background: layout === l ? "#111" : "#fff", color: layout === l ? "#fff" : "#111" }}>
+                    {l === "schede" ? "🗂️ Schede" : "📋 Elenco"}
+                  </button>
+                ))}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: "#555", marginTop: 10, background: "#F0F9FF", borderRadius: 8, padding: "8px 10px" }}>
+              📘 <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
+              <strong>{kmFmt(KM_LIMIT)}</strong> in emergenza non può più fare emergenze e diventa da sola <strong>🚗 solo ordinari</strong>.
+              Con la <strong>🔧 revisione generale</strong> (da {kmFmt(KM_OVERHAUL_FROM)} in poi, costa 100.000 € + 2 volte il prezzo del modello) il contachilometri delle emergenze riparte da zero.
+              Automediche, moto, barche, antincendio e passi lunghi non hanno questo limite.
+            </div>
+          </div>
+        )}
         {vehicles.length === 0 ? (
           <div style={{ ...box, textAlign: "center", color: "#666" }}>
             Il garage è vuoto. Compra il primo mezzo per iniziare a prendere servizi.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {garageGroups.map(({ key, name, list }) => {
+            {garageGroups.length === 0 && <div style={{ ...box, textAlign: "center", color: "#666" }}>Nessun mezzo di questo tipo.</div>}
+            {garageGroups.map(({ key, name, icon, list }) => {
               const open = !collapsed[key];
               return (
               <div key={key}>
@@ -684,12 +799,50 @@ export default function Garage() {
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
                                  background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px",
                                  boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
-                  <span style={{ fontSize: 18 }}>🏠</span>
+                  <span style={{ fontSize: 18 }}>{icon}</span>
                   <span style={{ flex: 1, fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                  {groupBy === "sede" && (
+                    <span style={{ fontSize: 12, opacity: 0.9, whiteSpace: "nowrap" }}>
+                      {KINDS.map((k) => { const n = list.filter((v) => kindOf(v) === k.k).length; return n ? `${k.icon}${n} ` : ""; }).join("")}
+                    </span>
+                  )}
                   <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>
                   <span style={{ opacity: 0.9, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
                 </button>
-                {open && (
+                {open && layout === "elenco" && (
+                  <div style={{ ...box, marginTop: 10, padding: 0, overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f4f4f1", textAlign: "left" }}>
+                          <th style={{ padding: "8px 10px" }}>Mezzo</th><th style={{ padding: "8px 6px" }}>Tipo</th>
+                          <th style={{ padding: "8px 6px" }}>{groupBy === "sede" ? "Modello" : "Sede"}</th><th style={{ padding: "8px 6px" }}>Stato</th>
+                          <th style={{ padding: "8px 6px", textAlign: "right" }}>Km emergenza</th><th style={{ padding: "8px 10px", textAlign: "right" }}>Usura</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map((v) => {
+                          const k = KINDS.find((x) => x.k === kindOf(v))!;
+                          const lim = kindOf(v) === "emergenza" || v.km_retired || (v.converted_ordinaria && byId.model[v.model_id] && !byId.model[v.model_id].ordinaria);
+                          const km = kmEm(v);
+                          return (
+                            <tr key={v.id} style={{ borderTop: "1px solid #eee" }}>
+                              <td style={{ padding: "7px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>{v.call_sign}{v.km_retired && " ⛔"}</td>
+                              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{k.icon} {k.label}</td>
+                              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{groupBy === "sede" ? byId.model[v.model_id]?.name : byId.base[v.base_id]?.name}</td>
+                              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{STATUS[v.status]}</td>
+                              <td style={{ padding: "7px 6px", textAlign: "right", whiteSpace: "nowrap",
+                                           color: !lim ? "#999" : km >= KM_LIMIT ? "#DC2626" : km >= KM_OVERHAUL_FROM ? "#B45309" : "#111" }}>
+                                {lim ? kmFmt(km) : "—"}
+                              </td>
+                              <td style={{ padding: "7px 10px", textAlign: "right", color: v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#B45309" : "#111" }}>{Math.round(v.wear)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {open && layout === "schede" && (
                 <div style={{ ...grid, marginTop: 10 }}>
                 {list.map((v) => {
               const m = byId.model[v.model_id];
@@ -707,7 +860,7 @@ export default function Garage() {
                     <Pill cert={v.certification} />
                   </div>
                   <div style={{ fontSize: 13, color: "#666" }}>{m?.name} · {b?.name}
-                    {v.converted_ordinaria && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#0E7490", background: "#CFFAFE", borderRadius: 999, padding: "1px 7px" }}>🚗 solo ordinari</span>}
+                    {v.converted_ordinaria && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#0E7490", background: "#CFFAFE", borderRadius: 999, padding: "1px 7px" }}>🚗 solo ordinari{v.km_retired ? " (limite km)" : ""}</span>}
                     {v.long_emergency && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: "#B91C1C", background: "#FEE2E2", borderRadius: 999, padding: "1px 7px" }}>🚨 anche emergenze</span>}
                   </div>
                   <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -751,6 +904,33 @@ export default function Garage() {
                   <Bar label="Affidabilità" value={v.reliability} color="#16A34A" />
                   <Bar label="Durata" value={v.durability} color="#9333EA" />
                   <Bar label="Usura" value={v.wear} color={v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#EAB308" : "#999"} />
+                  {(() => {
+                    const conv = !!m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only;
+                    const km = kmEm(v);
+                    const tot = Number(v.odometer_km ?? 0);
+                    if (!conv) return <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>🛣️ Contachilometri: {kmFmt(tot)}</div>;
+                    const pct = (km / KM_LIMIT) * 100;
+                    const oCost = 100000 + 2 * (m?.base_cost ?? 40000);
+                    return (
+                      <>
+                        <Bar label={`🛣️ Km in emergenza${v.overhaul_km ? " (dalla revisione)" : ""}`} value={pct}
+                             text={`${kmFmt(km)} / ${kmFmt(KM_LIMIT)}`}
+                             color={km >= KM_LIMIT ? "#DC2626" : km >= KM_OVERHAUL_FROM ? "#EAB308" : "#0EA5E9"} />
+                        {!!v.overhaul_km && <div style={{ fontSize: 11, color: "#888" }}>Totale percorso: {kmFmt(tot)}</div>}
+                        {v.km_retired && (
+                          <div style={{ fontSize: 12, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "6px 8px", marginTop: 6 }}>
+                            ⛔ Superati i {kmFmt(KM_LIMIT)}: per legge non fa più emergenze, solo ordinari.
+                          </div>
+                        )}
+                        {v.status === "disponibile" && (v.km_retired || km >= KM_OVERHAUL_FROM) && (
+                          <button onClick={() => overhaul(v, oCost)} disabled={busy || oCost > org.funds}
+                                  style={{ ...btn, width: "100%", marginTop: 8, background: "#7C3AED", opacity: busy || oCost > org.funds ? 0.4 : 1 }}>
+                            🔧 Revisione generale · {euro(oCost)}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                   {m?.electric ? (() => {
                     const pct = Math.max(0, Math.min(100, Number(v.battery_pct ?? 100)));
                     const km = Math.round((pct / 100) * (m.range_km ?? 0));
@@ -813,7 +993,7 @@ export default function Garage() {
                       {v.long_emergency ? "🔁 Torna a solo trasferimenti" : "🚨 Trasferimenti → anche emergenze"}
                     </button>
                   )}
-                  {v.status === "disponibile" && m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only && (
+                  {v.status === "disponibile" && m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only && !v.km_retired && (
                     <button onClick={() => convertOrdinaria(v, !v.converted_ordinaria)} disabled={busy}
                             style={{ ...btn, width: "100%", marginTop: 8,
                                      background: v.converted_ordinaria ? "#fff" : "#0E7490",
@@ -856,6 +1036,9 @@ function garageError(m: string) {
   if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))
     return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
+  if (m.includes("KM_LIMIT")) return "⛔ Ha superato i 400.000 km: per tornare alle emergenze serve la revisione generale.";
+  if (m.includes("OVERHAUL_TOO_EARLY")) return "La revisione generale si fa da 300.000 km in emergenza in poi.";
+  if (m.includes("INSUFFICIENT_FUNDS")) return "Soldi insufficienti.";
   if (m.includes("MAX_LEVEL")) return "È già al livello massimo.";
   if (m.includes("TANK_TOO_SMALL")) return `La cisterna è quasi piena: c'è posto solo per ${m.split("TANK_TOO_SMALL:")[1]?.split(/\D/)[0] ?? "pochi"} litri.`;
   if (m.includes("NO_FUEL_STOCK")) return "La cisterna è vuota: compra prima il gasolio al benzinaio.";

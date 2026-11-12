@@ -99,6 +99,10 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - GameMap ridisegna tutto ogni secondo (orologio `now`): i livelli fermi (elibasi, porti, ospedali, sedi, servizi) sono dentro `useMemo` con le loro dipendenze, e i servizi dipendono da `now` solo se un popup di servizio è aperto. Le icone passano da `memoIcon(chiave, ...)`: stessa chiave = stesso oggetto, così Leaflet non ricostruisce il simbolo. Prima le 89 sedi venivano rifatte da zero ogni secondo e la mappa si bloccava.
 - Strade (`components/roads.ts`): l'archivio nel browser (`fs-roads-v3`, max 150 tratti, punti semplificati ogni ~12 m) si legge una volta e si riscrive al massimo ogni 15 s. Prima ogni strada scaricata rileggeva/riscriveva tutto `fs-roads-v2` (MB) e ridisegnava la mappa → blocchi ogni pochi secondi. Ridisegno per strade nuove: `onRoadsLoaded`, al massimo ogni 3 s. `remainingPath` si calcola solo per il mezzo selezionato (`routeFor`).
 
+## Limite km e revisione (migr. 196, 12/11/2026)
+- Ambulanze convertibili (`vehicle_km_convertible(model)`): a 400.000 km in emergenza (`odometer_km - overhaul_km`) il trigger `vehicles_km_limit` mette `km_retired` + `converted_ordinaria` (solo ordinari). `set_vehicle_ordinaria(...,false)` → `KM_LIMIT`. `overhaul_vehicle(id)` da 300.000 km: costo `overhaul_cost` = 100.000 + 2×base_cost, azzera km emergenza e usura, torna emergenza.
+- Garage: filtri per tipo (`KINDS`/`kindOf`), raggruppa per sede/tipo, ordina tipo/nome/km/usura, vista Schede/Elenco (salvata in localStorage `fs_garage_view`), barra km e pulsante revisione sulla scheda.
+
 ## Cloud Free: prestazioni (migr. 195, 11/11/2026)
 - Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
 - `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).
