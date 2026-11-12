@@ -14,3 +14,6 @@
 -- claim_mission_as: VEHICLE_BROKEN se issue_open. auto_dispatch_org/auto_medical: escludono issue_open e riparano da soli nelle sedi in automatico.
 -- vehicle_market_value: scende con guasti aperti (x1,5), pezzi scaduti e carrozzeria. my_fleet: + issue_open, issue_title, body_damage.
 -- Partenza: tutti i mezzi di terra con gomme std_4s nuove; pezzi montati a 0 km.
+-- FIX prestazioni: il conducente si cerca solo nell'ULTIMO servizio del mezzo
+--   (subquery limit 1 su mission_assignments + indice mission_assignments_vehicle_assigned_idx (vehicle_id, assigned_at desc)).
+--   Prima la ricerca leggeva tutti i servizi del mezzo (>1 s per rientro) e il tick arrivava a 110 s.
