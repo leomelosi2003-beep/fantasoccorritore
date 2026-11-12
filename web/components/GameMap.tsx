@@ -587,6 +587,29 @@ export default function GameMap() {
     const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
     return () => clearInterval(t);
   }, [org?.id]);
+  // Donazioni dei cittadini (in base alla reputazione, ogni mattina alle 8)
+  const [donation, setDonation] = useState<{ today: number | null; next: number; week: number } | null>(null);
+  useEffect(() => {
+    if (!org?.id) return;
+    const load = () => supabase.rpc("my_donation_info").then(({ data }) => {
+      const d = data as { today: number | null; next: number; week: number } | null;
+      if (!d) return;
+      setDonation(d);
+      // la prima volta del giorno: avviso con la donazione ricevuta
+      const day = new Date().toLocaleDateString("it-IT");
+      try {
+        if (d.today && localStorage.getItem("fs_don_seen") !== day) {
+          localStorage.setItem("fs_don_seen", day);
+          showToast(`💝 I cittadini hanno donato ${Number(d.today).toLocaleString("it-IT")} € grazie alla vostra reputazione!`);
+        }
+      } catch {}
+    });
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 600_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org?.id]);
+
   // "Localizza": centra la mappa sul mezzo e lo evidenzia per qualche secondo
   const mapRef = useRef<L.Map | null>(null);
   const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
@@ -966,6 +989,19 @@ export default function GameMap() {
               <div className="fs-stat-row"><span>🚑 Servizi conclusi (1 ora)</span><strong>{stats.services_1h}</strong></div>
               <div className="fs-stat-row"><span>🥷 Servizi rubati (24 ore)</span><strong style={{ color: "#15803D" }}>{stats.stolen_24h}</strong></div>
               <div className="fs-stat-row"><span>😤 Servizi persi (24 ore)</span><strong style={{ color: "#B45309" }}>{stats.lost_24h}</strong></div>
+              {donation && (
+                <div style={{ marginTop: 8, background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 10, padding: "8px 10px" }}>
+                  <div style={{ fontWeight: 800, color: "#9D174D" }}>💝 Donazioni dei cittadini</div>
+                  {donation.today
+                    ? <div className="fs-stat-row"><span>Ricevute oggi</span><strong style={{ color: "#15803D" }}>+{Number(donation.today).toLocaleString("it-IT")} €</strong></div>
+                    : null}
+                  <div className="fs-stat-row"><span>{donation.today ? "Domattina alle 8" : "Alle 8 di mattina"}</span><strong>{donation.next > 0 ? `~${Number(donation.next).toLocaleString("it-IT")} €` : "—"}</strong></div>
+                  {donation.week > 0 && <div className="fs-stat-row"><span>Ultimi 7 giorni</span><strong>{Number(donation.week).toLocaleString("it-IT")} €</strong></div>}
+                  <div style={{ fontSize: 11, color: "#831843", marginTop: 2 }}>
+                    {donation.next > 0 ? "Più ⭐ reputazione hai, più i cittadini donano." : "Servono almeno 10 ⭐ di reputazione: fai servizi e obiettivi."}
+                  </div>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 <button className="fs-stat-btn" onClick={() => router.push("/finanze")}>📊 Entrate e uscite</button>
                 <button className="fs-stat-btn" onClick={() => router.push("/classifica")}>🏆 Classifica</button>

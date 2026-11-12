@@ -110,6 +110,9 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Imprevisti nel trigger `vehicles_road_events` al rientro (aumento odometro). Mezzo con `issue_open` non parte (`VEHICLE_BROKEN`), l'automatico lo ripara da solo. Mezzi guasti vendibili all'asta: `auction_conditions()` mostra guasti/gomme/pezzi in `/usate`, il valore scende.
 - Dettagli in `supabase/migrations/199_officina_gomme_pezzi_imprevisti.sql`.
 
+## Reputazione → donazioni (migr. 202, 12/11/2026)
+- Ogni mattina (cron `citizen-donations`, 07:05 UTC) `pay_citizen_donations()` dà a ogni associazione con ≥10 ⭐ `citizen_donation_amount(rep)` = 1.500 × √rep (max 1M), tabella `org_donations` (una al giorno). La reputazione non si spende. Nella scheda Andamento (clic sul nome in alto) c'è il riquadro 💝 con oggi/domani/7 giorni; avviso una volta al giorno (`fs_don_seen`).
+
 ## Cloud Free: prestazioni (migr. 195, 11/11/2026)
 - Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
 - `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).
