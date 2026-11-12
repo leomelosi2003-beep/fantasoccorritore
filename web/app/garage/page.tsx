@@ -7,6 +7,7 @@ import { supabase, friendlyError, livery, type Organization } from "@/lib/supaba
 import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
 import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
+import TutorialCoach from "@/components/TutorialCoach";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number; vmax_kmh?: number | null; agility?: number | null;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
@@ -454,6 +455,7 @@ export default function Garage() {
 
   return (
     <main style={shell}>
+      <TutorialCoach page="garage" />
       {/* Testata */}
       <div style={{ background: "#111", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 10, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}>
@@ -485,7 +487,7 @@ export default function Garage() {
         )}
 
         {!shop && (
-          <button onClick={openShop}
+          <button onClick={openShop} data-tut="buy-vehicle"
                   style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "#F97316", marginBottom: 14,
                            boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
             🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}

@@ -143,7 +143,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
 
   return (
     <div className="fs-fleet">
-      <button className={`fs-fleet-ico${open ? " open" : ""}`} onClick={() => setOpen(!open)} title="I tuoi mezzi" aria-label="I tuoi mezzi">
+      <button data-tut="fleet-btn" className={`fs-fleet-ico${open ? " open" : ""}`} onClick={() => setOpen(!open)} title="I tuoi mezzi" aria-label="I tuoi mezzi">
         🚑
         {rows.length > 0 && <span className="fs-fleet-badge">{atBase}</span>}
       </button>

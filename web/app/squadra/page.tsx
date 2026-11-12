@@ -7,6 +7,7 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import VolunteerCard, { ROLE, RARITY, RoleBadge, cardLevel, type Card } from "@/components/VolunteerCard";
 import { avatarSvg } from "@/components/avatar";
+import TutorialCoach from "@/components/TutorialCoach";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
@@ -175,6 +176,7 @@ export default function Squadra() {
 
   return (
     <main style={shell}>
+      <TutorialCoach page="squadra" />
       <style>{`
         @keyframes flipIn { 0% { transform: perspective(800px) rotateY(90deg) scale(.8); opacity: 0 }
                             100% { transform: perspective(800px) rotateY(0) scale(1); opacity: 1 } }
@@ -220,7 +222,7 @@ export default function Squadra() {
                 : "5 volontari nuovi: sempre almeno un autista e un soccorritore."}
             </div>
           </div>
-          <button onClick={openPack} disabled={busy || !pack || pack.opened}
+          <button onClick={openPack} disabled={busy || !pack || pack.opened} data-tut="open-pack"
                   style={{ ...btn, background: "#F97316", padding: "12px 20px", fontSize: 16,
                            opacity: busy || !pack || pack.opened ? 0.4 : 1 }}>
             {busy ? "Apertura…" : pack?.opened ? "Già aperto" : "Apri pacchetto"}

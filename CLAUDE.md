@@ -113,6 +113,9 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 ## Reputazione → donazioni (migr. 202, 12/11/2026)
 - Ogni mattina (cron `citizen-donations`, 07:05 UTC) `pay_citizen_donations()` dà a ogni associazione con ≥10 ⭐ `citizen_donation_amount(rep)` = 1.500 × √rep (max 1M), tabella `org_donations` (una al giorno). La reputazione non si spende. Nella scheda Andamento (clic sul nome in alto) c'è il riquadro 💝 con oggi/domani/7 giorni; avviso una volta al giorno (`fs_don_seen`).
 
+## Tutorial guidato (migr. 203, 12/11/2026)
+- `components/TutorialCoach.tsx` (`page` = map/garage/squadra/officina/obiettivi/automatico), montato su mappa e su quelle pagine. 9 passi (`STEPS`): benvenuto, compra ambulanza (check vehicles), volontari (drivers/cards), invia (dispatched), segui il servizio (completed), officina, obiettivi, automatica, fine. Stato in `organizations.tutorial_step/tutorial_done` (`my_tutorial_state`, `tutorial_set`); i passi già fatti si saltano da soli. Evidenzia il pulsante con `data-tut="..."` (buy-vehicle, open-pack, fleet-btn); si nasconde se c'è un elemento `data-tut-hide` (MissionPanel). Menu "Tutorial" = ricomincia. Il vecchio `Tutorial.tsx` (slide) non è più usato.
+
 ## Cloud Free: prestazioni (migr. 195, 11/11/2026)
 - Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
 - `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).

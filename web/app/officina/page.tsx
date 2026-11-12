@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
+import TutorialCoach from "@/components/TutorialCoach";
 
 type Org = { id: string; name: string; funds: number };
 type Base = { id: string; name: string; is_headquarters: boolean };
@@ -190,6 +191,7 @@ export default function Officina() {
 
   return (
     <main style={shell}>
+      <TutorialCoach page="officina" />
       <div style={{ background: "#111", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 10, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}>
           <button onClick={() => router.push("/garage")} style={{ ...btn, background: "#333" }}>← Garage</button>

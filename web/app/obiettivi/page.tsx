@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { playSound } from "@/lib/sound";
+import TutorialCoach from "@/components/TutorialCoach";
 
 type Objective = {
   kind: "d" | "w"; key: string; period: string; icon: string; title: string;
@@ -100,6 +101,7 @@ export default function Obiettivi() {
 
   return (
     <main style={shell}>
+      <TutorialCoach page="obiettivi" />
       <div style={{ background: "linear-gradient(135deg,#15803D,#14532D)", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",

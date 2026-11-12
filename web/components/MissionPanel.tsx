@@ -392,7 +392,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     : isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
   return (
-    <div style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
+    <div data-tut-hide="1" style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
                   background: "#fff", boxShadow: "-6px 0 24px rgba(0,0,0,.25)", display: "flex", flexDirection: "column",
                   fontFamily: "system-ui, sans-serif" }}>
       {/* Testata */}

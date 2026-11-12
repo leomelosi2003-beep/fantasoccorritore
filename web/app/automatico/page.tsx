@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import TutorialCoach from "@/components/TutorialCoach";
 
 type Log = { assigned_at: string; title: string; code: string; call_sign: string; status: string; reward: number | null; completes_at: string };
 
@@ -155,6 +156,7 @@ export default function Automatico() {
 
   return (
     <main style={shell}>
+      <TutorialCoach page="automatico" />
       <div style={{ background: "linear-gradient(135deg,#0F766E,#134E4A)", color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",

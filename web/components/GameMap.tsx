@@ -15,7 +15,7 @@ import AcquisitionModal from "@/components/AcquisitionModal";
 import OfferOutcomeModal from "@/components/OfferOutcomeModal";
 import OneFingerZoom from "@/components/ThumbZoom";
 import ThemeToggle from "@/components/ThemeToggle";
-import Tutorial, { TUTORIAL_KEY } from "@/components/Tutorial";
+import TutorialCoach from "@/components/TutorialCoach";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
 import { getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
@@ -515,7 +515,7 @@ export default function GameMap() {
     + (flt.onlyFree ? 1 : 0) + (flt.bases !== "tutte" ? 1 : 0) + (flt.othersVehicles ? 0 : 1) + (flt.hospitals ? 0 : 1) + (flt.ports ? 0 : 1) + (flt.events ? 0 : 1);
   const [oneFinger, setOneFinger] = useState(true);
   useEffect(() => { try { if (localStorage.getItem("fs_onefinger") === "0") setOneFinger(false); } catch {} }, []);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutKey, setTutKey] = useState(0); // riapre il tutorial guidato dal menu
   const [sound, setSound] = useState(true);
   useEffect(() => { setSound(soundOn()); }, []);
   const [notif, setNotif] = useState(false);
@@ -571,12 +571,11 @@ export default function GameMap() {
   // andamento nel riquadro del profilo: entrate/uscite dell'ultima ora e servizi rubati
   const [stats, setStats] = useState<{ net_1h: number; in_1h: number; out_1h: number; stolen_24h: number; lost_24h: number; services_1h: number } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
-  // Tutorial al primo accesso (una volta per dispositivo); riapribile dal menu.
-  useEffect(() => {
-    if (!org?.id) return;
-    try { if (localStorage.getItem(TUTORIAL_KEY) !== "1") setShowTutorial(true); } catch {}
-  }, [org?.id]);
-  const closeTutorial = () => { setShowTutorial(false); try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} };
+  // Tutorial guidato: parte da solo per le associazioni nuove (stato nel database); dal menu si ricomincia da capo.
+  async function restartTutorial() {
+    await supabase.rpc("tutorial_set", { p_step: 0, p_done: false });
+    setTutKey((k) => k + 1);
+  }
   useEffect(() => {
     if (!org?.id) return;
     const load = () => supabase.rpc("my_quick_stats").then(({ data }) => {
@@ -1204,7 +1203,7 @@ export default function GameMap() {
                     return;
                   }
                   setMenuOpen(false);
-                  if (href === "__tutorial__") setShowTutorial(true); else router.push(href);
+                  if (href === "__tutorial__") restartTutorial(); else router.push(href);
                 }}>
                 <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
@@ -1222,7 +1221,7 @@ export default function GameMap() {
         </>
       )}
 
-      {showTutorial && <Tutorial onClose={closeTutorial} />}
+      {org && <TutorialCoach page="map" restartKey={tutKey} />}
 
       {error && (
         <div style={{ position: "absolute", top: 64, left: 12, right: 12, zIndex: 1000, background: "#fff3f3",
