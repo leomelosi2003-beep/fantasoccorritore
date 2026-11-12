@@ -114,6 +114,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
 - `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).
 - Ricerche geografiche sui servizi: tenere il filtro `status in (aperta, completa, in_corso)` così il planner usa `missions_active_location_idx` (migr. 200). L'indice su tutti i servizi storici rendeva il tick lentissimo (120 s) e gli invii dei giocatori andavano in timeout.
+- Fasi lente del motore: `select * from tick_log order by at desc` (game_tick registra ogni fase >= 1,5 s, migr. 201). Occhio alle letture complete di `missions` (`pg_stat_user_tables.seq_scan`): ogni filtro sui servizi deve avere un indice.
 - Misurare le pagine come utente: DO block con set_config jwt + `set local role authenticated`, cronometrando ogni vista/RPC.
 
 ## Velocità reali (migr. 193-194, 9/11/2026)
