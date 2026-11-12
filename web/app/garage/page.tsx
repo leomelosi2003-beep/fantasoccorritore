@@ -23,8 +23,8 @@ type Vehicle = { id: string; call_sign: string; base_id: string; model_id: strin
   odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null };
 const SPEED_COST = [6000, 12000, 24000];
 // Limite chilometrico per le emergenze (come le regole sui mezzi di soccorso): oltre, l'ambulanza fa solo ordinari
-const KM_LIMIT = 400000;
-const KM_OVERHAUL_FROM = 300000; // la revisione generale si può fare da qui in poi
+const KM_LIMIT = 250000;
+const KM_OVERHAUL_FROM = 200000; // la revisione generale si può fare da qui in poi
 const kmFmt = (n: number) => Math.round(n).toLocaleString("it-IT") + " km";
 // Tipo di mezzo nel garage (per ordinare e filtrare)
 type Kind = "emergenza" | "ordinaria" | "passo_lungo" | "automedica" | "moto" | "barca" | "aib";
@@ -1036,8 +1036,8 @@ function garageError(m: string) {
   if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))
     return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
-  if (m.includes("KM_LIMIT")) return "⛔ Ha superato i 400.000 km: per tornare alle emergenze serve la revisione generale.";
-  if (m.includes("OVERHAUL_TOO_EARLY")) return "La revisione generale si fa da 300.000 km in emergenza in poi.";
+  if (m.includes("KM_LIMIT")) return "⛔ Ha superato i 250.000 km: per tornare alle emergenze serve la revisione generale.";
+  if (m.includes("OVERHAUL_TOO_EARLY")) return "La revisione generale si fa da 200.000 km in emergenza in poi.";
   if (m.includes("INSUFFICIENT_FUNDS")) return "Soldi insufficienti.";
   if (m.includes("MAX_LEVEL")) return "È già al livello massimo.";
   if (m.includes("TANK_TOO_SMALL")) return `La cisterna è quasi piena: c'è posto solo per ${m.split("TANK_TOO_SMALL:")[1]?.split(/\D/)[0] ?? "pochi"} litri.`;

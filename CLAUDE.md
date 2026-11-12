@@ -100,7 +100,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Strade (`components/roads.ts`): l'archivio nel browser (`fs-roads-v3`, max 150 tratti, punti semplificati ogni ~12 m) si legge una volta e si riscrive al massimo ogni 15 s. Prima ogni strada scaricata rileggeva/riscriveva tutto `fs-roads-v2` (MB) e ridisegnava la mappa → blocchi ogni pochi secondi. Ridisegno per strade nuove: `onRoadsLoaded`, al massimo ogni 3 s. `remainingPath` si calcola solo per il mezzo selezionato (`routeFor`).
 
 ## Limite km e revisione (migr. 196, 12/11/2026)
-- Ambulanze convertibili (`vehicle_km_convertible(model)`): a 400.000 km in emergenza (`odometer_km - overhaul_km`) il trigger `vehicles_km_limit` mette `km_retired` + `converted_ordinaria` (solo ordinari). `set_vehicle_ordinaria(...,false)` → `KM_LIMIT`. `overhaul_vehicle(id)` da 300.000 km: costo `overhaul_cost` = 100.000 + 2×base_cost, azzera km emergenza e usura, torna emergenza.
+- Ambulanze convertibili (`vehicle_km_convertible(model)`): a 250.000 km in emergenza (migr. 197, prima 400.000; `km_limit_emergency()`, `odometer_km - overhaul_km`) il trigger `vehicles_km_limit` mette `km_retired` + `converted_ordinaria` (solo ordinari). `set_vehicle_ordinaria(...,false)` → `KM_LIMIT`. `overhaul_vehicle(id)` da 200.000 km: costo `overhaul_cost` = 100.000 + 2×base_cost, azzera km emergenza e usura, torna emergenza.
 - Garage: filtri per tipo (`KINDS`/`kindOf`), raggruppa per sede/tipo, ordina tipo/nome/km/usura, vista Schede/Elenco (salvata in localStorage `fs_garage_view`), barra km e pulsante revisione sulla scheda.
 
 ## Cloud Free: prestazioni (migr. 195, 11/11/2026)
