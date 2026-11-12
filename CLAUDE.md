@@ -104,6 +104,11 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Revisione ogni 15.000 km per tutti i mezzi di terra (barche escluse): `vehicles.service_km`; scaduta → `claim_mission_as` dà `SERVICE_DUE`, l'automatico non la usa e nelle sedi in automatico la fa da solo (`service_vehicle_do`). Costo `service_cost` = 5.000 + 10% base_cost, officina 15 min, usura 0. RPC `service_vehicle(id)`, `service_all()`. `my_fleet.service_due`/`km_to_service`.
 - Garage: filtri per tipo (`KINDS`/`kindOf`), raggruppa per sede/tipo (tendine chiuse di base), ordina tipo/nome/km/usura, vista Schede/Elenco (`fs_garage_view`), barre km emergenza e prossima revisione, pulsanti revisione e "Revisiona tutti".
 
+## Officina (migr. 199, 12/11/2026)
+- Pagina `/officina` (link nel Garage e nel menu con pallino = guasti + segnalazioni non lette): schede Mezzi (per sede, guasti, gomme, pezzi, carrozzeria), Gomme (negozio + magazzino), Segnalazioni (volontari; aprendo la scheda `mark_reports_seen`).
+- Imprevisti nel trigger `vehicles_road_events` al rientro (aumento odometro). Mezzo con `issue_open` non parte (`VEHICLE_BROKEN`), l'automatico lo ripara da solo. Mezzi guasti vendibili all'asta: `auction_conditions()` mostra guasti/gomme/pezzi in `/usate`, il valore scende.
+- Dettagli in `supabase/migrations/199_officina_gomme_pezzi_imprevisti.sql`.
+
 ## Cloud Free: prestazioni (migr. 195, 11/11/2026)
 - Il cloud Free ha CPU/RAM piccole (shared_buffers 224MB): ogni vista/RPC che scorre lo storico va indicizzata. Timeout: anon 3 s, authenticated 8 s.
 - `live_ambulances` usa `fs_route_end(route, completes_at)` (indice `mission_assignments_route_end_idx`). Indici coprenti `mission_assignments_org_done_cover_idx` e `missions_id_cover_idx` per obiettivi/org_points. Dopo indici nuovi: `vacuum (analyze)` (chiamata MCP separata, non in transazione).

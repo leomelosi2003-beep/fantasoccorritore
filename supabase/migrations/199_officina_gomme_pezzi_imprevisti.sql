@@ -1,0 +1,16 @@
+-- 199 (12/11/2026): OFFICINA — gomme, pezzi, imprevisti, carrozzeria, segnalazioni dei volontari. Applicata via MCP.
+-- Tabelle: tire_models (20 gomme: Standard, Mikelin, Pirello, Bridgerock, Kontinental, Goodyar, Hankuk, Nordyk; estiva/invernale/4stagioni,
+--          prezzo per treno da 4, life_km, grip 1-5), org_tire_stock(org, modello, qty), vehicle_part_types (pastiglie 35k, dischi 90k,
+--          impianto_freni 180k, batteria 80k, centralina 200k, ammortizzatori 100k, frizione 150k*, cinghia 120k*; *non sugli elettrici),
+--          vehicle_parts(vehicle, part, installed_km), vehicle_issues (guasti aperti: fixed_at null), vehicle_reports (segnalazioni carrozzeria).
+-- vehicles: tire_model_id, tire_wear_km, issue_open, maint_resets_wear, body_damage.
+-- Trigger vehicles_road_events (BEFORE UPDATE OF odometer_km): consumo gomme (invernali d'estate x1,5), danno carrozzeria segnalato
+--   dall'equipaggio dell'ultimo servizio (prob. d/15000 x fattore guida dell'autista), poi UN imprevisto: foratura (d/80000 x consumo gomme
+--   x estive-in-inverno x2 x (6-grip)/3 x usura) o guasto di un pezzo (d/life x 0,03|0,3|1,5 secondo vita 80%/100% x usura).
+--   Periodo invernale = winter_tire_period(): 15/11 - 15/4.
+-- vehicles_init_parts (AFTER INSERT): pezzi nuovi sui mezzi comprati. finish_maintenance: usura a 0 solo se maint_resets_wear.
+-- RPC: repair_vehicle(id), repair_all(), repair_body(id), replace_part(id, code), buy_tires(model, treni), mount_tires(id, model) (120 €, 15 min),
+--   mark_reports_seen(), auction_conditions(). Interna: repair_vehicle_do(id, org, motivo).
+-- claim_mission_as: VEHICLE_BROKEN se issue_open. auto_dispatch_org/auto_medical: escludono issue_open e riparano da soli nelle sedi in automatico.
+-- vehicle_market_value: scende con guasti aperti (x1,5), pezzi scaduti e carrozzeria. my_fleet: + issue_open, issue_title, body_damage.
+-- Partenza: tutti i mezzi di terra con gomme std_4s nuove; pezzi montati a 0 km.

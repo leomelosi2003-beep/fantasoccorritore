@@ -26,6 +26,9 @@ const wrap: CSSProperties = { maxWidth: 820, margin: "0 auto", padding: 16 };
 const card: CSSProperties = { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 14 };
 const btn: CSSProperties = { padding: "9px 12px", borderRadius: 10, border: "none", background: "#111", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
 
+type Cond = { auction_id: string; odometer_km: number; body_damage: number; issues: { title: string; cost: number }[];
+  tire: string | null; tire_pct: number | null; parts_due: string[] };
+
 function left(t: string, now: number) {
   const s = Math.max(0, Math.floor((new Date(t).getTime() - now) / 1000));
   const m = Math.floor(s / 60);
@@ -53,10 +56,12 @@ export default function Usate() {
   const [now, setNow] = useState(Date.now());
   const [tab, setTab] = useState<"mezzi" | "sedi">("mezzi");
   const [bases, setBases] = useState<BaseAuction[] | null>(null);
+  const [cond, setCond] = useState<Record<string, Cond>>({});
 
   async function load() {
-    const [a, b] = await Promise.all([supabase.rpc("auctions_list"), supabase.rpc("base_auctions_list")]);
+    const [a, b, c] = await Promise.all([supabase.rpc("auctions_list"), supabase.rpc("base_auctions_list"), supabase.rpc("auction_conditions")]);
     setList((a.data as Auction[]) ?? []);
+    setCond(Object.fromEntries(((c.data as Cond[]) ?? []).map((x) => [x.auction_id, x])));
     setBases((b.data as BaseAuction[]) ?? []);
   }
   useEffect(() => {
@@ -148,6 +153,22 @@ export default function Usate() {
                 <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
                   Usura {Math.round(Number(a.wear ?? 0))}% · velocità livello {a.speed_level ?? 0} · {a.equipment?.length ?? 0} presidi
                 </div>
+                {cond[a.id] && (() => {
+                  const c = cond[a.id];
+                  return (
+                    <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
+                      🛣️ {Math.round(Number(c.odometer_km)).toLocaleString("it-IT")} km
+                      {c.tire && <> · 🛞 {c.tire} ({c.tire_pct}% consumate)</>}
+                      {Number(c.body_damage) > 0 && <> · 🚗 carrozzeria {Math.round(Number(c.body_damage))}%</>}
+                      {c.issues.map((i, k) => (
+                        <div key={k} style={{ color: "#991B1B", background: "#FEE2E2", borderRadius: 6, padding: "2px 6px", marginTop: 3 }}>
+                          ⚠️ {i.title} · riparazione ~{euro(i.cost)}
+                        </div>
+                      ))}
+                      {c.parts_due.length > 0 && <div style={{ color: "#B45309", marginTop: 2 }}>🔩 Da cambiare presto: {c.parts_due.join(", ")}</div>}
+                    </div>
+                  );
+                })()}
                 <div style={{ fontSize: 12, color: "#555" }}>Valore di mercato: {euro(a.market_value)}</div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 }}>

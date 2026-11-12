@@ -6,7 +6,7 @@ import { supabase, livery } from "@/lib/supabase";
 
 type Vehicle = {
   id: string; call_sign: string; status: string; wear: number; lent_to: string | null; lent_from: string | null;
-  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null; fuel_liters?: number; tank_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; service_due?: boolean;
+  maintenance_until: string | null; vehicle_image: string | null; base_name: string | null; fuel_liters?: number; tank_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; service_due?: boolean; issue_open?: boolean; issue_title?: string | null;
 };
 type Job = { id: string; vehicle_id: string; title: string; status: string; assigned_at: string; completes_at: string; arrives_at: string;
   route_ends_at: string; hospital: string | null; transport?: string | null;
@@ -92,7 +92,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
 
   useEffect(() => {
     supabase.from("my_fleet")
-      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name,fuel_liters,tank_liters,electric,battery_pct,range_km,service_due")
+      .select("id,call_sign,status,wear,lent_to,lent_from,maintenance_until,vehicle_image,base_name,fuel_liters,tank_liters,electric,battery_pct,range_km,service_due,issue_open,issue_title")
       .order("call_sign")
       .then(({ data }) => setFleet((data as Vehicle[]) ?? []));
   }, [refreshKey]);
@@ -127,6 +127,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
                timer: countdown(freeAt - now), order: 0, job: j };
     if (j && homeAt > now)
       return { v, color: "#15803D", text: `↩️ Libera ma ancora fuori · rientra tra ${countdown(homeAt - now)}`, timer: null, order: 1, away: true };
+    if (v.issue_open) return { v, color: "#DC2626", text: `⚠️ Guasto: ${v.issue_title ?? "da riparare"} · Officina`, timer: null, order: 2 };
     if (v.service_due) return { v, color: "#B45309", text: "🔧 Revisione 15.000 km scaduta: falla nel Garage", timer: null, order: 2 };
     if (v.wear >= 80) return { v, color: "#B45309", text: "⚠️ Troppo usurata: manutenzione", timer: null, order: 2 };
     if (!v.electric && (v.fuel_liters ?? 99) < 5) return { v, color: "#DC2626", text: "⛽ Senza gasolio: non parte, fai il pieno", timer: null, order: 2 };

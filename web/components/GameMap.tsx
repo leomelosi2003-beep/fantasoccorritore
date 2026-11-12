@@ -788,6 +788,24 @@ export default function GameMap() {
     prevNotes.current = notes.length;
   }, [notes]);
 
+  // Officina: mezzi guasti + segnalazioni dei volontari non lette (pallino nel menu)
+  const [shopAlerts, setShopAlerts] = useState(0);
+  useEffect(() => {
+    if (!org?.id) return;
+    const oid = org.id;
+    async function loadShop() {
+      if (document.visibilityState !== "visible") return;
+      const [r, i] = await Promise.all([
+        supabase.from("vehicle_reports").select("id", { count: "exact", head: true }).eq("org_id", oid).is("seen_at", null),
+        supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("org_id", oid).eq("issue_open", true),
+      ]);
+      setShopAlerts((r.count ?? 0) + (i.count ?? 0));
+    }
+    loadShop();
+    const t = setInterval(loadShop, 60_000);
+    return () => clearInterval(t);
+  }, [org?.id]);
+
   // Obiettivi completati da ritirare (pallino nel menu)
   const [objReady, setObjReady] = useState(0);
   useEffect(() => {
@@ -1090,6 +1108,7 @@ export default function GameMap() {
               ]],
               ["La mia associazione", [
                 ["🚑", "Garage", "#F97316", "/garage"],
+                ["🔧", "Officina", "#7C3AED", "/officina"],
                 ["👥", "Squadra", "#1E3A8A", "/squadra"],
                 ["🏠", "Sedi", "#9333EA", "/sedi"],
                 ["🎨", "Associazione", "#DB2777", "/associazione"],
@@ -1124,7 +1143,7 @@ export default function GameMap() {
               {items.map(([icon, label, color, href]) => {
                 const badge = href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
                   : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
-                  : href === "/obiettivi" ? objReady : 0;
+                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : 0;
                 return (
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__perf__") {

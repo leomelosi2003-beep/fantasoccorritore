@@ -20,7 +20,7 @@ type Vehicle = { id: string; call_sign: string; base_id: string; model_id: strin
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
   speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean; long_emergency?: boolean;
-  odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null; service_km?: number; serviced_at?: string | null };
+  odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null; service_km?: number; serviced_at?: string | null; issue_open?: boolean; body_damage?: number };
 const SPEED_COST = [6000, 12000, 24000];
 // Limite chilometrico per le emergenze (come le regole sui mezzi di soccorso): oltre, l'ambulanza fa solo ordinari
 const KM_LIMIT = 250000;
@@ -462,6 +462,9 @@ export default function Garage() {
             <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
           </div>
           <div className="gar-links" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/officina")} style={{ ...btn, background: "#7C3AED", padding: "8px 10px" }}>
+              🔧 Officina{vehicles.some((v) => v.issue_open) ? ` · ⚠️ ${vehicles.filter((v) => v.issue_open).length}` : ""}
+            </button>
             <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏠 Sedi</button>
             <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🛒 Presidi</button>
             <button onClick={() => router.push("/usate")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏷️ Usate</button>
@@ -935,6 +938,15 @@ export default function Garage() {
                   <Bar label="Affidabilità" value={v.reliability} color="#16A34A" />
                   <Bar label="Durata" value={v.durability} color="#9333EA" />
                   <Bar label="Usura" value={v.wear} color={v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#EAB308" : "#999"} />
+                  {Number(v.body_damage ?? 0) > 0 && (
+                    <Bar label="🚗 Danni carrozzeria" value={Number(v.body_damage)} text={`${Math.round(Number(v.body_damage))}%`} color={Number(v.body_damage) >= 30 ? "#DC2626" : "#EAB308"} />
+                  )}
+                  {v.issue_open && (
+                    <button onClick={() => router.push("/officina")}
+                            style={{ ...btn, width: "100%", marginTop: 8, background: "#DC2626", fontSize: 13 }}>
+                      ⚠️ Guasto: il mezzo è fermo · vai in officina
+                    </button>
+                  )}
                   {(() => {
                     const conv = !!m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only;
                     const km = kmEm(v);
