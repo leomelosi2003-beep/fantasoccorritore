@@ -8,7 +8,7 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; long_emergency?: boolean;
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; long_emergency?: boolean; service_due?: boolean;
   fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
@@ -85,6 +85,7 @@ function claimError(m: string) {
   if (m.includes("MISSING_EQUIPMENT")) return "Il mezzo non ha i presidi richiesti.";
   if (m.includes("CERTIFICATION_TOO_LOW")) return "Il mezzo non è abilitato all'emergenza (servono i borsoni).";
   if (m.includes("NO_FUEL")) return "Il mezzo è in riserva: fai il pieno nel Garage (⛽ Benzinaio).";
+  if (m.includes("SERVICE_DUE")) return "🔧 Revisione dei 15.000 km scaduta: falla nel Garage prima di uscire.";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
@@ -141,7 +142,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng,service_due").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -177,7 +178,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         if (d > 40) return `troppo lontana dall'ormeggio (${Math.round(d)} km)`;
       }
       if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : "non disponibile";
-      if (v.wear >= 80) return "da revisionare";
+      if (v.wear >= 80) return "troppo usurata: manutenzione";
       if ((v.fuel_liters ?? 99) < 5) return "senza carburante: fai il pieno";
       return null;
     }
@@ -189,7 +190,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
     }
     if (v.status !== "disponibile") return v.status === "in_servizio" ? "in servizio" : v.status === "manutenzione" ? "in officina" : v.status === "fuori_servizio" ? "all'asta" : "non disponibile";
-    if (v.wear >= 80) return "da revisionare";
+    if (v.service_due) return "revisione dei 15.000 km scaduta: falla nel Garage";
+    if (v.wear >= 80) return "troppo usurata: manutenzione";
     if (!v.electric && (v.fuel_liters ?? 99) < 5) return "senza gasolio: fai il pieno";
     if (v.electric && v.base_lat != null && v.base_lng != null && mission.transport !== "trasferimento") {
       const need = km(v.base_lat, v.base_lng, mission.lat, mission.lng) * 2 * 1.3;

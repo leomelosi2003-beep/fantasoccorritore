@@ -1,0 +1,11 @@
+-- 198 (12/11/2026): revisione obbligatoria ogni 15.000 km per tutti i mezzi di terra (barche escluse);
+-- a 250.000 km in emergenza l'ambulanza esce dalle emergenze PER SEMPRE (niente più revisione generale).
+-- Applicata via MCP; qui il riassunto per ricostruirla.
+--  vehicles.service_km (km alla revisione), serviced_at; service_interval_km() = 15000;
+--  service_cost(id) = 5000 + 10% base_cost; service_vehicle_do(id, org, motivo) (interna: paga, officina 15 min, service_km = odometer_km);
+--  service_vehicle(id) (da 1.000 km dall'ultima), service_all() (fermi in sede, scaduti o negli ultimi 2.000 km);
+--  trigger vehicles_km_limit: per le barche service_km = odometer_km; km_retired a 250.000;
+--  overhaul_vehicle -> NO_OVERHAUL; claim_mission_as -> SERVICE_DUE dopo VEHICLE_BUSY;
+--  auto_dispatch_org/auto_medical: filtro "odometer_km - service_km < service_interval_km()" e revisione automatica nelle sedi in automatico;
+--  my_fleet: + service_due, km_to_service, km_retired.
+--  All'attivazione: service_km = odometer_km per tutti (nessuno bloccato subito).

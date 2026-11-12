@@ -20,11 +20,12 @@ type Vehicle = { id: string; call_sign: string; base_id: string; model_id: strin
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
   speed_level?: number; fuel_liters: number; battery_pct?: number; converted_ordinaria?: boolean; long_emergency?: boolean;
-  odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null };
+  odometer_km?: number; overhaul_km?: number; km_retired?: boolean; overhauled_at?: string | null; service_km?: number; serviced_at?: string | null };
 const SPEED_COST = [6000, 12000, 24000];
 // Limite chilometrico per le emergenze (come le regole sui mezzi di soccorso): oltre, l'ambulanza fa solo ordinari
 const KM_LIMIT = 250000;
-const KM_OVERHAUL_FROM = 200000; // la revisione generale si può fare da qui in poi
+const SERVICE_KM = 15000; // revisione obbligatoria ogni 15.000 km (tutti i mezzi di terra)
+const SERVICE_WARN = 2000; // avviso negli ultimi 2.000 km
 const kmFmt = (n: number) => Math.round(n).toLocaleString("it-IT") + " km";
 // Tipo di mezzo nel garage (per ordinare e filtrare)
 type Kind = "emergenza" | "ordinaria" | "passo_lungo" | "automedica" | "moto" | "barca" | "aib";
@@ -225,6 +226,9 @@ export default function Garage() {
     return "emergenza";
   }, [byId]);
   const kmEm = (v: Vehicle) => Math.max(0, Number(v.odometer_km ?? 0) - Number(v.overhaul_km ?? 0));
+  const kmServ = (v: Vehicle) => Math.max(0, Number(v.odometer_km ?? 0) - Number(v.service_km ?? 0));
+  const serviceCost = (v: Vehicle) => 5000 + Math.round(0.1 * (byId.model[v.model_id]?.base_cost ?? 40000));
+  const isBoat = (v: Vehicle) => !!byId.model[v.model_id]?.boat;
   const kindCounts = useMemo(() => {
     const c: Partial<Record<Kind, number>> = {};
     for (const v of vehicles) { const k = kindOf(v); c[k] = (c[k] ?? 0) + 1; }
@@ -410,14 +414,29 @@ export default function Garage() {
     load();
   }
 
-  async function overhaul(v: Vehicle, cost: number) {
+  async function service(v: Vehicle) {
     setMsg(null);
-    if (!(await gameConfirm(`Revisione generale di ${v.call_sign} · ${euro(cost)}\n\nIl contachilometri delle emergenze riparte da zero, l'usura torna a 0 e il mezzo torna a fare le emergenze. I km totali restano scritti nel libretto.`))) return;
+    if (!(await gameConfirm(`Revisione di ${v.call_sign} · ${euro(serviceCost(v))}\n\nResta in officina 15 minuti, poi riparte con altri ${kmFmt(SERVICE_KM)} di strada e l'usura a zero.`))) return;
     setBusy(true);
-    const { error } = await supabase.rpc("overhaul_vehicle", { p_vehicle: v.id });
+    const { error } = await supabase.rpc("service_vehicle", { p_vehicle: v.id });
     setBusy(false);
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
-    setMsg({ ok: true, text: `🔧 ${v.call_sign} revisionata: torna a fare le emergenze per altri ${kmFmt(KM_LIMIT)}.` });
+    setMsg({ ok: true, text: `🔧 ${v.call_sign} è in revisione: pronta tra 15 minuti.` });
+    load();
+  }
+
+  async function serviceAll() {
+    setMsg(null);
+    const due = vehicles.filter((v) => !isBoat(v) && v.status === "disponibile" && kmServ(v) >= SERVICE_KM - SERVICE_WARN);
+    if (!due.length) { setMsg({ ok: true, text: "Nessun mezzo fermo ha la revisione scaduta o vicina." }); return; }
+    const tot = due.reduce((t, v) => t + serviceCost(v), 0);
+    if (!(await gameConfirm(`Revisione a ${due.length} mezzi · circa ${euro(tot)}\n\nSolo quelli fermi in sede con la revisione scaduta o a meno di ${kmFmt(SERVICE_WARN)}.`))) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc("service_all");
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    const r = data as { count: number; cost: number };
+    setMsg({ ok: true, text: `🔧 ${r.count} mezzi in revisione · ${euro(r.cost)}` });
     load();
   }
 
@@ -779,8 +798,16 @@ export default function Garage() {
             <div style={{ fontSize: 12, color: "#555", marginTop: 10, background: "#F0F9FF", borderRadius: 8, padding: "8px 10px" }}>
               📘 <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
               <strong>{kmFmt(KM_LIMIT)}</strong> in emergenza non può più fare emergenze e diventa da sola <strong>🚗 solo ordinari</strong>.
-              Con la <strong>🔧 revisione generale</strong> (da {kmFmt(KM_OVERHAUL_FROM)} in poi, costa 100.000 € + 2 volte il prezzo del modello) il contachilometri delle emergenze riparte da zero.
+              È definitivo: da lì in poi fa solo dimissioni e trasporti ordinari.
               Automediche, moto, barche, antincendio e passi lunghi non hanno questo limite.
+              <br />🔧 <strong>Revisione ogni {kmFmt(SERVICE_KM)}</strong> per tutti i mezzi di terra (barche escluse): se è scaduta il mezzo non parte.
+              Costa 5.000 € + il 10% del prezzo del modello e il mezzo resta in officina 15 minuti (l&apos;usura torna a zero).
+              Nelle sedi in automatico la revisione si fa da sola.
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={serviceAll} disabled={busy} style={{ ...btn, padding: "7px 12px", fontSize: 13, background: "#7C3AED", opacity: busy ? 0.4 : 1 }}>
+                🔧 Revisiona tutti i mezzi in scadenza
+              </button>
             </div>
           </div>
         )}
@@ -816,7 +843,7 @@ export default function Garage() {
                         <tr style={{ background: "#f4f4f1", textAlign: "left" }}>
                           <th style={{ padding: "8px 10px" }}>Mezzo</th><th style={{ padding: "8px 6px" }}>Tipo</th>
                           <th style={{ padding: "8px 6px" }}>{groupBy === "sede" ? "Modello" : "Sede"}</th><th style={{ padding: "8px 6px" }}>Stato</th>
-                          <th style={{ padding: "8px 6px", textAlign: "right" }}>Km emergenza</th><th style={{ padding: "8px 10px", textAlign: "right" }}>Usura</th>
+                          <th style={{ padding: "8px 6px", textAlign: "right" }}>Km emergenza</th><th style={{ padding: "8px 6px", textAlign: "right" }}>Revisione tra</th><th style={{ padding: "8px 10px", textAlign: "right" }}>Usura</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -831,8 +858,12 @@ export default function Garage() {
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{groupBy === "sede" ? byId.model[v.model_id]?.name : byId.base[v.base_id]?.name}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{STATUS[v.status]}</td>
                               <td style={{ padding: "7px 6px", textAlign: "right", whiteSpace: "nowrap",
-                                           color: !lim ? "#999" : km >= KM_LIMIT ? "#DC2626" : km >= KM_OVERHAUL_FROM ? "#B45309" : "#111" }}>
+                                           color: !lim ? "#999" : km >= KM_LIMIT ? "#DC2626" : km >= KM_LIMIT * 0.8 ? "#B45309" : "#111" }}>
                                 {lim ? kmFmt(km) : "—"}
+                              </td>
+                              <td style={{ padding: "7px 6px", textAlign: "right", whiteSpace: "nowrap",
+                                           color: isBoat(v) ? "#999" : kmServ(v) >= SERVICE_KM ? "#DC2626" : kmServ(v) >= SERVICE_KM - SERVICE_WARN ? "#B45309" : "#111" }}>
+                                {isBoat(v) ? "—" : kmServ(v) >= SERVICE_KM ? "SCADUTA" : kmFmt(SERVICE_KM - kmServ(v))}
                               </td>
                               <td style={{ padding: "7px 10px", textAlign: "right", color: v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#B45309" : "#111" }}>{Math.round(v.wear)}%</td>
                             </tr>
@@ -908,24 +939,34 @@ export default function Garage() {
                     const conv = !!m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only;
                     const km = kmEm(v);
                     const tot = Number(v.odometer_km ?? 0);
-                    if (!conv) return <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>🛣️ Contachilometri: {kmFmt(tot)}</div>;
-                    const pct = (km / KM_LIMIT) * 100;
-                    const oCost = 100000 + 2 * (m?.base_cost ?? 40000);
+                    const ks = kmServ(v);
+                    const due = !m?.boat && ks >= SERVICE_KM;
+                    const near = !m?.boat && ks >= SERVICE_KM - SERVICE_WARN;
                     return (
                       <>
-                        <Bar label={`🛣️ Km in emergenza${v.overhaul_km ? " (dalla revisione)" : ""}`} value={pct}
-                             text={`${kmFmt(km)} / ${kmFmt(KM_LIMIT)}`}
-                             color={km >= KM_LIMIT ? "#DC2626" : km >= KM_OVERHAUL_FROM ? "#EAB308" : "#0EA5E9"} />
-                        {!!v.overhaul_km && <div style={{ fontSize: 11, color: "#888" }}>Totale percorso: {kmFmt(tot)}</div>}
+                        {conv ? (
+                          <Bar label="🛣️ Km in emergenza" value={(km / KM_LIMIT) * 100} text={`${kmFmt(km)} / ${kmFmt(KM_LIMIT)}`}
+                               color={km >= KM_LIMIT ? "#DC2626" : km >= KM_LIMIT * 0.8 ? "#EAB308" : "#0EA5E9"} />
+                        ) : <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>🛣️ Contachilometri: {kmFmt(tot)}</div>}
+                        {!m?.boat && (
+                          <Bar label="🔧 Prossima revisione" value={(ks / SERVICE_KM) * 100}
+                               text={due ? "SCADUTA" : `tra ${kmFmt(SERVICE_KM - ks)}`}
+                               color={due ? "#DC2626" : near ? "#EAB308" : "#7C3AED"} />
+                        )}
                         {v.km_retired && (
                           <div style={{ fontSize: 12, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "6px 8px", marginTop: 6 }}>
-                            ⛔ Superati i {kmFmt(KM_LIMIT)}: per legge non fa più emergenze, solo ordinari.
+                            ⛔ Superati i {kmFmt(KM_LIMIT)}: non fa più emergenze, solo ordinari.
                           </div>
                         )}
-                        {v.status === "disponibile" && (v.km_retired || km >= KM_OVERHAUL_FROM) && (
-                          <button onClick={() => overhaul(v, oCost)} disabled={busy || oCost > org.funds}
-                                  style={{ ...btn, width: "100%", marginTop: 8, background: "#7C3AED", opacity: busy || oCost > org.funds ? 0.4 : 1 }}>
-                            🔧 Revisione generale · {euro(oCost)}
+                        {due && (
+                          <div style={{ fontSize: 12, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "6px 8px", marginTop: 6 }}>
+                            🔧 Revisione scaduta: il mezzo non può partire finché non la fai.
+                          </div>
+                        )}
+                        {v.status === "disponibile" && near && (
+                          <button onClick={() => service(v)} disabled={busy || serviceCost(v) > org.funds}
+                                  style={{ ...btn, width: "100%", marginTop: 8, background: due ? "#DC2626" : "#7C3AED", opacity: busy || serviceCost(v) > org.funds ? 0.4 : 1 }}>
+                            🔧 Revisione · {euro(serviceCost(v))}
                           </button>
                         )}
                       </>
@@ -1036,8 +1077,9 @@ function garageError(m: string) {
   if (m.includes("CALL_SIGN_TAKEN") || m.includes("vehicles_call_sign_unique"))
     return "Questo nome è già usato da un'altra ambulanza: scegline uno diverso.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è impegnato.";
-  if (m.includes("KM_LIMIT")) return "⛔ Ha superato i 250.000 km: per tornare alle emergenze serve la revisione generale.";
-  if (m.includes("OVERHAUL_TOO_EARLY")) return "La revisione generale si fa da 200.000 km in emergenza in poi.";
+  if (m.includes("KM_LIMIT")) return "⛔ Ha superato i 250.000 km: non può più fare emergenze.";
+  if (m.includes("SERVICE_NOT_NEEDED")) return "La revisione non serve ancora.";
+  if (m.includes("SERVICE_DUE")) return "🔧 Revisione scaduta: falla prima di uscire.";
   if (m.includes("INSUFFICIENT_FUNDS")) return "Soldi insufficienti.";
   if (m.includes("MAX_LEVEL")) return "È già al livello massimo.";
   if (m.includes("TANK_TOO_SMALL")) return `La cisterna è quasi piena: c'è posto solo per ${m.split("TANK_TOO_SMALL:")[1]?.split(/\D/)[0] ?? "pochi"} litri.`;
