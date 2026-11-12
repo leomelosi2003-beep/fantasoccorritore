@@ -52,8 +52,13 @@ export default function Associazione() {
       const path = `${org.id}/logo-${Date.now()}.png`;
       const { error } = await supabase.storage.from("org-logos").upload(path, blob, { contentType: "image/png", upsert: true });
       if (error) throw error;
-      setLogo(supabase.storage.from("org-logos").getPublicUrl(path).data.publicUrl);
-      setMsg({ ok: true, text: "Logo caricato: premi Salva per confermarlo." });
+      const url = supabase.storage.from("org-logos").getPublicUrl(path).data.publicUrl;
+      setLogo(url);
+      // il logo si salva subito: prima serviva premere "Salva" e chi se ne dimenticava non lo vedeva sulla mappa
+      const { error: e2 } = await supabase.rpc("update_org_branding", { p_name: org.name, p_type: org.type, p_logo_url: url });
+      if (e2) throw e2;
+      setOrg((o) => (o ? { ...o, logo_url: url } : o));
+      setMsg({ ok: true, text: "✅ Logo caricato e salvato: lo vedi sulla mappa." });
     } catch (e) {
       setMsg({ ok: false, text: "Caricamento non riuscito: " + (e as Error).message });
     }
