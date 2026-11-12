@@ -935,7 +935,7 @@ export default function GameMap() {
       {/* Barra in alto: associazione e soldi */}
       <div className="fs-top">
         {org ? (
-          <div style={{ position: "relative", minWidth: 0 }}>
+          <div className="fs-org-wrap" style={{ position: "relative", minWidth: 0 }}>
           <button className="fs-pill" onClick={() => setStatsOpen((o) => !o)} title="Andamento dell'associazione">
             <FactionEmblem type={org.type} size={34} logo={org.logo_url} />
             <span className="fs-pill-text">
@@ -988,12 +988,12 @@ export default function GameMap() {
                 <>
                   <span className="fs-fuel-head">
                     <span>⛽ <span className="fs-fuel-word">Gasolio </span><strong style={{ color: pct < 20 ? "#DC2626" : "inherit" }}>{Math.round(fuel.stock).toLocaleString("it-IT")} L</strong></span>
-                    <span style={{ color: "#888", fontWeight: 500 }}>/ {fuel.cap.toLocaleString("it-IT")}</span>
+                    <span className="fs-fuel-extra" style={{ color: "#888", fontWeight: 500 }}>/ {fuel.cap.toLocaleString("it-IT")}</span>
                   </span>
                   <span className="fs-fuel-bar"><span style={{ width: `${pct}%`, background: col }} /></span>
                   {fuel.empty > 0 && (
-                    <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 700 }}>
-                      {fuel.empty} {fuel.empty === 1 ? "mezzo" : "mezzi"} a secco
+                    <span className="fs-fuel-note" style={{ color: "#DC2626" }}>
+                      ⚠️ {fuel.empty} a secco
                     </span>
                   )}
                 </>
@@ -1011,11 +1011,11 @@ export default function GameMap() {
                 <>
                   <span className="fs-fuel-head">
                     <span>⚡ <span className="fs-fuel-word">Elettricità </span><strong style={{ color: pct < 20 ? "#DC2626" : "inherit" }}>{Math.round(pct)}%</strong></span>
-                    <span style={{ color: "#888", fontWeight: 500 }}>{elec.n} {elec.n === 1 ? "mezzo" : "mezzi"}</span>
+                    <span className="fs-fuel-extra" style={{ color: "#888", fontWeight: 500 }}>{elec.n} {elec.n === 1 ? "mezzo" : "mezzi"}</span>
                   </span>
                   <span className="fs-fuel-bar"><span style={{ width: `${pct}%`, background: col }} /></span>
                   {elec.charging > 0 && (
-                    <span style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>🔌 {elec.charging} in ricarica</span>
+                    <span className="fs-fuel-note" style={{ color: "#15803D" }}>🔌 {elec.charging}<span className="fs-fuel-word"> in ricarica</span></span>
                   )}
                 </>
               );
@@ -1029,8 +1029,8 @@ export default function GameMap() {
             (bonus > 0 ? `I nuovi servizi pagano +${bonus}%. ` : "") + `Fino alle ${until}.`;
           return (
             <button className="fs-fleet-btn fs-weather-btn" title={text} onClick={() => showToast(`${weather.icon} ${text}`)}>
-              <span style={{ fontSize: 20 }}>{weather.night && weather.kind === "sereno" ? "🌙" : weather.icon}</span>
-              {bonus > 0 && <strong style={{ color: "#15803D" }}>+{bonus}%</strong>}
+              <span className="fs-weather-ico">{weather.night && weather.kind === "sereno" ? "🌃" : weather.icon}</span>
+              {bonus > 0 && <strong className="fs-weather-bonus">+{bonus}%</strong>}
             </button>
           );
         })()}
@@ -1807,6 +1807,9 @@ export default function GameMap() {
         .fs-weather-btn { flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 6px 10px !important; white-space: nowrap; }
         .fs-fuel-btn { white-space: nowrap; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 150px; text-align: left; }
         .fs-fuel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+        .fs-fuel-note { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fs-weather-ico { font-size: 20px; line-height: 1; }
+        .fs-weather-bonus { color: #15803D; }
         .fs-fuel-head strong { font-variant-numeric: tabular-nums; }
         .fs-fuel-bar { display: block; height: 9px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
         .fs-fuel-bar > span { display: block; height: 100%; border-radius: 999px; transition: width .4s, background .4s; }
@@ -1934,9 +1937,17 @@ export default function GameMap() {
           .fs-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
           .fs-notes { bottom: auto; top: 160px; }
           .fs-theme-btn { top: 10px; }
-          /* telefono: nome e soldi su tutta la riga, gasolio ed elettricità sotto */
-          .fs-top { left: 62px; right: 60px; max-width: none; flex-wrap: wrap; gap: 6px; }
-          .fs-top > .fs-pill { flex: 1 1 100%; width: 100%; }
+          /* telefono: scheda associazione su tutta la riga; sotto una riga ordinata con gasolio, elettricità e meteo uguali */
+          .fs-top { left: 62px; right: 60px; max-width: none; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+          .fs-top > .fs-org-wrap, .fs-top > .fs-pill { flex: 1 1 100%; width: 100%; }
+          .fs-org-wrap > .fs-pill { width: 100%; }
+          .fs-fuel-extra, .fs-fuel-word { display: none; }
+          .fs-fuel-btn { overflow: hidden; }
+          .fs-fuel-head { justify-content: flex-start; }
+          .fs-fuel-head > span { overflow: hidden; text-overflow: ellipsis; }
+          .fs-weather-btn { flex-direction: column; justify-content: center; gap: 0; padding: 4px 8px !important; min-width: 52px; }
+          .fs-weather-ico { font-size: 18px !important; }
+          .fs-weather-bonus { font-size: 11.5px; }
           .fs-name { font-size: 13px; }
           .fs-money { font-size: 14px; }
           .fs-fuel-btn { flex: 1 1 0; min-width: 0; padding: 6px 10px !important; font-size: 11.5px !important; gap: 4px; }
