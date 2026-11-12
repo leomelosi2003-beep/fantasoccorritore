@@ -199,7 +199,7 @@ export default function Garage() {
   }), [models, builders, bases]);
 
   // Mezzi ordinati: per sede o per tipo, con filtro per tipo e scelta dell'ordine; sezioni richiudibili
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({}); // tendine chiuse di base: si aprono al clic
   const [groupBy, setGroupBy] = useState<"sede" | "tipo">("sede");
   const [kindFilter, setKindFilter] = useState<Kind | "tutti">("tutti");
   const [sortBy, setSortBy] = useState<"tipo" | "nome" | "km" | "usura">("tipo");
@@ -792,10 +792,10 @@ export default function Garage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {garageGroups.length === 0 && <div style={{ ...box, textAlign: "center", color: "#666" }}>Nessun mezzo di questo tipo.</div>}
             {garageGroups.map(({ key, name, icon, list }) => {
-              const open = !collapsed[key];
+              const open = !!expanded[key];
               return (
               <div key={key}>
-                <button onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
+                <button onClick={() => setExpanded((c) => ({ ...c, [key]: !c[key] }))}
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
                                  background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px",
                                  boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
