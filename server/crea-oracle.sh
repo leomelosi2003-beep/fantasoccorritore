@@ -8,7 +8,8 @@ q() { oci "$@" 2>/dev/null; }
 if q compute instance list -c $T --display-name fantaserver --lifecycle-state RUNNING --query 'data[0].id' --raw-output | grep -q ocid; then
   echo "fantaserver esiste gia'"; exit 0
 fi
-echo "Incolla la chiave Tailscale (tskey-auth-...) e premi Invio:"
+KEY=$(grep -o "tskey-[A-Za-z0-9_-]*" ~/fs-init.sh 2>/dev/null | head -1)
+[ -n "$KEY" ] || echo "Incolla la chiave Tailscale (tskey-auth-...) e premi Invio:"
 KEY=""
 while [ -z "$KEY" ] && read -r riga; do KEY=$(grep -o 'tskey-[A-Za-z0-9_-]*' <<< "$riga" | head -1); done
 [ -n "$KEY" ] || { echo "chiave non trovata"; exit 1; }
