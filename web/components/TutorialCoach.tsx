@@ -68,9 +68,12 @@ export default function TutorialCoach({ page, restartKey = 0 }: { page: TutPage;
     const { data } = await supabase.rpc("my_tutorial_state");
     if (data) setSt(data as State);
   }, []);
+  const doneRef = useRef(false);
+  useEffect(() => { doneRef.current = !!st?.done; }, [st?.done]);
   useEffect(() => {
     load();
-    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 5000);
+    // a tutorial finito non interroga più il server (alleggerisce il database)
+    const t = setInterval(() => { if (!doneRef.current && document.visibilityState === "visible") load(); }, 20_000);
     return () => clearInterval(t);
   }, [load, restartKey]);
 
