@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { NOVITA, novitaUnseen } from "@/lib/novita";
 import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { MapContainer, TileLayer, CircleMarker, Circle, Marker, Popup, Polyline, useMapEvents } from "react-leaflet";
@@ -812,6 +813,12 @@ export default function GameMap() {
 
   // Officina: mezzi guasti + segnalazioni dei volontari non lette (pallino nel menu)
   const [shopAlerts, setShopAlerts] = useState(0);
+  const [novUnseen, setNovUnseen] = useState(false);
+  useEffect(() => {
+    const v = novitaUnseen(); setNovUnseen(v);
+    if (v) setTimeout(() => showToast(`🆕 Novità: ${NOVITA[0].title}. Apri il menu → Novità del gioco`), 2500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (!org?.id) return;
     const oid = org.id;
@@ -1122,7 +1129,7 @@ export default function GameMap() {
         <>
           <button className="fs-burger" onClick={() => setMenuOpen(true)} aria-label="Apri il menu">
             <span /><span /><span />
-            {notes.length + objReady > 0 && <b className="fs-badge">{notes.length + objReady}</b>}
+            {notes.length + objReady + (novUnseen ? 1 : 0) > 0 && <b className="fs-badge">{notes.length + objReady + (novUnseen ? 1 : 0)}</b>}
           </button>
           <div className={`fs-drawer-bg${menuOpen ? " open" : ""}`} onClick={() => setMenuOpen(false)} />
           <nav className={`fs-drawer${menuOpen ? " open" : ""}`} aria-hidden={!menuOpen}>
@@ -1137,6 +1144,7 @@ export default function GameMap() {
             {([
               ["Gioco", [
                 ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
+                ["🆕", "Novità del gioco", "#7C3AED", "/novita"],
                 ["📰", "Notizie", "#374151", "/notizie"],
                 ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
                 ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
@@ -1178,7 +1186,7 @@ export default function GameMap() {
               {items.map(([icon, label, color, href]) => {
                 const badge = href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
                   : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
-                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : 0;
+                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : href === "/novita" ? (novUnseen ? 1 : 0) : 0;
                 return (
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__perf__") {

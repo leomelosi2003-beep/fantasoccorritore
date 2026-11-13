@@ -76,7 +76,9 @@ export default function Officina() {
   const [tab, setTab] = useState<"mezzi" | "presidi" | "gomme" | "segnalazioni">("mezzi");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openV, setOpenV] = useState<string | null>(null);
-  const [only, setOnly] = useState<"tutti" | "problemi">("tutti");
+  const [only, setOnly] = useState<"tutti" | "problemi">("problemi");
+  const [focus, setFocus] = useState<null | "guasti" | "revisioni" | "gomme" | "pezzi" | "carrozzeria">(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [pickTire, setPickTire] = useState<Record<string, string>>({});
   const [bulkBase, setBulkBase] = useState<Record<string, string>>({}); // gomma -> sede ("" = tutte)
@@ -146,7 +148,8 @@ export default function Officina() {
     const problems = iss.length > 0 || tr >= 0.8 || due.length > 0 || Number(v.body_damage) > 0 || wrongSeason || serviceDue;
     const reasons = [iss.length ? "guasto" : "", tr >= 1 ? "gomme finite" : tr >= 0.8 ? "gomme quasi finite" : "", wrongSeason ? "gomme fuori stagione" : "",
       due.length ? `${due.length} pezzi da cambiare` : "", Number(v.body_damage) > 0 ? "carrozzeria" : "", serviceDue ? "revisione scaduta" : ""].filter(Boolean);
-    return { t, tr, due, wrongSeason, iss, problems, reasons, serviceDue };
+    const tireBad = !t || tr >= 0.8 || wrongSeason;
+    return { t, tr, due, wrongSeason, iss, problems, reasons, serviceDue, tireBad };
   }
 
   async function call(fn: string, args: Record<string, unknown>, ok: string, confirm?: string) {
@@ -183,11 +186,60 @@ export default function Officina() {
     load();
   }
 
+  function hasFocus(v: Vehicle) {
+    const h = health(v);
+    if (focus === "guasti") return h.iss.length > 0;
+    if (focus === "revisioni") return h.serviceDue;
+    if (focus === "gomme") return h.tireBad;
+    if (focus === "pezzi") return h.due.length > 0;
+    if (focus === "carrozzeria") return Number(v.body_damage) > 0;
+    return true;
+  }
+  // gomma migliore che ho in magazzino adatta alla stagione
+  function bestStockTire(left: Record<string, number>) {
+    return tires.filter((t) => (left[t.id] ?? 0) > 0 && (winter ? t.season !== "estiva" : t.season !== "invernale"))
+      .sort((a, b) => b.grip - a.grip || b.life_km - a.life_km)[0];
+  }
+  async function fixAll(list: Vehicle[]) {
+    const todo = list.filter((v) => v.status === "disponibile" && health(v).problems);
+    if (!todo.length) { setMsg({ ok: false, text: "Nessun mezzo fermo in sede da sistemare (quelli in servizio si fanno quando rientrano)." }); return; }
+    const est = todo.reduce((t, v) => { const h = health(v);
+      return t + h.iss.reduce((a, i) => a + i.cost, 0) + h.due.reduce((a, p) => a + (ptByCode[p.part_code]?.cost ?? 0), 0)
+        + (Number(v.body_damage) > 0 ? Math.round(Number(v.body_damage) * 100) : 0) + (h.tireBad ? 120 : 0); }, 0);
+    if (!(await gameConfirm(`Sistemare ${todo.length} mezzi?\n\nRiparo i guasti, faccio le revisioni scadute, cambio i pezzi consumati, monto le gomme adatte che hai in magazzino e sistemo la carrozzeria.\nSpesa circa ${euro(est)} (più le revisioni). I mezzi restano in officina qualche minuto.`))) return;
+    setBusy(true); setMsg(null);
+    const left = { ...stock }; let done = 0, jobs = 0, later = 0, noTires = 0; let lastErr = "";
+    for (const [k, v] of todo.entries()) {
+      setProgress(`🔧 ${k + 1}/${todo.length} · ${v.call_sign}`);
+      const h = health(v);
+      const steps: [string, Record<string, unknown>][] = [];
+      if (h.iss.length) steps.push(["repair_vehicle", { p_vehicle: v.id }]);
+      if (h.serviceDue) steps.push(["service_vehicle", { p_vehicle: v.id }]);
+      for (const p of h.due) steps.push(["replace_part", { p_vehicle: v.id, p_part: p.part_code }]);
+      if (h.tireBad) { const t = bestStockTire(left); if (t) { steps.push(["mount_tires", { p_vehicle: v.id, p_model: t.id }]); left[t.id] -= 1; } else noTires++; }
+      if (Number(v.body_damage) > 0) steps.push(["repair_body", { p_vehicle: v.id }]);
+      let ok = 0;
+      for (const [fn, args] of steps) {
+        const { error } = await supabase.rpc(fn, args);
+        if (error) { if (/BUSY|manutenzione|fermo/i.test(error.message)) { later++; break; } lastErr = shopError(error.message); if (/INSUFFICIENT_FUNDS/.test(error.message)) break; continue; }
+        ok++;
+      }
+      jobs += ok; if (ok) done++;
+      if (/Soldi/.test(lastErr)) break;
+    }
+    setBusy(false); setProgress(null);
+    setMsg({ ok: !lastErr || done > 0, text: `✅ ${jobs} lavori fatti su ${done} mezzi.`
+      + (later ? ` ${later} mezzi hanno ancora lavori da fare: quando escono dall'officina premi di nuovo «Sistema tutto».` : "")
+      + (noTires ? ` ${noTires} mezzi aspettano gomme: comprale nella scheda 🛞 Gomme.` : "")
+      + (lastErr ? ` Ultimo problema: ${lastErr}` : "") });
+    load();
+  }
+
   if (!org) return <main style={shell} />;
   const brokenCount = land.filter((v) => v.issue_open).length;
   const brokenCost = issues.reduce((t, i) => t + i.cost, 0);
 
-  const groups = bases.map((b) => ({ b, list: land.filter((v) => v.base_id === b.id && (only === "tutti" || health(v).problems)) }))
+  const groups = bases.map((b) => ({ b, list: land.filter((v) => v.base_id === b.id && (focus ? hasFocus(v) : (only === "tutti" || health(v).problems))) }))
     .filter((g) => g.list.length);
 
   return (
@@ -206,14 +258,9 @@ export default function Officina() {
       <div style={wrap}>
         {msg && <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}
 
-        <div style={{ ...box, marginBottom: 12, background: winter ? "#EFF6FF" : "#FFF7ED", fontSize: 13 }}>
-          {winter
-            ? <>❄️ <strong>Periodo invernale (15 novembre – 15 aprile):</strong> con le gomme estive il rischio di forature e incidenti raddoppia. Monta invernali o 4 stagioni.</>
-            : <>☀️ <strong>Periodo estivo:</strong> le gomme invernali si consumano il 50% più in fretta. Estive o 4 stagioni sono la scelta giusta.</>}
-          <div style={{ color: "#555", marginTop: 4 }}>
-            Più un mezzo è usurato e più i pezzi sono vecchi, più capitano guasti al rientro dai servizi. Un mezzo guasto resta fermo finché non lo ripari.
-            I mezzi guasti puoi anche venderli all&apos;asta così come sono: valgono meno e chi li compra li ripara.
-          </div>
+        <div style={{ ...box, marginBottom: 12, padding: "8px 12px", background: winter ? "#EFF6FF" : "#FFF7ED", fontSize: 13 }}>
+          {winter ? "❄️ Inverno (15/11 – 15/4): monta gomme invernali o 4 stagioni." : "☀️ Estate: monta gomme estive o 4 stagioni."}
+          <span style={{ color: "#666" }}> Mezzi usurati e pezzi vecchi si guastano più spesso.</span>
         </div>
 
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
@@ -222,8 +269,43 @@ export default function Officina() {
           ))}
         </div>
 
-        {tab === "mezzi" && (
+        {tab === "mezzi" && (() => {
+          const hs = land.map((v) => ({ v, h: health(v) }));
+          const tiles: [NonNullable<typeof focus>, string, string, number, string][] = [
+            ["guasti", "⚠️", "Guasti", hs.filter((x) => x.h.iss.length).length, "#DC2626"],
+            ["revisioni", "📋", "Revisioni scadute", hs.filter((x) => x.h.serviceDue).length, "#7C3AED"],
+            ["gomme", "🛞", "Gomme da cambiare", hs.filter((x) => x.h.tireBad).length, "#0369A1"],
+            ["pezzi", "🔩", "Pezzi consumati", hs.filter((x) => x.h.due.length).length, "#B45309"],
+            ["carrozzeria", "🚗", "Carrozzeria", hs.filter((x) => Number(x.v.body_damage) > 0).length, "#92400E"],
+          ];
+          const nProb = hs.filter((x) => x.h.problems).length;
+          return (
           <>
+            <div style={{ ...box, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{nProb ? `🔧 ${nProb} mezzi da sistemare` : "✅ Tutti i mezzi sono a posto"}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{nProb ? "Tocca un riquadro per vedere solo quei mezzi, oppure sistema tutto con un tasto." : "Niente da fare in officina per ora."}</div>
+                </div>
+                {nProb > 0 && (
+                  <button disabled={busy} onClick={() => fixAll(land)}
+                          style={{ ...btn, background: "#16A34A", padding: "12px 18px", fontSize: 15, opacity: busy ? 0.5 : 1 }}>
+                    {progress ?? "✅ Sistema tutto"}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginTop: 10 }}>
+                {tiles.map(([k, ico, label, n, color]) => (
+                  <button key={k} onClick={() => { setFocus(focus === k ? null : k); if (focus !== k) setOpen(Object.fromEntries(bases.map((b) => [b.id, true]))); }}
+                          style={{ border: focus === k ? `2px solid ${color}` : "1px solid #e5e5e5", background: n ? "#fff" : "#f8f8f8", borderRadius: 12,
+                                   padding: "10px 8px", cursor: "pointer", textAlign: "left", opacity: n ? 1 : 0.55 }}>
+                    <div style={{ fontSize: 20 }}>{ico} <span style={{ fontWeight: 900, color: n ? color : "#16A34A" }}>{n || "✓"}</span></div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#333" }}>{label}</div>
+                  </button>
+                ))}
+              </div>
+              {focus && <div style={{ marginTop: 8, fontSize: 13 }}>Filtro: <strong>{tiles.find((t) => t[0] === focus)?.[2]}</strong> · <button onClick={() => setFocus(null)} style={{ ...small, background: "#555" }}>Mostra tutti</button></div>}
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
               <select value={only} onChange={(e) => setOnly(e.target.value as "tutti" | "problemi")} style={{ padding: "6px 8px", borderRadius: 8, fontSize: 13 }}>
                 <option value="tutti">Tutti i mezzi</option><option value="problemi">Solo con problemi o in scadenza</option>
@@ -376,7 +458,8 @@ export default function Officina() {
               })}
             </div>
           </>
-        )}
+          );
+        })()}
 
         {tab === "presidi" && org && <PresidiPanel funds={org.funds} onChange={load} />}
 
