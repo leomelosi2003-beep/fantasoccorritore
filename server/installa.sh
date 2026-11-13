@@ -86,6 +86,6 @@ Persistent=true
 WantedBy=timers.target
 U
 systemctl daemon-reload
-systemctl enable fs-web.service fs-guardiano.timer fs-backup.timer
+systemctl enable --now fs-guardiano.timer fs-backup.timer && systemctl enable fs-web.service
 timedatectl set-timezone Europe/Rome || true
 echo ">> PRONTO. Ora dal PC lancia locale/5-sposta-sul-server.ps1"
