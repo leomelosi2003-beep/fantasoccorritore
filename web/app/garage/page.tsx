@@ -380,27 +380,18 @@ export default function Garage() {
     load();
   }
 
-  async function convertOrdinaria(v: Vehicle, on: boolean) {
-    setMsg(null);
-    if (on && !(await gameConfirm(`Convertire ${v.call_sign} in mezzo "solo ordinari" per 8.000 €?\n\nFarà solo dialisi e dimissioni (non più emergenze). Puoi riportarla a emergenza quando vuoi, gratis.`))) return;
-    setBusy(true);
-    const { error } = await supabase.rpc("set_vehicle_ordinaria", { p_vehicle: v.id, p_on: on });
+  async function setUse(v: Vehicle, use: string) {
+    setMsg(null); setBusy(true);
+    const { error } = await supabase.rpc("set_vehicle_use", { p_vehicle: v.id, p_use: use });
     setBusy(false);
     if (error) {
       const m = error.message;
-      setMsg({ ok: false, text: m.includes("VEHICLE_BUSY") ? "Il mezzo deve essere libero in sede." : m.includes("INSUFFICIENT_FUNDS") ? "Soldi insufficienti." : m.includes("NOT_CONVERTIBLE") ? "Questo mezzo non si può convertire." : garageError(m) });
+      setMsg({ ok: false, text: m.includes("KM_LIMIT") ? "Ha superato il limite di km: può fare solo ordinari." : m.includes("USE_FIXED") ? "Questo mezzo ha un uso fisso." : garageError(m) });
       return;
     }
-    setMsg({ ok: true, text: on ? `🚗 ${v.call_sign} ora fa solo ordinari (dialisi e dimissioni).` : `🚑 ${v.call_sign} torna a fare le emergenze.` });
-    load();
-  }
-
-  async function toggleLongEmergency(v: Vehicle, on: boolean) {
-    setMsg(null); setBusy(true);
-    const { error } = await supabase.rpc("set_vehicle_long_emergency", { p_vehicle: v.id, p_on: on });
-    setBusy(false);
-    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
-    setMsg({ ok: true, text: on ? `🚨 ${v.call_sign}: ora fa trasferimenti E emergenze.` : `🔁 ${v.call_sign}: di nuovo solo trasferimenti.` });
+    setMsg({ ok: true, text: use === "ordinari" ? `🚗 ${v.call_sign}: ora fa solo ordinari (dialisi e dimissioni).`
+                      : use === "trasferimenti" ? `⇄ ${v.call_sign}: ora fa solo trasferimenti.`
+                      : `🚨 ${v.call_sign}: ora fa le emergenze.` });
     load();
   }
 
@@ -1043,24 +1034,29 @@ export default function Garage() {
                       Manutenzione · {euro(cost)}
                     </button>
                   )}
-                  {v.status === "disponibile" && m?.transfer_only && (
-                    <button onClick={() => toggleLongEmergency(v, !v.long_emergency)} disabled={busy}
-                            style={{ ...btn, width: "100%", marginTop: 8,
-                                     background: v.long_emergency ? "#fff" : "#DC2626",
-                                     color: v.long_emergency ? "#DC2626" : "#fff",
-                                     border: v.long_emergency ? "1px solid #DC2626" : "none" }}>
-                      {v.long_emergency ? "🔁 Torna a solo trasferimenti" : "🚨 Trasferimenti → anche emergenze"}
-                    </button>
-                  )}
-                  {v.status === "disponibile" && m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only && !v.km_retired && (
-                    <button onClick={() => convertOrdinaria(v, !v.converted_ordinaria)} disabled={busy}
-                            style={{ ...btn, width: "100%", marginTop: 8,
-                                     background: v.converted_ordinaria ? "#fff" : "#0E7490",
-                                     color: v.converted_ordinaria ? "#0E7490" : "#fff",
-                                     border: v.converted_ordinaria ? "1px solid #0E7490" : "none" }}>
-                      {v.converted_ordinaria ? "🚑 Riporta a emergenza (gratis)" : "🚗 Converti in «solo ordinari» · 8.000 €"}
-                    </button>
-                  )}
+                  {m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && (() => {
+                    const cur = v.converted_ordinaria ? "ordinari" : (m.transfer_only && !v.long_emergency) ? "trasferimenti" : "emergenze";
+                    const opts: [string, string][] = m.transfer_only
+                      ? [["trasferimenti", "⇄ Solo trasferimenti"], ["emergenze", "🚨 Trasf. + emergenze"], ["ordinari", "🚗 Solo ordinari"]]
+                      : [["emergenze", "🚨 Solo emergenze"], ["ordinari", "🚗 Solo ordinari"]];
+                    return (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", marginBottom: 4 }}>USO DEL MEZZO (gratis, cambia quando vuoi)</div>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {opts.map(([k, label]) => (
+                            <button key={k} onClick={() => k !== cur && setUse(v, k)}
+                                    disabled={busy || (v.km_retired && k !== "ordinari")}
+                                    style={{ ...btn, flex: 1, minWidth: 90, padding: "6px 4px", fontSize: 12,
+                                             background: k === cur ? (k === "ordinari" ? "#0E7490" : k === "trasferimenti" ? "#6D28D9" : "#DC2626") : "#fff",
+                                             color: k === cur ? "#fff" : "#334155", border: k === cur ? "none" : "1px solid #CBD5E1",
+                                             opacity: v.km_retired && k !== "ordinari" ? 0.4 : 1 }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {v.status === "disponibile" && (
                     <button onClick={() => sell(v)}
                             style={{ ...btn, width: "100%", marginTop: 8, background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>

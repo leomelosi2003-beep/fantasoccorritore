@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import PresidiPanel from "@/components/PresidiPanel";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
@@ -72,7 +73,7 @@ export default function Officina() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [stock, setStock] = useState<Record<string, number>>({});
-  const [tab, setTab] = useState<"mezzi" | "gomme" | "segnalazioni">("mezzi");
+  const [tab, setTab] = useState<"mezzi" | "presidi" | "gomme" | "segnalazioni">("mezzi");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openV, setOpenV] = useState<string | null>(null);
   const [only, setOnly] = useState<"tutti" | "problemi">("tutti");
@@ -216,7 +217,7 @@ export default function Officina() {
         </div>
 
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-          {([["mezzi", `🚑 Mezzi${brokenCount ? ` · ⚠️ ${brokenCount}` : ""}`], ["gomme", "🛞 Gomme"], ["segnalazioni", `📣 Segnalazioni${unseen ? ` · ${unseen} nuove` : ""}`]] as const).map(([k, l]) => (
+          {([["mezzi", `🚑 Mezzi${brokenCount ? ` · ⚠️ ${brokenCount}` : ""}`], ["presidi", "🧰 Presidi"], ["gomme", "🛞 Gomme"], ["segnalazioni", `📣 Segnalazioni${unseen ? ` · ${unseen} nuove` : ""}`]] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ ...btn, background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", border: "1px solid #ddd" }}>{l}</button>
           ))}
         </div>
@@ -376,6 +377,8 @@ export default function Officina() {
             </div>
           </>
         )}
+
+        {tab === "presidi" && org && <PresidiPanel funds={org.funds} onChange={load} />}
 
         {tab === "gomme" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

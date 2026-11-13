@@ -133,3 +133,9 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 ## Gemellaggio: premi divisi (13/11/2026)
 - In `complete_due_assignments`: se il mezzo è in una sede condivisa (`bases.collab_org` non nullo, gemellaggio attivo) il premio si divide a metà: metà a chi fa il servizio, metà al gemello (voce registro "Gemellaggio: metà servizio da sede condivisa"). `mission_assignments.reward_funds` = la metà di chi ha fatto il servizio.
 - Server Free (13/11): quota disco esaurita di notte → `game-tick` ogni minuto, cadenze più lente (dispatch 180, missions 300, medical 120...), servizi aperti 18-30 min.
+
+## Presidi e uso dei mezzi (migr. 204, 13/11/2026)
+- Magazzino presidi `org_equipment_stock(org_id, code, qty)`. RPC: `equip_buy(code, qty)`, `equip_remove(vehicle, code)` (→ magazzino), `equip_mount(vehicle, code, p_buy)` (dal magazzino o comprato; il presidio che occupava lo stesso `slot` torna in magazzino = aggiornamento), `equip_move(from, to, code)`. Certificazione ricalcolata da `vehicle_provides`. UI: scheda "🧰 Presidi" in `/officina` (`components/PresidiPanel.tsx`).
+- `set_vehicle_use(vehicle, 'emergenze'|'ordinari'|'trasferimenti')` gratis (sostituisce conversione a 8.000 € e il bottone passo lungo): ordinari = `converted_ordinaria`; passi lunghi 'emergenze' = `long_emergency`. Garage: selettore "USO DEL MEZZO". `auto_dispatch_org` ora rispetta `long_emergency`.
+- Di notte (22-6) gli ordinari (dialisi/dimissioni) non vengono generati: mezzi solo-ordinari/solo-trasferimenti restano fermi (caso BOB.EMERGENCY 13/11: quasi tutti passi lunghi).
+- Accesso SQL sul server: rpc `admin_sql(p_sql, p_select)` solo admin (`is_admin()`), usata da Claude dal browser con la sessione di Leonardo; i job pg_cron sono di `supabase_admin` (modificarli dalla Cloud Shell: `ssh -i ~/.ssh/fantaserver ubuntu@84.8.255.104` + `sudo docker exec supabase-db psql -U supabase_admin`).
