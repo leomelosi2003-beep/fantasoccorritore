@@ -7,6 +7,7 @@ KEY="${1:-}"
 BASE=/opt/fantasoccorritore
 REPO=$BASE/repo
 export DEBIAN_FRONTEND=noninteractive
+export HOME=${HOME:-/root}
 
 echo ">> Memoria di scorta (swap 4 GB)"
 if ! swapon --show | grep -q /swapfile; then
