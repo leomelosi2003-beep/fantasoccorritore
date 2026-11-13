@@ -32,7 +32,7 @@ AD=$(oci iam availability-domain list -c $T --query 'data[0].name' --raw-output)
 IMG=$(oci compute image list -c $T --operating-system "Canonical Ubuntu" --operating-system-version "24.04" \
       --shape VM.Standard.A1.Flex --sort-by TIMECREATED --sort-order DESC --limit 1 --query 'data[0].id' --raw-output)
 [[ "$IMG" == ocid* ]] || { echo "immagine Ubuntu non trovata"; exit 1; }
-[ -f ~/.ssh/fantaserver ] || ssh-keygen -q -t ed25519 -N '' -f ~/.ssh/fantaserver
+[ -f ~/.ssh/fantaserver ] || ssh-keygen -q -t rsa -b 4096 -N '' -f ~/.ssh/fantaserver
 cat > ~/fs-init.sh <<EOF
 #!/bin/bash
 apt-get update -y && apt-get install -y git
@@ -53,7 +53,7 @@ for i in $(seq 1 2000); do
       echo "FATTO: server creato ($1 OCPU, $2 GB). Si installa da solo in 10-15 minuti."
       rm -f ~/fs-init.sh; exit 0
     fi
-    echo "$(date +%H:%M:%S) tentativo $i ($1 OCPU): $(echo "$out" | grep -o '"message": "[^"]*' | head -1 | cut -c13-90)"
+    echo "$(date +%H:%M:%S) tentativo $i ($1 OCPU): $(echo "$out" | grep -o '"message": "[^"]*' | head -1 | cut -c13-90)$(echo "$out" | grep -v message | tail -1 | cut -c1-90)"
   done
   sleep 60
 done
