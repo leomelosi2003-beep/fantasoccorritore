@@ -175,7 +175,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
     } else if (kind === "base") {
       await call("gift_base", { p_base: pickId, p_to: org }, `🏠 Sede donata a ${name}.`);
     } else {
-      await call("twin_rename_base", { p_base: pickId, p_twin: org }, `🤝 Sede condivisa con ${name}: ora può mandare le tue ambulanze ferme lì.`);
+      await call("twin_rename_base", { p_base: pickId, p_twin: org }, `🤝 Sede condivisa con ${name}: ora può mandare le tue ambulanze ferme lì. I premi dei servizi partiti da lì si dividono a metà.`);
     }
     setPicker(null); setPickId("");
   }
@@ -252,7 +252,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
               </div>
               {myBases.filter((b) => b.collab_org === t.other_org).map((b) => (
                 <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13 }}>
-                  <span style={{ flex: 1 }}>🤝 <strong>{b.name}</strong> · condivisa: {t.other_name} può usare i tuoi mezzi fermi lì</span>
+                  <span style={{ flex: 1 }}>🤝 <strong>{b.name}</strong> · condivisa: {t.other_name} può usare i tuoi mezzi fermi lì · premi divisi a metà</span>
                   <button disabled={busy} style={{ ...btn, background: "#eee", color: "#B91C1C" }}
                           onClick={() => call("twin_unshare_base", { p_base: b.id }, `Sede non più condivisa con ${t.other_name}.`)}>Smetti di condividere</button>
                 </div>
@@ -262,7 +262,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
                     {picker.kind === "vehicle" ? `🚑 Quale ambulanza doni a ${picker.name}?`
                       : picker.kind === "base" ? `🏠 Quale sede doni a ${picker.name}?`
-                      : "✏️ Quale tua sede metti in collaborazione? (nome condiviso + il gemello può usare i mezzi fermi lì)"}
+                      : "✏️ Quale tua sede metti in collaborazione? (nome condiviso + il gemello può usare i mezzi fermi lì; i premi dei servizi da lì si dividono a metà)"}
                   </div>
                   {pickerItems.length === 0 ? (
                     <div style={{ fontSize: 13, color: "#888" }}>

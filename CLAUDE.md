@@ -129,3 +129,7 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 - Premi per servizio invariati (scelta di Leonardo): in `complete_due_assignments` il calo per minuti di viaggio è ora `1.5 - travel_min / 90` (prima /30). Si fanno meno servizi all'ora.
 - Garage: barre "Velocità massima" (km/h) e "Agilità in città e curve".
 - Migr. 194: `missions_map` nasconde il servizio appena l'ultimo mezzo lascia il posto, anche con posti liberi. In GameMap i servizi lasciati dai miei mezzi spariscono subito (`gone`, confronto per coordinate a 4 decimali).
+
+## Gemellaggio: premi divisi (13/11/2026)
+- In `complete_due_assignments`: se il mezzo è in una sede condivisa (`bases.collab_org` non nullo, gemellaggio attivo) il premio si divide a metà: metà a chi fa il servizio, metà al gemello (voce registro "Gemellaggio: metà servizio da sede condivisa"). `mission_assignments.reward_funds` = la metà di chi ha fatto il servizio.
+- Server Free (13/11): quota disco esaurita di notte → `game-tick` ogni minuto, cadenze più lente (dispatch 180, missions 300, medical 120...), servizi aperti 18-30 min.
