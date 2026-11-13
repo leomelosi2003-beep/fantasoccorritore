@@ -5,11 +5,11 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 **Regola d'oro: non cancellare mai i dati di gioco** (associazioni, mezzi, volontari, soldi, storico).
 
 ## Architettura
-- Link del gioco: https://web-kappa-ten-1vwv7qwb59.vercel.app
-- **Dall'11/11/2026 il gioco ufficiale è di nuovo su Supabase CLOUD (`saagkulmwofgvlssiucw`, piano Free, PG17) + Vercel** (trasloco con `locale/6-torna-sul-cloud.ps1`).
-  Le modifiche al database si fanno sul cloud (MCP Supabase). Il vecchio contenuto del cloud (6/11) è nello schema `public_cloud_20261106` e in `C:\fantasoccorritore\backup-finale` sul PC.
-  Il Supabase locale sul PC è FERMO ma intatto (attività "Avvia gioco" e "Backup notturno" disattivate, docker compose stop, funnel tolto): resta come riserva. Limite Free 500 MB: tenere d'occhio `pg_database_size`.
-  Il PC (Tailscale ts.net) non serve più; i giocatori usano il sito Vercel.
+- **Dal 13/11/2026 il gioco ufficiale è sul server ORACLE** (Always Free ARM, Torino, account Pay As You Go, VM `fantaserver` 1 OCPU/6 GB, IP pubblico 84.8.255.104): https://fantaserver.tail9a3baf.ts.net (Tailscale funnel). Il vecchio link Vercel rimanda lì (`OFFICIAL_URL` in `web/next.config.mjs`).
+  Sul server: Supabase self-hosted in Docker in `/opt/fantasoccorritore/supabase`, sito `fs-web` (systemd), `fs-guardiano` ogni 2 min (aggiorna da GitHub e ricompila), backup 04:00 in `/opt/fantasoccorritore/backup`. Trasloco fatto con `locale/7-sposta-su-oracle.ps1` → `server/ricevi-dal-cloud.sh` (+ `server/oracle-dopo.sql`). Server creato dalla Cloud Shell di Oracle con `server/crea-oracle.sh` (chiave SSH `~/.ssh/fantaserver` nella Cloud Shell, utente `ubuntu`).
+  **Modifiche al DB**: `ssh root@fantaserver` (Tailscale SSH, dal PC) poi `docker exec -it supabase-db psql -U postgres`. Dalla Cloud Shell di Oracle: `ssh -i ~/.ssh/fantaserver ubuntu@84.8.255.104` + sudo. L'MCP Supabase punta ancora al CLOUD, che ora è solo una riserva in pausa (job pg_cron disattivati, dati del 13/11 sera intatti).
+- Prima (11-13/11) il gioco era su Supabase CLOUD `saagkulmwofgvlssiucw` (Free) + Vercel: troppo lento (quota disco esaurita).
+  Il Supabase locale sul PC è FERMO ma intatto (riserva più vecchia, dati all'11/11).
 - `web/` Next.js 14 + react-leaflet v4. Su Vercel nessun rimando (`OFFICIAL_URL = null` in `web/next.config.mjs`).
   Un push fatto dal PC stesso NON fa ricompilare il sito locale (HEAD = upstream): riavviare `locale/3-avvia-gioco.ps1`.
 - Database e logica di gioco: Supabase. Quasi tutta la logica è in funzioni SQL/RPC.

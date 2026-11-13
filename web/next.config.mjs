@@ -2,7 +2,7 @@
 const target = process.env.SUPABASE_PROXY_TARGET; // solo sul server locale
 // Dall'11/11/2026 il gioco ufficiale e' di nuovo su Vercel + Supabase cloud: nessun rimando.
 // (Per rimandare a un altro indirizzo, metterlo qui; null = nessun rimando.)
-const OFFICIAL_URL = null;
+const OFFICIAL_URL = "https://fantaserver.tail9a3baf.ts.net";
 const nextConfig = {
   async redirects() {
     return process.env.VERCEL === "1" && OFFICIAL_URL
