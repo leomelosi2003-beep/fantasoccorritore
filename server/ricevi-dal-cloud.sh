@@ -10,11 +10,11 @@ REF=saagkulmwofgvlssiucw
 NOME=$(tailscale status --json | jq -r .Self.DNSName | sed 's/\.$//')
 die() { echo "ERRORE: $*"; exit 1; }
 read -r CP || die "password del cloud non ricevuta"
+CP=${CP%$'\r'}   # da Windows la riga arriva con \r finale
 [ -s $IN/supabase.tgz ] || die "manca $IN/supabase.tgz"
 
-if [ -d $SB/volumes/db/data ] && [ -n "$(ls -A $SB/volumes/db/data 2>/dev/null)" ]; then
-  die "sul server c'e' gia' un database: non lo sovrascrivo"
-fi
+# se i dati del gioco sono gia' stati caricati, non sovrascrivo niente
+[ -f $IN/.dati-caricati ] && die "sul server i dati del gioco ci sono gia': non li sovrascrivo"
 
 echo ">> 1/8 Configurazione Supabase"
 tar -xzf $IN/supabase.tgz -C $BASE
@@ -67,6 +67,7 @@ LA -c "create extension if not exists postgis with schema extensions; create ext
 LA -c "select cron.alter_job(jobid, active := false) from cron.job" >/dev/null 2>&1
 docker exec -e PGPASSWORD=$LPW supabase-db sh -c "pg_restore -h localhost -U postgres -d postgres --no-owner /tmp/pub.dump 2> /tmp/restore.log; true"
 docker cp supabase-db:/tmp/restore.log $IN/restore.log
+touch $IN/.dati-caricati
 echo "   avvisi: $(grep -c -i error $IN/restore.log) (dettagli in $IN/restore.log)"
 
 echo ">> 6/8 Controllo righe tabella per tabella"
