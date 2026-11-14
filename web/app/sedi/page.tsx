@@ -10,7 +10,8 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 const PickBaseMap = dynamic(() => import("@/components/PickBaseMap"), { ssr: false });
 
 type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean; level: number;
-  rented: boolean; rent_daily: number | null; rent_buy_price: number | null; rent_debt: number; rent_paid_until: string | null; color: string | null };
+  rented: boolean; rent_daily: number | null; rent_buy_price: number | null; rent_debt: number; rent_paid_until: string | null; color: string | null;
+  org_id?: string; collab_org?: string | null; owner_name?: string; twin_name?: string | null };
 type Prices = { owned: number; buy: number; rent_daily: number };
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
@@ -53,15 +54,29 @@ export default function Sedi() {
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
     const [bs, vs, pr] = await Promise.all([
-      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level,rented,rent_daily,rent_buy_price,rent_debt,rent_paid_until,color").eq("org_id", o.id).order("built_at"),
+      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level,rented,rent_daily,rent_buy_price,rent_debt,rent_paid_until,color,org_id,collab_org")
+        .or(`org_id.eq.${o.id},collab_org.eq.${o.id}`).order("built_at"),
       supabase.from("my_fleet").select("base_id,boat,mine").eq("mine", true),
       supabase.rpc("my_base_prices"),
     ]);
     if (pr.data) setPrices(pr.data as Prices);
-    setBases((bs.data as Base[]) ?? []);
+    const list = (bs.data as Base[]) ?? [];
+    // nomi delle associazioni gemelle (sedi condivise) e mezzi di entrambe nelle sedi condivise
+    const ids = Array.from(new Set(list.flatMap((b) => [b.org_id, b.collab_org]).filter((x): x is string => !!x && x !== o.id)));
+    const names: Record<string, string> = {};
+    if (ids.length) { const { data: on } = await supabase.from("organizations").select("id,name").in("id", ids); for (const r of (on as { id: string; name: string }[]) ?? []) names[r.id] = r.name; }
+    setBases(list.map((b) => ({ ...b, owner_name: b.org_id !== o.id ? names[b.org_id ?? ""] : undefined, twin_name: b.collab_org && b.collab_org !== o.id ? names[b.collab_org] : null }))
+      .sort((a, b) => Number(a.org_id !== o.id) - Number(b.org_id !== o.id)));
     const count: Record<string, number> = {};
     // la barca sta all'ormeggio: non occupa posti in garage
     for (const v of (vs.data as { base_id: string; boat?: boolean }[]) ?? []) if (!v.boat) count[v.base_id] = (count[v.base_id] ?? 0) + 1;
+    const shared = list.filter((b) => b.collab_org).map((b) => b.id);
+    if (shared.length) {
+      const [sv, bm] = await Promise.all([supabase.from("vehicles").select("base_id,model_id,org_id,status").in("base_id", shared), supabase.from("vehicle_models").select("id").eq("boat", true)]);
+      const boats = new Set(((bm.data as { id: string }[]) ?? []).map((m) => m.id));
+      for (const id of shared) count[id] = 0;
+      for (const v of (sv.data as { base_id: string; model_id: string; status: string }[]) ?? []) if (!boats.has(v.model_id) && v.status !== "fuori_servizio") count[v.base_id] = (count[v.base_id] ?? 0) + 1;
+    }
     setParked(count);
   }, [router]);
 
@@ -168,8 +183,10 @@ export default function Sedi() {
               <span style={{ fontSize: 22, background: b.color ?? "transparent", borderRadius: 8, padding: b.color ? "0 4px" : 0 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{b.name}</div>
+                {b.owner_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Sede di {b.owner_name}, condivisa con te: puoi ampliarla, migliorarla e metterci i tuoi mezzi</div>}
+                {b.twin_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Condivisa con {b.twin_name}: anche lui può ampliarla e metterci i suoi mezzi</div>}
                 <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>
-                {b.rented && (
+                {b.rented && !b.owner_name && (
                   <div style={{ fontSize: 12, marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ background: "#EDE9FE", color: "#5B21B6", borderRadius: 999, padding: "1px 8px", fontWeight: 800 }}>🔑 In affitto · {euro(b.rent_daily ?? 0)}/giorno</span>
                     {b.rent_debt > 0 && <span style={{ color: "#B91C1C", fontWeight: 800 }}>⚠️ Affitto non pagato: {euro(b.rent_debt)} · i mezzi non partono</span>}
@@ -190,7 +207,7 @@ export default function Sedi() {
                   ⬆️ +1 posto · {euro(UPGRADE[b.level])}
                 </button>
               ) : <span style={{ fontSize: 12, fontWeight: 700, color: "#B45309" }}>⭐ Livello massimo</span>}
-              {!b.is_headquarters && !b.rented && (
+              {!b.is_headquarters && !b.rented && !b.owner_name && (
                 <button disabled={busy} onClick={() => sellBase(b)} title="Metti la sede all'asta"
                         style={{ ...btn, fontSize: 13, padding: "8px 10px", background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>🏷️</button>
               )}

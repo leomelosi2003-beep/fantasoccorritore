@@ -5,7 +5,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 export const NOVITA: Novita[] = [
   {
     id: "2026-11-14j", date: "14 novembre 2026", title: "Sedi gemellate con due loghi",
-    items: ["🤝 Le sedi condivise in gemellaggio ora mostrano sulla mappa i loghi di tutte e due le associazioni, anche nel riquadro della sede."],
+    items: [
+      "🤝 Le sedi condivise in gemellaggio ora mostrano sulla mappa i loghi di tutte e due le associazioni, anche nel riquadro della sede.",
+      "🏗️ Anche il gemello può ampliare il garage di una sede condivisa, comprare le migliorie e cambiarle colore (in Sedi le trovi sotto le tue).",
+      "🚑 Ognuno può comprare o spostare i propri mezzi nella sede condivisa (in Garage la sede ha il 🤝) e usare quelli fermi dell'altro; le entrate delle migliorie si dividono a metà.",
+      "↩️ Se la condivisione o il gemellaggio finisce, i mezzi dell'ospite tornano da soli alla sua sede principale.",
+    ],
   },
   {
     id: "2026-11-14i", date: "14 novembre 2026", title: "Richieste di personale",

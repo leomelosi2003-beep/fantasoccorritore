@@ -155,7 +155,7 @@ export default function Garage() {
     const [m, b, bs, v, e, fs, fp] = await Promise.all([
       supabase.from("vehicle_models").select("*").eq("is_active", true).order("base_cost"),
       supabase.from("builders").select("*").eq("is_active", true).order("cost"),
-      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters").eq("org_id", o.id).order("built_at"),
+      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,org_id").or(`org_id.eq.${o.id},collab_org.eq.${o.id}`).order("built_at"),
       supabase.from("vehicles").select("*").eq("org_id", o.id).order("created_at"),
       supabase.from("equipment").select("*").order("slot").order("sort"),
       supabase.from("organizations").select("fuel_stock").eq("id", o.id).maybeSingle(),
@@ -166,7 +166,9 @@ export default function Garage() {
     setEquip((e.data as Equip[]) ?? []);
     setModels((m.data as Model[]) ?? []);
     setBuilders((b.data as Builder[]) ?? []);
-    setBases((bs.data as Base[]) ?? []);
+    // le sedi condivise dal gemello: utilizzabili, con il nome segnato 🤝 (non sono la mia sede principale)
+    setBases((((bs.data as (Base & { org_id: string })[]) ?? [])).map((b) => b.org_id === o.id ? b : { ...b, name: `🤝 ${b.name}`, is_headquarters: false })
+      .sort((a, b) => Number((a as { org_id: string }).org_id !== o.id) - Number((b as { org_id: string }).org_id !== o.id)));
     setVehicles((v.data as Vehicle[]) ?? []);
     if (bs.data?.length) setBaseId((cur) => cur ?? (bs.data as Base[])[0].id);
   }, [router]);
