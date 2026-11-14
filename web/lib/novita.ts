@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14j", date: "14 novembre 2026", title: "Sedi gemellate con due loghi",
+    items: ["🤝 Le sedi condivise in gemellaggio ora mostrano sulla mappa i loghi di tutte e due le associazioni, anche nel riquadro della sede."],
+  },
+  {
     id: "2026-11-14i", date: "14 novembre 2026", title: "Richieste di personale",
     items: [
       "📢 Sei a corto di volontari per far partire le ambulanze? Menu → Richieste di personale: scegli chi ti serve (autisti, soccorritori, medici…) e avvisi tutte le associazioni.",

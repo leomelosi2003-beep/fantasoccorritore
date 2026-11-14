@@ -423,19 +423,24 @@ function lastSeen(t: string) {
 
 // Icona della sede: stemma in un quadrato arrotondato con la casetta (i servizi invece sono "gocce"),
 // stella sulla sede principale, pallino verde se il proprietario è online
-function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false, color?: string | null) {
-  const svg = emblemSvg(type, mine ? (logo ? 36 : 28) : (logo ? 28 : 20), logo);
+type TwinOrg = { name: string; type: BasePin["org_type"]; logo: string | null };
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false, color?: string | null, twin?: TwinOrg | null) {
+  const em = mine ? (logo ? 36 : 28) : (logo ? 28 : 20);
+  const svg = emblemSvg(type, em, logo);
   const s = mine ? 44 : 34;
-  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}`, () => L.divIcon({
+  // sede condivisa in gemellaggio: i due loghi affiancati con la stretta di mano in mezzo
+  const tw = twin ? emblemSvg(twin.type, mine ? (twin.logo ? 36 : 28) : (twin.logo ? 28 : 20), twin.logo) : "";
+  const w = twin ? Math.round(s * 1.9) : s;
+  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}|${twin ? twin.type + twin.logo : ""}`, () => L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:10px;background:${color ?? "#fff"};display:flex;
+    html: `<div style="position:relative;width:${w}px;height:${s}px;border-radius:10px;background:${color ?? "#fff"};display:flex;gap:1px;
            align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
-           border:${mine ? "3px solid #111" : "2px solid #6B7280"}">${svg}
+           border:${mine ? "3px solid #111" : "2px solid #6B7280"}">${svg}${twin ? `<span style="font-size:11px;line-height:1">🤝</span>${tw}` : ""}
            <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "#111" : "#6B7280"};color:#fff;border-radius:6px;
            font-size:10px;line-height:15px;padding:0 3px;border:1.5px solid #fff">${hq ? "⭐" : "🏠"}</span>${online
            ? `<span title="Online" style="position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;
               background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}</div>`,
-    iconSize: [s, s], iconAnchor: [s / 2, s / 2],
+    iconSize: [w, s], iconAnchor: [w / 2, s / 2],
   }));
 }
 
@@ -852,6 +857,7 @@ export default function GameMap() {
     return () => clearInterval(t);
   }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [baseColors, setBaseColors] = useState<Record<string, string>>({});
+  const [baseTwins, setBaseTwins] = useState<Record<string, TwinOrg>>({});
   useEffect(() => {
     const v = novitaUnseen(); setNovUnseen(v);
     if (v) setTimeout(() => showToast(`🆕 Novità: ${NOVITA[0].title}. Apri il menu → Novità del gioco`), 2500);
@@ -959,6 +965,10 @@ export default function GameMap() {
         setBases((b.data as BasePin[]) ?? []);
         supabase.rpc("base_colors").then(({ data, error }) => {
           if (!error) setBaseColors(Object.fromEntries(((data as { id: string; color: string }[]) ?? []).map((r) => [r.id, r.color])));
+        });
+        supabase.rpc("base_twins").then(({ data, error }) => {
+          if (!error) setBaseTwins(Object.fromEntries(((data as { base_id: string; twin_name: string; twin_type: BasePin["org_type"]; twin_logo: string | null }[]) ?? [])
+            .map((r) => [r.base_id, { name: r.twin_name, type: r.twin_type, logo: r.twin_logo }])));
         });
       }
     }
@@ -1448,14 +1458,15 @@ export default function GameMap() {
         )), [flt.hospitals, hospitals])}
 
         {useMemo(() => bases.filter(showBase).map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id])}
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
               <div style={{ minWidth: 210 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <FactionEmblem type={b.org_type} size={34} logo={b.logo_url} />
+                  {baseTwins[b.id] && <><span style={{ fontSize: 16 }}>🤝</span><FactionEmblem type={baseTwins[b.id].type} size={34} logo={baseTwins[b.id].logo} /></>}
                   <div style={{ lineHeight: 1.2 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>{b.org_name}</div>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>{b.org_name}{baseTwins[b.id] && <span style={{ fontWeight: 700, color: "#0E7490" }}> × {baseTwins[b.id].name}</span>}</div>
                     <div style={{ fontSize: 12, color: "#666" }}>⭐ {b.reputation ?? 0} reputazione</div>
                     <div style={{ fontSize: 12, color: b.online ? "#15803D" : "#888", fontWeight: 700 }}>
                       {b.online ? "🟢 Online" : b.last_seen_at ? `⚪ Visto ${lastSeen(b.last_seen_at)}` : "⚪ Offline"}
@@ -1512,7 +1523,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        )), [bases, flt.bases, org?.id, baseCars, baseColors])}
+        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);
