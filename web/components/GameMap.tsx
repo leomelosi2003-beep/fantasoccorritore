@@ -1552,6 +1552,9 @@ export default function GameMap() {
                               style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
                                        background: "#DC2626", color: "#fff", fontWeight: 800 }}>🆘 Manda un&apos;ambulanza</button>
                     )}
+                    <button onClick={() => router.push(`/maxi/${m.id}`)}
+                            style={{ marginTop: 6, width: "100%", border: "1px solid #0B1A33", borderRadius: 10, padding: "8px 10px", cursor: "pointer",
+                                     background: "#0B1A33", color: "#fff", fontWeight: 800 }}>🎬 Guarda la scena dal vivo</button>
                   </>
                 ) : (
                   <>

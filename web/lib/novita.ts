@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14c", date: "14 novembre 2026", title: "Maxi emergenze: la scena dal vivo (prova)",
+    items: [
+      "🎬 Nel popup di una maxi emergenza c'è «Guarda la scena dal vivo»: la scena in stile centrale operativa, con le ambulanze che arrivano in tempo reale con la loro scia.",
+      "🟠 I tuoi mezzi sono arancioni, quelli delle altre associazioni azzurri; in alto i dati della maxi (mezzi, feriti, triage).",
+    ],
+  },
+  {
     id: "2026-11-14b", date: "14 novembre 2026", title: "Personalizza le tue sedi",
     items: [
       "⚙️ In Sedi ogni sede ha il tasto «Personalizza»: amplia il garage, metti pannelli solari, cambia la caldaia, migliora l'area volontari.",
