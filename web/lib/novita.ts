@@ -8,6 +8,8 @@ export const NOVITA: Novita[] = [
     items: [
       "🎬 Nel popup di una maxi emergenza c'è «Guarda la scena dal vivo»: la scena in stile centrale operativa, con le ambulanze che arrivano in tempo reale con la loro scia.",
       "🟠 I tuoi mezzi sono arancioni, quelli delle altre associazioni azzurri; in alto i dati della maxi (mezzi, feriti, triage).",
+      "📷 Trascina per girare la scena, zoom con la rotellina o con due dita, e 4 inquadrature pronte (panoramica, dall'alto, ravvicinata, area PMA).",
+      "⛺ Se un'associazione porta il PMA, le ambulanze fanno la spola portando i feriti al PMA.",
     ],
   },
   {

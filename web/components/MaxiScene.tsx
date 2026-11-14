@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 export type SceneVehicle = {
   id: string; call_sign: string; org_name: string; mine: boolean; status: string;
   assigned_at: string; arrives_at: string; completes_at?: string | null;
-  base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean;
+  base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean;
 };
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
@@ -97,10 +97,26 @@ function buildScene(kind: string, seed: number) {
 // posti auto nell'area mezzi e area PMA
 const slot = (i: number): V3 => [-78 + (i % 6) * 12, 0, 40 + Math.floor(i / 6) * 13];
 const PMA: [number, number, number, number] = [28, 34, 62, 62];
+const pmaSlot = (i: number): V3 => [40 + (i % 2) * 14, 0, 40 + Math.floor(i / 2) * 9];
+const sceneSpot = (i: number): V3 => [-14 + (i % 5) * 7, 0, 10 + Math.floor(i / 5) * 5];
+type Cam = { yaw: number; el: number; dist: number; auto: boolean };
+export const VIEWS: { name: string; cam: Cam }[] = [
+  { name: "Panoramica", cam: { yaw: 0.6, el: 0.55, dist: 190, auto: true } },
+  { name: "Dall'alto", cam: { yaw: 0, el: 1.4, dist: 210, auto: false } },
+  { name: "Ravvicinata", cam: { yaw: 0.9, el: 0.35, dist: 95, auto: false } },
+  { name: "Area PMA", cam: { yaw: -0.7, el: 0.5, dist: 120, auto: false } },
+];
 
-export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData; serverOffset?: number }) {
+export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 0 }: { data: SceneData; serverOffset?: number; view?: number; viewKey?: number }) {
   const cv = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef(data); dataRef.current = data;
+  const camRef = useRef<Cam & { tYaw: number; tEl: number; tDist: number; tgtX: number; tgtZ: number }>({ ...VIEWS[0].cam, tYaw: 0.6, tEl: 0.55, tDist: 190, tgtX: 0, tgtZ: 18 });
+  // cambio inquadratura dai pulsanti
+  useEffect(() => {
+    const v = VIEWS[view] ?? VIEWS[0]; const c = camRef.current;
+    c.tYaw = v.cam.yaw; c.tEl = v.cam.el; c.tDist = v.cam.dist; c.auto = v.cam.auto;
+    c.tgtX = view === 3 ? 45 : 0; c.tgtZ = view === 3 ? 48 : 18;
+  }, [view, viewKey]);
 
   useEffect(() => {
     const canvas = cv.current!; const ctx = canvas.getContext("2d")!;
@@ -119,6 +135,27 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize(); window.addEventListener("resize", resize);
+    // trascina = ruota/inclina, rotellina o due dita = zoom
+    const pts = new Map<number, { x: number; y: number }>(); let pinch = 0;
+    const cam = camRef.current;
+    const clamp = () => { cam.tEl = Math.max(0.15, Math.min(1.45, cam.tEl)); cam.tDist = Math.max(45, Math.min(330, cam.tDist)); };
+    const down = (e: PointerEvent) => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); cam.auto = false; };
+    const move = (e: PointerEvent) => {
+      const p0 = pts.get(e.pointerId); if (!p0) return;
+      if (pts.size === 1) { cam.tYaw -= (e.clientX - p0.x) * 0.006; cam.tEl += (e.clientY - p0.y) * 0.004; }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()]; const dd = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinch) cam.tDist *= pinch / dd; pinch = dd;
+      }
+      clamp();
+    };
+    const up = (e: PointerEvent) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+    const wheel = (e: WheelEvent) => { e.preventDefault(); cam.auto = false; cam.tDist *= e.deltaY > 0 ? 1.12 : 0.89; clamp(); };
+    canvas.addEventListener("pointerdown", down); canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+    canvas.addEventListener("wheel", wheel, { passive: false });
+    canvas.style.touchAction = "none";
 
     function frame(t: number) {
       raf = requestAnimationFrame(frame);
@@ -127,17 +164,19 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       const now = Date.now() + serverOffset;
 
       // camera che gira piano attorno alla scena
-      const yaw = 0.6 + Math.sin(t / 26000) * 0.55, el = 0.55, dist = 190;
-      const cam: V3 = [Math.sin(yaw) * Math.cos(el) * dist, Math.sin(el) * dist, Math.cos(yaw) * Math.cos(el) * dist];
-      const tgt: V3 = [0, 4, 18];
+      if (cam.auto) cam.tYaw += 0.0012;
+      cam.yaw += (cam.tYaw - cam.yaw) * 0.15; cam.el += (cam.tEl - cam.el) * 0.15; cam.dist += (cam.tDist - cam.dist) * 0.15;
+      const yaw = cam.yaw, el = cam.el, dist = cam.dist;
+      const tgt: V3 = [cam.tgtX, 4, cam.tgtZ];
+      const camP: V3 = [tgt[0] + Math.sin(yaw) * Math.cos(el) * dist, Math.sin(el) * dist, tgt[2] + Math.cos(yaw) * Math.cos(el) * dist];
       const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
       const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
       const norm = (a: V3): V3 => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
       const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-      const fw = norm(sub(tgt, cam)); const rt = norm(cross(fw, [0, 1, 0])); const up = cross(rt, fw);
+      const fw = norm(sub(tgt, camP)); const rt = norm(cross(fw, [0, 1, 0])); const up = cross(rt, fw);
       const f = Math.min(W, H) * 1.25;
       const P = (p: V3): [number, number, number] | null => {
-        const q = sub(p, cam); const z = dot(q, fw); if (z < 2) return null;
+        const q = sub(p, camP); const z = dot(q, fw); if (z < 2) return null;
         return [W / 2 + (f * dot(q, rt)) / z, H * 0.56 - (f * dot(q, up)) / z, z];
       };
       const poly = (pts: V3[], stroke?: string, fill?: string, lw = 1) => {
@@ -183,7 +222,7 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       poly([[x1, 0.1, z1], [x2, 0.1, z1], [x2, 0.1, z2], [x1, 0.1, z2]], "rgba(52,211,153,.8)", "rgba(52,211,153,.07)", 1.4);
       ctx.setLineDash([]);
       const pm = P([(x1 + x2) / 2, 0.2, (z1 + z2) / 2]);
-      if (pm) { ctx.fillStyle = "rgba(52,211,153,.9)"; ctx.font = "700 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA PMA", pm[0], pm[1]); }
+      if (pm) { ctx.fillStyle = "rgba(52,211,153,.9)"; ctx.font = "700 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText(d.vehicles.some((v) => v.pma) ? "AREA PMA" : "AREA PMA · NESSUN PMA", pm[0], pm[1]); }
       const st = P([-48, 0.2, 33]); if (st) { ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA MEZZI", st[0], st[1]); }
 
       // scatole (scena + mezzi), ordinate per distanza
@@ -208,55 +247,80 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       // mezzi
       const vs = d.vehicles;
       const cLat = Math.cos((d.lat * Math.PI) / 180);
-      let onSite = 0, coming = 0;
+      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0;
+      const hasPma = vs.some((v) => v.pma && Date.parse(v.arrives_at) <= now && v.status !== "conclusa");
       vs.forEach((veh, i) => {
         const a0 = Date.parse(veh.assigned_at), a1 = Date.parse(veh.arrives_at);
-        const left = veh.status === "conclusa" || veh.status === "rientro";
-        if (left) return;
+        if (veh.status === "conclusa" || veh.status === "rientro") return;
         const p = Math.max(0, Math.min(1, (now - a0) / Math.max(1, a1 - a0)));
         if (p >= 1) onSite++; else coming++;
+        if (veh.pma && p >= 1) pmaOn++;
         const prev = seen.get(veh.id);
         const state = p >= 1 ? "posto" : "viaggio";
         if (prev !== state) {
           if (prev === undefined && state === "viaggio") captions.push({ text: `${veh.call_sign} in arrivo`, hi: veh.call_sign, at: t });
-          if (prev !== undefined && state === "posto") captions.push({ text: `${veh.call_sign} sul posto`, hi: veh.call_sign, at: t });
+          if (prev !== undefined && state === "posto") captions.push(veh.pma ? { text: "PMA operativo", hi: "PMA", at: t } : { text: `${veh.call_sign} sul posto`, hi: veh.call_sign, at: t });
           seen.set(veh.id, state);
         }
         let ang = (hash(veh.id) % 628) / 100;
         if (veh.base_lat != null && veh.base_lng != null) ang = Math.atan2((veh.base_lng - d.lng) * cLat, veh.base_lat - d.lat);
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
-        const end = slot(i % 30);
+        const myIdx = veh.pma ? pmaIdx++ : amb++;
+        // i PMA vanno nell'area PMA; le ambulanze vanno sul luogo e, se c'è un PMA, fanno la spola coi feriti
+        const end = veh.pma ? pmaSlot(myIdx % 6) : hasPma ? sceneSpot(myIdx % 20) : slot(myIdx % 30);
         const ctrl: V3 = [(start[0] + end[0]) / 2 + Math.cos(ang) * 30, 0, (start[2] + end[2]) / 2 + Math.sin(ang) * 30];
         const at = (u: number): V3 => [
           (1 - u) ** 2 * start[0] + 2 * (1 - u) * u * ctrl[0] + u * u * end[0], 0,
           (1 - u) ** 2 * start[2] + 2 * (1 - u) * u * ctrl[2] + u * u * end[2]];
         const ease = 1 - (1 - p) ** 2;
-        const pos = at(ease);
-        const col = veh.mine ? ORANGE : BLUE;
-        // scia + velo trasparente
-        const steps = 28; const trail: V3[] = []; for (let k = 0; k <= steps; k++) trail.push(at((ease * k) / steps));
-        const TH = 5;
-        for (let k = 0; k < steps; k++) {
-          const a = trail[k], b = trail[k + 1];
-          poly([[a[0], 0.2, a[2]], [b[0], 0.2, b[2]], [b[0], TH, b[2]], [a[0], TH, a[2]]], undefined, veh.mine ? "rgba(255,90,54,.10)" : "rgba(108,180,255,.10)");
+        let pos = at(ease); let heading = 0; let carrying = false;
+        if (p < 1) { const nxt = at(Math.min(1, ease + 0.01)); heading = Math.atan2(nxt[0] - pos[0], nxt[2] - pos[2]) + Math.PI / 2; }
+        else if (!veh.pma && hasPma) {
+          // navetta: carica sul posto → PMA → torna (ciclo di 24 s, sfasato per mezzo)
+          const cyc = ((now / 1000 + (hash(veh.id) % 24)) % 24) / 24;
+          const pm: V3 = [31 + (myIdx % 4) * 2.5, 0, 58];
+          const lerp = (u: number): V3 => [end[0] + (pm[0] - end[0]) * u, 0, end[2] + (pm[2] - end[2]) * u];
+          if (cyc < 0.3) pos = end;
+          else if (cyc < 0.5) { const u = (cyc - 0.3) / 0.2; pos = lerp(u); heading = Math.atan2(pm[0] - end[0], pm[2] - end[2]) + Math.PI / 2; carrying = true; }
+          else if (cyc < 0.7) { pos = pm; carrying = true; }
+          else { const u = (cyc - 0.7) / 0.3; pos = lerp(1 - u); heading = Math.atan2(end[0] - pm[0], end[2] - pm[2]) + Math.PI / 2; }
         }
-        const tp = trail.map((x) => P([x[0], TH, x[2]]));
-        if (tp.every(Boolean)) { ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.beginPath(); tp.forEach((x, k) => (k ? ctx.lineTo(x![0], x![1]) : ctx.moveTo(x![0], x![1]))); ctx.stroke(); }
+        const col = veh.mine ? ORANGE : BLUE;
+        // scia corta che svanisce: solo l'ultimo tratto dietro al mezzo, sparisce 6 s dopo l'arrivo
+        const fade = p < 1 ? 1 : Math.max(0, 1 - (now - a1) / 6000);
+        if (fade > 0) {
+          const from = Math.max(0, ease - 0.22); const steps = 10; const trail: V3[] = [];
+          for (let k = 0; k <= steps; k++) trail.push(at(from + ((ease - from) * k) / steps));
+          const TH = 4;
+          for (let k = 0; k < steps; k++) {
+            const a = trail[k], b = trail[k + 1]; const al = (0.12 * fade * (k + 1)) / steps;
+            poly([[a[0], 0.2, a[2]], [b[0], 0.2, b[2]], [b[0], TH, b[2]], [a[0], TH, a[2]]], undefined, veh.mine ? `rgba(255,90,54,${al})` : `rgba(108,180,255,${al})`);
+          }
+          const tp = trail.map((x) => P([x[0], TH, x[2]]));
+          if (tp.every(Boolean)) {
+            const gr = ctx.createLinearGradient(tp[0]![0], tp[0]![1], tp[steps]![0], tp[steps]![1]);
+            gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col);
+            ctx.globalAlpha = fade; ctx.strokeStyle = gr; ctx.lineWidth = 2.2; ctx.beginPath();
+            tp.forEach((x, k) => (k ? ctx.lineTo(x![0], x![1]) : ctx.moveTo(x![0], x![1]))); ctx.stroke(); ctx.globalAlpha = 1;
+          }
+        }
         // il mezzo
-        const nxt = at(Math.min(1, ease + 0.01)); const heading = Math.atan2(nxt[0] - pos[0], nxt[2] - pos[2]) + Math.PI / 2;
-        const small = veh.moto ? 0.5 : veh.automedica ? 0.75 : 1;
-        addBox({ c: [pos[0], 1.3 * small, pos[2]], s: [5.4 * small, 2.6 * small, 2.4 * small], yaw: p >= 1 ? 0 : heading,
-                 fill: "rgba(241,245,249,.9)", edge: col });
-        const lp = P([pos[0], 3.4, pos[2]]);
+        const small = veh.moto ? 0.5 : veh.automedica ? 0.75 : veh.pma ? 1.6 : 1;
+        addBox({ c: [pos[0], 1.3 * small, pos[2]], s: [5.4 * small, 2.6 * small, 2.4 * small], yaw: heading,
+                 fill: veh.pma ? "rgba(52,211,153,.85)" : "rgba(241,245,249,.9)", edge: col });
+        if (veh.pma && p >= 1) {
+          // tenda del PMA montata accanto al camion
+          addBox({ c: [pos[0], 2, pos[2] + 7], s: [10, 4, 7], yaw: 0, fill: "rgba(52,211,153,.25)", edge: "rgba(52,211,153,.95)" });
+        }
+        const lp = P([pos[0], 3.4 * small, pos[2]]);
         if (lp) draws.push({ z: lp[2] - 1, fn: () => {
           const blink = Math.floor(t / 250) % 2 === 0;
           ctx.fillStyle = blink ? "#EF4444" : "#3B82F6"; ctx.beginPath(); ctx.arc(lp[0], lp[1], 2.4, 0, Math.PI * 2); ctx.fill();
           ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center";
           const eta = Math.max(0, Math.round((a1 - now) / 1000));
-          const lab = p >= 1 ? "SUL POSTO" : `${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")}`;
+          const lab = p < 1 ? `${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")}` : veh.pma ? "PMA" : carrying ? "➜ PMA CON FERITO" : "SUL POSTO";
           ctx.fillStyle = WHITE; ctx.fillText(veh.call_sign.toUpperCase(), lp[0], lp[1] - 16);
-          ctx.fillStyle = col; ctx.fillText(lab, lp[0], lp[1] - 5);
-          ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lp[0] - 18, lp[1] - 3); ctx.lineTo(lp[0] + 18, lp[1] - 3); ctx.stroke();
+          ctx.fillStyle = veh.pma ? "#34D399" : col; ctx.fillText(lab, lp[0], lp[1] - 5);
         } });
       });
       draws.sort((a, b) => b.z - a.z).forEach((x) => x.fn());
@@ -292,7 +356,7 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       ctx.fillStyle = "rgba(255,255,255,.75)";
       ctx.fillText(dt.toLocaleTimeString("it-IT") + " · " + d.lat.toFixed(4) + "N " + d.lng.toFixed(4) + "E", 14, 40);
       ctx.fillStyle = WHITE; ctx.font = "800 12px ui-monospace,monospace";
-      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming}`, 14, 58);
+      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}`, 14, 58);
       const red = Math.round(injured * 0.15), yel = Math.round(injured * 0.35), grn = injured - red - yel;
       ctx.fillText(`FERITI ${injured} ·`, 14, 75);
       const wf = ctx.measureText(`FERITI ${injured} · `).width;
@@ -323,7 +387,11 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       }
     }
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+    return () => {
+      cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
+      canvas.removeEventListener("pointerdown", down); canvas.removeEventListener("pointermove", move);
+      canvas.removeEventListener("pointerup", up); canvas.removeEventListener("pointercancel", up); canvas.removeEventListener("wheel", wheel);
+    };
   }, [data.id, data.title, serverOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <canvas ref={cv} style={{ width: "100%", height: "100%", display: "block", background: "#050B18" }} />;
