@@ -248,20 +248,20 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const pr = rng(seed + 7);
       const lerp3c = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const inside = scene.boxes.filter((bx) => bx.s[0] * bx.s[2] > 20);
-      type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry";
+      type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry" | "cut" | "film" | "spray" | "limp";
       const patients = Array.from({ length: 10 + (seed % 8) }, (_, k) => {
         const tri = k % 5 === 0 ? "#EF4444" : k % 3 === 0 ? "#FACC15" : "#22C55E";
         const trapped = k % 4 === 0 && inside.length > 0;
         let p3: V3;
         if (trapped) { const bx = inside[k % inside.length]; p3 = [bx.c[0] + (pr() - 0.5) * bx.s[0] * 0.5, Math.max(0, bx.c[1] - bx.s[1] / 2 + 0.3), bx.c[2] + (pr() - 0.5) * 1]; }
         else p3 = [(pr() - 0.5) * 44, 0, 2 + pr() * 16];
-        const pose: Pose = trapped ? (tri === "#22C55E" ? "wave" : "lie") : tri === "#EF4444" ? "lie" : tri === "#FACC15" ? (k % 2 ? "sit" : "lie") : "walk";
+        const pose: Pose = trapped ? (tri === "#22C55E" ? "wave" : "lie") : tri === "#EF4444" ? "lie" : tri === "#FACC15" ? (k % 2 ? "sit" : "lie") : (k % 2 ? "limp" : "wave");
         const bx0 = trapped ? inside[k % inside.length] : null;
         const handoff: V3 = bx0 ? [bx0.c[0] + (pr() - 0.5) * 4, 0, bx0.c[2] + bx0.s[2] / 2 + 4 + pr() * 2] : p3;
         return { p: p3, home: p3, handoff, tri, pose, trapped, freed: !trapped, hidden: false, busy: false, ph: pr() * 6 };
       });
       // i feriti verdi camminano zoppicando vicino al loro punto
-      for (const pt of patients) if (pt.pose === "walk") {
+      for (const pt of patients) if (pt.pose === "limp") {
         const w = t / 4000 + pt.ph; pt.p = [pt.home[0] + Math.cos(w) * 2.5, 0, pt.home[2] + Math.sin(w * 1.3) * 2];
       }
       const people: { p: V3; pose: Pose; col: string }[] = [];
@@ -275,21 +275,29 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (const pt of patients) if (pt.trapped) {
         const cyc = ((now / 1000 + pt.ph * 6) % 36) / 36;
         const g: V3 = [pt.home[0], 0, pt.home[2]];
-        if (cyc < 0.55) {            // taglio delle lamiere / rimozione macerie
-          firemen.push({ p: [g[0] - 1.2, 0, g[2] + 1.6], pose: "kneel" }, { p: [g[0] + 1.3, 0, g[2] + 1.4], pose: "kneel" });
+        const truck = vvf.reduce((b, v) => (Math.hypot(v.p[0] - g[0], v.p[2] - g[2]) < Math.hypot(b.p[0] - g[0], b.p[2] - g[2]) ? v : b), vvf[0]).p;
+        const s1: V3 = [g[0] - 1.2, 0, g[2] + 1.6], s2: V3 = [g[0] + 1.3, 0, g[2] + 1.4];
+        if (cyc < 0.08) {            // arrivano dal camion con l'attrezzatura
+          const u = cyc / 0.08; firemen.push({ p: lerp3c(truck, s1, u), pose: "walk" }, { p: lerp3c(truck, s2, Math.max(0, u - 0.15) / 0.85), pose: "walk" }); pt.freed = false;
+        } else if (cyc < 0.55) {     // taglio delle lamiere / rimozione macerie
+          firemen.push({ p: s1, pose: "cut" }, { p: s2, pose: cyc < 0.3 ? "cut" : "kneel" });
           if (Math.floor(t / 120) % 2 === 0) sparks.push([pt.home[0], pt.home[1] + 1, pt.home[2]]);
           pt.freed = false;
         } else if (cyc < 0.65) {     // lo portano fuori
           const u = (cyc - 0.55) / 0.1; pt.p = lerp3c(pt.home, pt.handoff, u); pt.pose = "lie";
           firemen.push({ p: [pt.p[0] - 1.3, 0, pt.p[2]], pose: "carry" }, { p: [pt.p[0] + 1.3, 0, pt.p[2]], pose: "carry" });
           pt.freed = false;
-        } else { pt.p = pt.handoff; pt.pose = "lie"; pt.freed = true; extricated++;
-          firemen.push({ p: [pt.handoff[0] + 2.5, 0, pt.handoff[2] - 1], pose: "stand" }); }
+        } else {                     // affidato alle ambulanze, i pompieri tornano al camion
+          pt.p = pt.handoff; pt.pose = "lie"; pt.freed = true; extricated++;
+          const u = Math.min(1, (cyc - 0.65) / 0.12);
+          firemen.push({ p: u < 1 ? lerp3c(pt.handoff, truck, u) : [truck[0] + 2, 0, truck[2] + 2], pose: u < 1 ? "walk" : "stand" },
+                       { p: [pt.handoff[0] + 2.5, 0, pt.handoff[2] - 1], pose: "stand" });
+        }
       }
       // con fuoco: un vigile con la lancia spegne le fiamme
       for (const e of scene.fx) if (e.kind === "fire") {
         const from: V3 = [e.at[0] + 14, 0, e.at[2] + 14];
-        firemen.push({ p: from, pose: "stand" }); sprays.push({ from: [from[0], 1.6, from[2]], to: e.at });
+        firemen.push({ p: from, pose: "spray" }); sprays.push({ from: [from[0], 1.6, from[2]], to: e.at });
       }
 
       // ===== mezzi =====
@@ -324,7 +332,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           (1 - u) ** 2 * start[2] + 2 * (1 - u) * u * ctrl[2] + u * u * end[2]];
         const ease = 1 - (1 - p) ** 2;
         const park = veh.pma ? 0 : dirTo(end, CENTER) + Math.PI;            // parcheggiato col retro verso i feriti
-        let pos = at(ease); let heading = park; let label = veh.pma ? "PMA" : "SUL POSTO"; let moving = p < 1;
+        let pos = at(ease); let heading = park; let label = veh.pma ? "PMA" : "SUL POSTO"; let moving = p < 1; let doorsOpen = false;
         if (p < 1) heading = dirTo(at(Math.max(0, ease - 0.01)), at(Math.min(1, ease + 0.01)));
         const fwd = (h: number): V3 => [Math.cos(h), 0, Math.sin(h)];
         const rear = (q: V3, h: number, dd = 3.4): V3 => [q[0] - fwd(h)[0] * dd, 0, q[2] - fwd(h)[2] * dd];
@@ -357,18 +365,18 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
               stretchers.push({ a: [a[0] - f[0] * 0.5, 0, a[2] - f[2] * 0.5], b: [b[0] + f[0] * 0.5, 0, b[2] + f[2] * 0.5], loaded });
             };
             const hWalk = dirTo(rr, ptGround);
-            if (u < 0.12) { pair(lerp3(rr, ptGround, u / 0.12), hWalk, false, "carry"); label = "RECUPERO FERITO"; }
+            if (u < 0.12) { doorsOpen = u < 0.04; pair(lerp3(rr, ptGround, u / 0.12), hWalk, false, "carry"); label = "RECUPERO FERITO"; }
             else if (u < 0.3) {
               pt.busy = true; label = "STABILIZZAZIONE";
               people.push({ p: [ptGround[0] - 1.1, 0, ptGround[2] + 0.8], pose: "kneel", col: crewCol }, { p: [ptGround[0] + 1.2, 0, ptGround[2] + 0.8], pose: "kneel", col: crewCol });
               stretchers.push({ a: [ptGround[0] - 1.3, 0, ptGround[2] - 1.2], b: [ptGround[0] + 1.3, 0, ptGround[2] - 1.2], loaded: false });
             }
-            else if (u < 0.45) { pt.hidden = true; pair(lerp3(ptGround, rr, (u - 0.3) / 0.15), hWalk + Math.PI, true, "carry"); label = "BARELLA IN ARRIVO"; }
-            else if (u < 0.5) { pt.hidden = true; people.push({ p: [rr[0] + 1, 0, rr[2]], pose: "stand", col: crewCol }); label = "CARICO IN AMBULANZA"; }
+            else if (u < 0.45) { doorsOpen = true; pt.hidden = true; pair(lerp3(ptGround, rr, (u - 0.3) / 0.15), hWalk + Math.PI, true, "carry"); label = "BARELLA IN ARRIVO"; }
+            else if (u < 0.5) { doorsOpen = true; pt.hidden = true; people.push({ p: [rr[0] + 1, 0, rr[2]], pose: "stand", col: crewCol }); label = "CARICO IN AMBULANZA"; }
             else if (u < 0.65) { pt.hidden = true; pos = lerp3(end, dest, (u - 0.5) / 0.15); heading = dirTo(end, dest); moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ OSPEDALE"; }
             else if (u < 0.75) {
               pt.hidden = true; pos = dest; heading = dirTo(end, dest);
-              if (hasPma) { const r2 = rear(dest, heading); pair(lerp3(r2, [64, 0, 76], (u - 0.65) / 0.1), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
+              if (hasPma) { doorsOpen = true; const r2 = rear(dest, heading); pair(lerp3(r2, [64, 0, 76], (u - 0.65) / 0.1), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
               else label = "IN OSPEDALE";
             }
             else if (u < 0.92) { pos = lerp3(dest, end, (u - 0.75) / 0.17); heading = dirTo(dest, end); moving = true; label = "RIENTRO SUL POSTO"; }
@@ -395,9 +403,10 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         }
         // ===== modellino: asse lungo = x locale, muso verso +x =====
         const blinkOn = Math.floor(t / 250) % 2 === 0;
+        const bounce = moving ? Math.abs(Math.sin(t / 90 + (hash(veh.id) % 7))) * 0.12 : 0;
         const part = (dx: number, dy: number, dz: number, w: number, h: number, dd: number, fill: string, edge = col) => {
           const cs = Math.cos(heading), sn = Math.sin(heading);
-          addBox({ c: [pos[0] + dx * cs - dz * sn, dy, pos[2] + dx * sn + dz * cs], s: [w, h, dd], yaw: heading, fill, edge });
+          addBox({ c: [pos[0] + dx * cs - dz * sn, dy + (dy > 0.6 ? bounce : 0), pos[2] + dx * sn + dz * cs], s: [w, h, dd], yaw: heading, fill, edge });
         };
         const bar = blinkOn ? "rgba(239,68,68,.95)" : "rgba(59,130,246,.95)";
         const bar2 = blinkOn ? "rgba(59,130,246,.95)" : "rgba(239,68,68,.95)";
@@ -433,7 +442,9 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           part(bx, 1.35, 1.22, L - 0.3, 0.32, 0.04, veh.mine ? "rgba(255,90,54,.95)" : "rgba(108,180,255,.95)"); // fascia
           part(bx, 1.35, -1.22, L - 0.3, 0.32, 0.04, veh.mine ? "rgba(255,90,54,.95)" : "rgba(108,180,255,.95)");
           part(bx, 2.1, 1.22, 0.9, 0.9, 0.04, "rgba(239,68,68,.9)", "#EF4444");   // croce sul fianco
-          part(bx - L / 2 + 0.02, 1.7, 0, 0.04, 2.2, 0.05, dark, dark);          // porte posteriori
+          if (doorsOpen) {                                                     // porte posteriori aperte
+            part(bx - L / 2 - 0.6, 1.7, 1.2, 1.2, 2.2, 0.06, "rgba(241,245,249,.9)"); part(bx - L / 2 - 0.6, 1.7, -1.2, 1.2, 2.2, 0.06, "rgba(241,245,249,.9)");
+          } else part(bx - L / 2 + 0.02, 1.7, 0, 0.04, 2.2, 0.05, dark, dark);
           part(1.8, 2.25, 0, 0.45, 0.22, 2.0, bar, bar);                     // barra luci anteriore
           part(bx - L / 2 + 0.3, 3.2, 0.8, 0.3, 0.2, 0.3, bar2, bar2); part(bx - L / 2 + 0.3, 3.2, -0.8, 0.3, 0.2, 0.3, bar, bar);
           wheels([1.4, bx - L / 2 + 1.1], 1.15);
@@ -456,30 +467,54 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
 
       // ===== figure: soccorritori, feriti, barelle =====
       const figure = (p3: V3, pose: Pose, col: string, phase: number) => {
-        const base = p3[1];
-        const foot = P(p3), head = P([p3[0], base + (pose === "kneel" || pose === "sit" ? 1.7 : 2.8), p3[2]]); if (!foot || !head) return;
+        const base = p3[1]; const low = pose === "kneel" || pose === "sit" || pose === "cut";
+        const foot = P(p3), head = P([p3[0], base + (low ? 1.8 : 2.8), p3[2]]); if (!foot || !head) return;
         draws.push({ z: foot[2] - 0.5, fn: () => {
-          const h = Math.max(3, foot[1] - head[1]); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, h / 9);
+          const h = Math.max(3, (foot[1] - head[1]) * (low ? 2.8 / 1.8 : 1)); const fx = foot[0], fy = foot[1];
+          ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, h / 10); ctx.lineCap = "round";
+          const seg = (pts: [number, number][]) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); };
+          const limb = (x0: number, y0: number, a1: number, a2: number, l: number) => {   // arto in due pezzi (angoli dalla verticale)
+            const x1 = x0 + Math.sin(a1) * l, y1 = y0 + Math.cos(a1) * l; seg([[x0, y0], [x1, y1], [x1 + Math.sin(a2) * l, y1 + Math.cos(a2) * l]]);
+          };
           if (pose === "lie") {
             const e = P([p3[0] + 2.4, base + 0.2, p3[2]]); if (!e) return;
-            const tw = Math.sin(phase * 3) * h * 0.04;  // si muove un po'
-            ctx.beginPath(); ctx.moveTo(foot[0], foot[1]); ctx.lineTo(e[0], e[1] + tw); ctx.stroke();
-            ctx.beginPath(); ctx.arc(e[0], e[1] + tw, Math.max(1.5, h / 9), 0, Math.PI * 2); ctx.fill(); return;
+            const lift = Math.max(0, Math.sin(phase * 1.3)) ** 6;      // ogni tanto alza un braccio
+            seg([[fx, fy], [e[0], e[1]]]);
+            const mx = fx + (e[0] - fx) * 0.65, my = fy + (e[1] - fy) * 0.65;
+            seg([[mx, my], [mx + h * 0.05, my - h * 0.3 * lift - h * 0.02]]);
+            ctx.beginPath(); ctx.arc(e[0], e[1] - Math.sin(phase * 2) * h * 0.02, Math.max(1.5, h / 9), 0, Math.PI * 2); ctx.fill(); return;
           }
-          const bob = pose === "kneel" ? Math.sin(phase * 9) * h * 0.06 : pose === "walk" ? Math.abs(Math.sin(phase * 5)) * h * 0.05 : 0;
-          const hy = head[1] + bob, hip = foot[1] - h * (pose === "kneel" || pose === "sit" ? 0.25 : 0.45);
-          ctx.beginPath(); ctx.arc(head[0], hy, h * 0.13, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.moveTo(head[0], hy + h * 0.12); ctx.lineTo(foot[0], hip);
-          const sw = pose === "walk" || pose === "carry" ? Math.sin(phase * 10) * h * 0.18 : 0;
-          if (pose === "kneel") { ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] + h * 0.25, foot[1]); ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] + h * 0.3, hy + h * 0.55 + bob); }
-          else if (pose === "sit") { ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] + h * 0.3, foot[1]); ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] + h * 0.2, hy + h * 0.5); }
-          else {
-            ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] + sw, foot[1]); ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] - sw, foot[1]);
-            if (pose === "wave") { const wv = Math.sin(phase * 8) * h * 0.15; ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] + h * 0.25 + wv, hy - h * 0.15); }
-            else if (pose === "carry") { ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0], hy + h * 0.6); }
-            else { ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] - sw * 0.7, hy + h * 0.55); }
+          const w = phase * (pose === "limp" ? 5 : 8);
+          const walking = pose === "walk" || pose === "carry" || pose === "limp";
+          const bob = walking ? Math.abs(Math.sin(w)) * h * (pose === "limp" ? 0.09 : 0.04) : pose === "stand" || pose === "film" ? Math.sin(phase * 1.5) * h * 0.01 : 0;
+          const hipY = fy - h * (low ? 0.28 : 0.47) - bob, hipX = fx;
+          const sway = pose === "stand" || pose === "film" ? Math.sin(phase * 0.9) * h * 0.02 : 0;
+          const lean = pose === "kneel" || pose === "cut" ? h * 0.1 : pose === "carry" ? -h * 0.03 : 0;
+          const shX = hipX + lean + sway, shY = hipY - h * 0.32;
+          const cpr = pose === "kneel" ? Math.max(0, Math.sin(phase * 9)) * h * 0.05 : 0;
+          // gambe
+          const L = h * 0.24;
+          if (walking) { const sw = Math.sin(w) * (pose === "limp" ? 0.25 : 0.5); limb(hipX, hipY, sw, sw - Math.max(0, -Math.sin(w)) * 0.6, L); limb(hipX, hipY, -sw, -sw - Math.max(0, Math.sin(w)) * 0.6, L); }
+          else if (low && pose !== "sit") { limb(hipX, hipY, 1.2, 0, L); limb(hipX, hipY, -0.3, 1.6, L * 0.9); }           // in ginocchio
+          else if (pose === "sit") { const r = Math.sin(phase * 1.2) * 0.1; limb(hipX, hipY, 1.4 + r, 0.2, L); limb(hipX, hipY, 1.1 + r, 0, L); }
+          else { limb(hipX, hipY, 0.08, 0.02, L); limb(hipX, hipY, -0.08, -0.02, L); }
+          // busto e testa
+          seg([[hipX, hipY], [shX, shY + cpr]]);
+          ctx.beginPath(); ctx.arc(shX + lean * 0.2, shY - h * 0.1 + cpr, h * 0.11, 0, Math.PI * 2); ctx.fill();
+          // braccia
+          const A = h * 0.17, sy = shY + cpr;
+          if (pose === "carry") { limb(shX, sy, 0.9, 1.3, A); limb(shX, sy, 0.8, 1.2, A); }
+          else if (walking) { const sw = Math.sin(w + Math.PI) * 0.45; limb(shX, sy, sw, sw + 0.3, A); limb(shX, sy, -sw, -sw + 0.3, A); }
+          else if (pose === "kneel") { limb(shX, sy, 0.6, 0.2, A); limb(shX, sy, 0.5, 0.1, A); }                   // massaggio cardiaco
+          else if (pose === "cut") { const c = Math.sin(phase * 14) * 0.35; limb(shX, sy, 1.1 + c, 1.5 + c, A); limb(shX, sy, 0.9 - c, 1.4 - c, A); }
+          else if (pose === "spray") { limb(shX, sy, 1.4, 1.5, A); limb(shX, sy, 1.2, 1.5, A); }
+          else if (pose === "wave") { const c = Math.sin(phase * 7) * 0.5; limb(shX, sy, Math.PI - 0.4 + c, Math.PI - 0.1 + c, A); limb(shX, sy, -0.2, -0.1, A); }
+          else if (pose === "film") {
+            limb(shX, sy, Math.PI - 0.9, Math.PI - 0.6, A); limb(shX, sy, -0.15, -0.1, A);
+            if (Math.floor(phase * 2) % 3 === 0) { ctx.fillStyle = "#FEF9C3"; ctx.fillRect(shX + A * 1.2, sy - A * 1.5, 2, 2); }
           }
-          ctx.stroke();
+          else if (pose === "sit") { limb(shX, sy, 0.7, 1.2, A); limb(shX, sy, 0.5, 1.0, A); }
+          else { const radio = Math.max(0, Math.sin(phase * 0.5)) ** 8; limb(shX, sy, 0.15 + radio * 2.5, 0.1 + radio * 3.3, A); limb(shX, sy, -0.15, -0.05, A); }
         } });
       };
       for (const st of stretchers) {
@@ -521,6 +556,16 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         if (lp && cam.dist < 160) draws.push({ z: lp[2] - 1, fn: () => { ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#F87171"; ctx.fillText("VVF", lp[0], lp[1]); } });
       }
       firemen.forEach((fm, k) => figure(fm.p, fm.pose, "#F87171", t / 1000 + k * 0.9 + 3));
+      // cordone: nastro della polizia, auto della polizia, curiosi che filmano
+      { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
+        const tp = tape.map(P); if (tp.every(Boolean)) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(250,204,21,.85)"; ctx.lineWidth = 1.4; ctx.beginPath(); tp.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1] + Math.sin(t / 400 + k) * 0.6) : ctx.moveTo(q![0], q![1]))); ctx.stroke(); ctx.setLineDash([]); }
+        const bys = rng(seed + 99);
+        for (let k = 0; k < 12; k++) { const a = Math.PI * 1.1 + bys() * Math.PI * 0.8; const r = 62 + bys() * 6;
+          const wob = Math.sin(t / 2500 + k) * 0.8; figure([Math.cos(a) * r + wob, 0, Math.sin(a) * (r - 8)], k % 3 === 0 ? "film" : k % 4 === 1 ? "walk" : "stand", "rgba(148,163,184,.9)", t / 1000 + k); }
+        const pc: V3 = [-60, 0, -10]; const bl = Math.floor(t / 200) % 2 === 0;
+        const pp = (dx: number, dy: number, dz: number, w: number, h: number, dd: number, fill: string, edge = "#93C5FD") => addBox({ c: [pc[0] + dx, dy, pc[2] + dz], s: [w, h, dd], yaw: 0.4, fill, edge });
+        pp(0, 0.7, 0, 4.2, 1, 1.9, "rgba(30,58,138,.9)"); pp(-0.3, 1.5, 0, 2.2, 0.7, 1.7, "rgba(241,245,249,.8)"); pp(-0.3, 1.95, 0, 0.5, 0.2, 1.4, bl ? "rgba(59,130,246,.95)" : "rgba(147,197,253,.5)");
+        figure([pc[0] + 3, 0, pc[2] + 3], "stand", "#93C5FD", t / 1000 + 7); }
       for (const fm of firemen) { const hp = P([fm.p[0], fm.pose === "kneel" ? 1.95 : 3.05, fm.p[2]]); if (hp) draws.push({ z: hp[2] - 0.7, fn: () => { ctx.fillStyle = "#FACC15"; ctx.fillRect(hp[0] - 2, hp[1] - 1, 4, 2); } }); }
       for (const sp of sparks) { const q = P(sp); if (q) draws.push({ z: q[2] - 0.8, fn: () => {
         ctx.strokeStyle = "#FDE047"; ctx.lineWidth = 1.2; ctx.beginPath();

@@ -12,6 +12,7 @@ export const NOVITA: Novita[] = [
       "⛺ Se un'associazione porta il PMA, le ambulanze fanno la spola portando i feriti al PMA.",
       "🚑 Modellini dettagliati (ruote, vetri, fasce, croce, lampeggianti) per ambulanza, passo lungo, automedica, moto e camion PMA.",
       "🚒 Operazioni congiunte coi Vigili del Fuoco: tagliano le lamiere e tolgono le macerie per estricare i feriti intrappolati, poi li affidano alle ambulanze; dove c'è fuoco spengono con la lancia.",
+      "🎞️ Tutti più animati: braccia e gambe che si muovono, massaggio cardiaco, pompieri che tagliano, feriti che chiedono aiuto o zoppicano, porte dell'ambulanza che si aprono, cordone della polizia con curiosi che filmano.",
       "🩹 Feriti anche dentro la scena (nei vagoni, sotto le macerie) che chiedono aiuto; i soccorritori vanno con la barella, stabilizzano, caricano in ambulanza e portano al PMA o in ospedale.",
     ],
   },
