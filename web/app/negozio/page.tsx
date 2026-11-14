@@ -8,7 +8,7 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   description: string | null; image_url: string | null; sort: number };
-type Vehicle = { id: string; call_sign: string; status: string; equipment: string[] };
+type Vehicle = { id: string; call_sign: string; status: string; equipment: string[]; model_id?: string; maxi?: boolean };
 
 const CATEGORIES: { slot: string; title: string }[] = [
   { slot: "monitor", title: "Defibrillatori e cardiomonitor" },
@@ -16,7 +16,9 @@ const CATEGORIES: { slot: string; title: string }[] = [
   { slot: "massaggiatore", title: "Massaggiatori automatici" },
   { slot: "immobilizzazione", title: "Immobilizzazione" },
   { slot: "borsoni", title: "Borsoni e zaini" },
+  { slot: "maxi", title: "🆘 Moduli per le maxi emergenze (solo camion e furgone maxi)" },
 ];
+const isMaxiEq = (e: Equip) => e.slot.startsWith("maxi_");
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
@@ -42,27 +44,33 @@ export default function Negozio() {
       .eq("owner_id", session.user.id).maybeSingle();
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
-    const [e, v] = await Promise.all([
+    const [e, v, mx] = await Promise.all([
       supabase.from("equipment").select("*").order("sort"),
-      supabase.from("vehicles").select("id,call_sign,status,equipment").eq("org_id", o.id).order("created_at"),
+      supabase.from("vehicles").select("id,call_sign,status,equipment,model_id").eq("org_id", o.id).order("created_at"),
+      supabase.from("vehicle_models").select("id").eq("maxi", true),
     ]);
+    const maxiIds = new Set(((mx.data as { id: string }[]) ?? []).map((m) => m.id));
     setEquip((e.data as Equip[]) ?? []);
-    setVehicles((v.data as Vehicle[]) ?? []);
+    setVehicles(((v.data as Vehicle[]) ?? []).map((x) => ({ ...x, maxi: !!x.model_id && maxiIds.has(x.model_id) })));
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
+  const fits = (v: Vehicle, e: Equip) => !!v.maxi === isMaxiEq(e);
   function open(e: Equip) {
     setSelected(e); setMsg(null);
-    const first = vehicles.find((v) => !v.equipment.includes(e.code) && v.status === "disponibile")
-      ?? vehicles.find((v) => !v.equipment.includes(e.code) && v.status !== "fuori_servizio");
+    const cand = vehicles.filter((v) => fits(v, e));
+    const first = cand.find((v) => !v.equipment.includes(e.code) && v.status === "disponibile")
+      ?? cand.find((v) => !v.equipment.includes(e.code) && v.status !== "fuori_servizio");
     setVehicleId(first?.id ?? "");
   }
 
   async function buy() {
     if (!selected || !vehicleId) return;
     setBusy(true); setMsg(null);
-    const { error } = await supabase.rpc("install_equipment", { p_vehicle_id: vehicleId, p_code: selected.code });
+    const { error } = isMaxiEq(selected)
+      ? await supabase.rpc("equip_mount", { p_vehicle: vehicleId, p_code: selected.code, p_buy: true })
+      : await supabase.rpc("install_equipment", { p_vehicle_id: vehicleId, p_code: selected.code });
     setBusy(false);
     const v = vehicles.find((x) => x.id === vehicleId);
     if (error) { setMsg({ ok: false, text: shopError(error.message) }); return; }
@@ -137,8 +145,8 @@ export default function Negozio() {
             </div>
             <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}
                     style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }}>
-              <option value="">Scegli il mezzo…</option>
-              {vehicles.map((v) => {
+              <option value="">{vehicles.some((v) => fits(v, selected)) ? "Scegli il mezzo…" : isMaxiEq(selected) ? "Prima compra un camion o furgone maxi nel Garage" : "Nessun mezzo adatto"}</option>
+              {vehicles.filter((v) => fits(v, selected)).map((v) => {
                 const has = v.equipment.includes(selected.code);
                 return (
                   <option key={v.id} value={v.id} disabled={has || v.status === "fuori_servizio"}>
@@ -166,6 +174,9 @@ export default function Negozio() {
 
 function shopError(m: string) {
   if (m.includes("ALREADY_INSTALLED")) return "Questo presidio è già montato su quel mezzo.";
+  if (m.includes("MAXI_SLOTS_FULL")) return "Il mezzo è pieno: il camion porta 3 moduli, il furgone 2. Togline uno in Officina → Presidi.";
+  if (m.includes("MAXI_MODULE_ONLY")) return "I moduli maxi vanno solo sul camion o sul furgone per le maxi emergenze.";
+  if (m.includes("INSUFFICIENT_FUNDS")) return "Soldi insufficienti.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è in servizio o in manutenzione: riprova quando torna disponibile.";
   return friendlyError(m);
 }

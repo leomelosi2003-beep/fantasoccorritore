@@ -127,6 +127,12 @@ export const EQUIPMENT_ICONS: Record<string, string> = {
     <rect x="8" y="48" width="48" height="3" fill="#FACC15"/>`,
 };
 
+// moduli dei mezzi maxi
+EQUIPMENT_ICONS.unita_logistica = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#F97316"/><text x="32" y="44" text-anchor="middle" font-size="32">⚡</text>`;
+EQUIPMENT_ICONS.unita_cinofila = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#A16207"/><text x="32" y="44" text-anchor="middle" font-size="32">🐕</text>`;
+EQUIPMENT_ICONS.unita_droni = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#334155"/><text x="32" y="44" text-anchor="middle" font-size="32">🛸</text>`;
+EQUIPMENT_ICONS.pma_tenda = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#DC2626"/><text x="32" y="44" text-anchor="middle" font-size="32">⛺</text>`;
+
 export function equipmentIconSvg(code: string, size = 64): string {
   const inner = EQUIPMENT_ICONS[code] ??
     `<rect x="8" y="8" width="48" height="48" rx="10" fill="#9CA3AF"/><text x="32" y="40" text-anchor="middle" font-size="22" fill="#fff">?</text>`;

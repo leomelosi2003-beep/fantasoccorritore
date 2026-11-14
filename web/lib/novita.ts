@@ -21,7 +21,7 @@ export const NOVITA: Novita[] = [
     id: "2026-11-14f", date: "14 novembre 2026", title: "Mezzi per le maxi emergenze e moduli",
     items: [
       "🚛 Nel Garage, tipo «Maxi emergenze»: il camion S-Scanix Maxi (3 moduli) e il furgone comando D-Daily Comando Maxi (2 moduli). Vanno solo sulle maxi emergenze.",
-      "🧰 In Officina → Presidi monti i moduli: ⛺ PMA (tenda pneumatica, i feriti vanno al PMA invece che in ospedale, +60%), ⚡ unità logistica (+25%), 🐕 ricerca e soccorso/cinofila (+30%), 🛸 unità dronistica (+30%).",
+      "🧰 I moduli si comprano nel Negozio presidi (sezione «Moduli per le maxi emergenze») o in Officina → Presidi: ⛺ PMA (tenda pneumatica, i feriti vanno al PMA invece che in ospedale, +60%), ⚡ unità logistica (+25%), 🐕 ricerca e soccorso/cinofila (+30%), 🛸 unità dronistica (+30%).",
       "🎬 Nella scena dal vivo si vedono: tenda PMA, gazebo e torre faro, cani che cercano tra le macerie, droni con la termocamera.",
     ],
   },
