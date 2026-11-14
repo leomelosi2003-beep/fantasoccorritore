@@ -677,6 +677,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             Non disponibili: {unavailable.map((c) => `${c.first_name} (${c.lent_to ? "prestato" : c.state === "in_servizio" ? "in servizio" : "a riposo"})`).join(", ")}
           </div>
         )}
+        <a href="/personale" style={{ display: "block", marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#DC2626", textDecoration: "none" }}>
+          📢 A corto di personale? Chiedi volontari alle altre associazioni
+        </a>
         </>)}
       </div>
 

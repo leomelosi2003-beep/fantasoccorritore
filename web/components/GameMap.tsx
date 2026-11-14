@@ -820,6 +820,37 @@ export default function GameMap() {
   // Officina: mezzi guasti + segnalazioni dei volontari non lette (pallino nel menu)
   const [shopAlerts, setShopAlerts] = useState(0);
   const [novUnseen, setNovUnseen] = useState(false);
+  // richieste di personale delle altre associazioni: avviso sulla mappa + notifica del browser
+  const [staffNew, setStaffNew] = useState(0);
+  useEffect(() => {
+    if (!org) return;
+    let first = true;
+    const shown = new Set<string>();
+    const load = async () => {
+      const { data } = await supabase.rpc("staff_requests_open");
+      const list = ((data as { id: string; mine: boolean; org_name: string; roles: Record<string, number>; helped: number }[]) ?? []);
+      let seen: string[] = []; try { seen = JSON.parse(localStorage.getItem("fs_staff_seen") ?? "[]"); } catch {}
+      const others = list.filter((r) => !r.mine);
+      const fresh = others.filter((r) => !seen.includes(r.id));
+      setStaffNew(fresh.length);
+      for (const r of fresh) if (!shown.has(r.id)) {
+        shown.add(r.id);
+        const n = (Object.values(r.roles) as number[]).reduce((a, b) => a + b, 0);
+        const txt = `📢 ${r.org_name} è a corto di personale: servono ${n} volontari per far partire le ambulanze. Menu → Richieste di personale`;
+        if (!first || fresh.length <= 2) showToast(txt);
+        notify("📢 Serve personale", `${r.org_name} cerca ${n} volontari`, "staff-" + r.id);
+      }
+      const mine = list.find((r) => r.mine);
+      if (mine) {
+        const k = "fs_staff_helped_" + mine.id; const before = Number(localStorage.getItem(k) ?? "0");
+        if (mine.helped > before) { showToast(`🙌 Ti hanno prestato ${mine.helped - before} volontari: li trovi in Squadra.`); localStorage.setItem(k, String(mine.helped)); }
+      }
+      first = false;
+    };
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible" || notifyOn()) load(); }, 45_000);
+    return () => clearInterval(t);
+  }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [baseColors, setBaseColors] = useState<Record<string, string>>({});
   useEffect(() => {
     const v = novitaUnseen(); setNovUnseen(v);
@@ -1141,7 +1172,7 @@ export default function GameMap() {
         <>
           <button className="fs-burger" onClick={() => setMenuOpen(true)} aria-label="Apri il menu">
             <span /><span /><span />
-            {notes.length + objReady + (novUnseen ? 1 : 0) > 0 && <b className="fs-badge">{notes.length + objReady + (novUnseen ? 1 : 0)}</b>}
+            {notes.length + objReady + staffNew + (novUnseen ? 1 : 0) > 0 && <b className="fs-badge">{notes.length + objReady + staffNew + (novUnseen ? 1 : 0)}</b>}
           </button>
           <div className={`fs-drawer-bg${menuOpen ? " open" : ""}`} onClick={() => setMenuOpen(false)} />
           <nav className={`fs-drawer${menuOpen ? " open" : ""}`} aria-hidden={!menuOpen}>
@@ -1174,6 +1205,7 @@ export default function GameMap() {
                 ["💼", "Offerte e acquisti", "#1E3A8A", "/offerte"],
               ]],
               ["Altre associazioni", [
+                ["📢", "Richieste di personale", "#DC2626", "/personale"],
                 ["🤝", "Alleanza", "#15803D", "/alleanza"],
                 ["🔗", "Gemellaggio", "#0E7490", "/gemellaggio"],
                 ["🏆", "Classifica", "#B45309", "/classifica"],
@@ -1198,7 +1230,7 @@ export default function GameMap() {
               {items.map(([icon, label, color, href]) => {
                 const badge = href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
                   : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
-                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : href === "/novita" ? (novUnseen ? 1 : 0) : 0;
+                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : href === "/novita" ? (novUnseen ? 1 : 0) : href === "/personale" ? staffNew : 0;
                 return (
               <button key={href} className="fs-drawer-item" onClick={() => {
                   if (href === "__perf__") {

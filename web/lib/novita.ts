@@ -4,6 +4,14 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14i", date: "14 novembre 2026", title: "Richieste di personale",
+    items: [
+      "📢 Sei a corto di volontari per far partire le ambulanze? Menu → Richieste di personale: scegli chi ti serve (autisti, soccorritori, medici…) e avvisi tutte le associazioni.",
+      "🔔 Gli altri vedono l'avviso sulla mappa (e la notifica del browser, se attiva) e con «Aiuta» ti prestano volontari per 1-8 ore, anche se non siete alleati.",
+      "🙌 Quando qualcuno ti aiuta ti arriva l'avviso e i volontari li trovi subito in Squadra.",
+    ],
+  },
+  {
     id: "2026-11-14h", date: "14 novembre 2026", title: "Niente più tassa patrimoniale",
     items: ["💰 La tassa patrimoniale oraria è stata eliminata: il patrimonio non viene più tassato. Resta la trattenuta sui premi dei servizi."],
   },
