@@ -87,6 +87,7 @@ function claimError(m: string) {
   if (m.includes("NO_FUEL")) return "Il mezzo è in riserva: fai il pieno nel Garage (⛽ Benzinaio).";
   if (m.includes("VEHICLE_BROKEN")) return "⚠️ Il mezzo è guasto: riparalo nel Garage → 🔧 Officina.";
   if (m.includes("SERVICE_DUE")) return "🔧 Revisione dei 15.000 km scaduta: falla nel Garage prima di uscire.";
+  if (m.includes("BASE_RENT_UNPAID")) return "🔑 Affitto della sede non pagato: i mezzi di quella sede non partono. Paga nella pagina Sedi.";
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";

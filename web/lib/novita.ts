@@ -4,6 +4,14 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14a", date: "14 novembre 2026", title: "Sedi: nuovi prezzi e affitto",
+    items: [
+      "🏠 Nuovi prezzi delle sedi: 300.000 € la seconda, poi 150.000 € in più per ogni sede, al massimo 3.000.000 €.",
+      "🔑 Ora puoi anche affittare una sede: niente spesa grossa, paghi un affitto al giorno (addebitato ogni ora).",
+      "💰 Una sede in affitto si può riscattare quando vuoi (diventa tua) oppure restituire. Se non paghi l'affitto, i mezzi di quella sede restano fermi finché non saldi.",
+    ],
+  },
+  {
     id: "2026-11-13c", date: "13 novembre 2026", title: "Officina più semplice, presidi e uso dei mezzi",
     items: [
       "🔧 Officina rifatta: in alto vedi subito cosa c'è da sistemare (guasti, revisioni, gomme, pezzi, carrozzeria) e con un tasto sistemi tutto quello che si può.",
