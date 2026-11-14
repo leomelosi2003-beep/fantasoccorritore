@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 export type SceneVehicle = {
   id: string; call_sign: string; org_name: string; mine: boolean; status: string;
   assigned_at: string; arrives_at: string; completes_at?: string | null;
-  base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean;
+  base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean; long?: boolean;
 };
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
@@ -101,16 +101,16 @@ const pmaSlot = (i: number): V3 => [40 + (i % 2) * 14, 0, 40 + Math.floor(i / 2)
 const sceneSpot = (i: number): V3 => [-14 + (i % 5) * 7, 0, 10 + Math.floor(i / 5) * 5];
 type Cam = { yaw: number; el: number; dist: number; auto: boolean };
 export const VIEWS: { name: string; cam: Cam }[] = [
-  { name: "Panoramica", cam: { yaw: 0.6, el: 0.55, dist: 190, auto: true } },
+  { name: "Panoramica", cam: { yaw: 0.6, el: 0.5, dist: 150, auto: true } },
   { name: "Dall'alto", cam: { yaw: 0, el: 1.4, dist: 210, auto: false } },
-  { name: "Ravvicinata", cam: { yaw: 0.9, el: 0.35, dist: 95, auto: false } },
+  { name: "Ravvicinata", cam: { yaw: 0.9, el: 0.32, dist: 70, auto: false } },
   { name: "Area PMA", cam: { yaw: -0.7, el: 0.5, dist: 120, auto: false } },
 ];
 
 export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 0 }: { data: SceneData; serverOffset?: number; view?: number; viewKey?: number }) {
   const cv = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef(data); dataRef.current = data;
-  const camRef = useRef<Cam & { tYaw: number; tEl: number; tDist: number; tgtX: number; tgtZ: number }>({ ...VIEWS[0].cam, tYaw: 0.6, tEl: 0.55, tDist: 190, tgtX: 0, tgtZ: 18 });
+  const camRef = useRef<Cam & { tYaw: number; tEl: number; tDist: number; tgtX: number; tgtZ: number }>({ ...VIEWS[0].cam, tYaw: 0.6, tEl: 0.5, tDist: 150, tgtX: 0, tgtZ: 18 });
   // cambio inquadratura dai pulsanti
   useEffect(() => {
     const v = VIEWS[view] ?? VIEWS[0]; const c = camRef.current;
@@ -244,6 +244,12 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       };
       scene.boxes.forEach(addBox);
 
+      // feriti a terra (posizioni fisse per questa maxi) e soccorritori
+      const pr = rng(seed + 7);
+      const patients = Array.from({ length: Math.min(14, 6 + (seed % 9)) }, (_, k) => ({
+        p: [(pr() - 0.5) * 34, 0, 4 + pr() * 16] as V3, tri: k % 7 === 0 ? "#EF4444" : k % 3 === 0 ? "#FACC15" : "#22C55E", busy: false }));
+      const people: { p: V3; pose: "walk" | "kneel" | "stand"; col: string }[] = [];
+
       // mezzi
       const vs = d.vehicles;
       const cLat = Math.cos((d.lat * Math.PI) / 180);
@@ -304,15 +310,53 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             tp.forEach((x, k) => (k ? ctx.lineTo(x![0], x![1]) : ctx.moveTo(x![0], x![1]))); ctx.stroke(); ctx.globalAlpha = 1;
           }
         }
-        // il mezzo
+        // il mezzo: modellino diverso per tipo
         const small = veh.moto ? 0.5 : veh.automedica ? 0.75 : veh.pma ? 1.6 : 1;
-        addBox({ c: [pos[0], 1.3 * small, pos[2]], s: [5.4 * small, 2.6 * small, 2.4 * small], yaw: heading,
-                 fill: veh.pma ? "rgba(52,211,153,.85)" : "rgba(241,245,249,.9)", edge: col });
-        if (veh.pma && p >= 1) {
-          // tenda del PMA montata accanto al camion
-          addBox({ c: [pos[0], 2, pos[2] + 7], s: [10, 4, 7], yaw: 0, fill: "rgba(52,211,153,.25)", edge: "rgba(52,211,153,.95)" });
+        const blinkOn = Math.floor(t / 250) % 2 === 0;
+        const part = (dx: number, dy: number, dz: number, w: number, h: number, dd: number, fill: string, edge = col) => {
+          const cs = Math.cos(heading), sn = Math.sin(heading);
+          addBox({ c: [pos[0] + dx * cs - dz * sn, dy, pos[2] + dx * sn + dz * cs], s: [w, h, dd], yaw: heading, fill, edge });
+        };
+        const bar = blinkOn ? "rgba(239,68,68,.95)" : "rgba(59,130,246,.95)";
+        if (veh.pma) {
+          part(3.6, 1.5, 0, 2, 2.8, 2.5, "rgba(241,245,249,.9)");          // cabina
+          part(-1.6, 1.9, 0, 7.2, 3.4, 2.6, "rgba(52,211,153,.8)", "#34D399"); // cassone PMA
+        } else if (veh.moto) {
+          part(0, 0.6, 0, 2.2, 0.7, 0.5, "rgba(241,245,249,.9)");
+          part(-0.1, 1.5, 0, 0.6, 1.1, 0.5, "rgba(255,90,54,.9)");              // motociclista
+          part(-0.9, 1.1, 0, 0.3, 0.2, 0.6, bar, bar);
+        } else if (veh.automedica) {
+          part(0, 0.6, 0, 4.2, 1.1, 1.9, "rgba(241,245,249,.92)");           // scocca
+          part(-0.3, 1.5, 0, 2.2, 0.8, 1.7, "rgba(148,163,184,.55)");        // abitacolo
+          part(-0.3, 2.05, 0, 0.5, 0.25, 1.5, bar, bar);                     // lampeggiante
+        } else {
+          const L = veh.long ? 5.8 : 4.4;                                    // passo lungo più lungo
+          part(-L / 2 + 0.6, 1.55, 0, L, 2.9, 2.4, "rgba(241,245,249,.92)"); // vano sanitario
+          part(1.7, 1.1, 0, 1.6, 2.0, 2.3, "rgba(226,232,240,.85)");         // cabina
+          part(-L / 2 + 0.6, 1.25, 1.25, L - 0.4, 0.35, 0.05, veh.mine ? "rgba(255,90,54,.9)" : "rgba(108,180,255,.9)"); // fascia laterale
+          part(0.9, 3.1, 0, 0.5, 0.25, 2.0, bar, bar);                       // barra luci
         }
-        const lp = P([pos[0], 3.4 * small, pos[2]]);
+        if (veh.pma && p >= 1) {
+          // tenda del PMA montata accanto al camion, con croce
+          addBox({ c: [pos[0], 2, pos[2] + 7], s: [10, 4, 7], yaw: 0, fill: "rgba(52,211,153,.25)", edge: "rgba(52,211,153,.95)" });
+          addBox({ c: [pos[0], 4.1, pos[2] + 7], s: [3, 0.1, 0.8], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
+          addBox({ c: [pos[0], 4.1, pos[2] + 7], s: [0.8, 0.1, 3], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
+        }
+        // soccorritori al lavoro: dal mezzo al ferito, si inginocchiano, poi tornano (solo mezzi fermi sul posto)
+        if (p >= 1 && !veh.pma && !carrying && patients.length) {
+          const pt = patients[(hash(veh.id) >>> 3) % patients.length];
+          const cyc = ((now / 1000 + (hash(veh.id) % 18)) % 18) / 18;
+          for (let r = 0; r < (veh.moto ? 1 : 2); r++) {
+            const side = r ? 1.2 : -1.2;
+            const a: V3 = [pos[0] + side, 0, pos[2] + 1.5], bb: V3 = [pt.p[0] + side * 0.9, 0, pt.p[2] + 0.4];
+            let x: V3 = a, pose: "walk" | "kneel" | "stand" = "stand";
+            if (cyc < 0.2) { const u = cyc / 0.2; x = [a[0] + (bb[0] - a[0]) * u, 0, a[2] + (bb[2] - a[2]) * u]; pose = "walk"; }
+            else if (cyc < 0.75) { x = bb; pose = "kneel"; pt.busy = true; }
+            else if (cyc < 0.95) { const u = (cyc - 0.75) / 0.2; x = [bb[0] + (a[0] - bb[0]) * u, 0, bb[2] + (a[2] - bb[2]) * u]; pose = "walk"; }
+            people.push({ p: x, pose, col: veh.mine ? "#FFB199" : "#BFE0FF" });
+          }
+        }
+        const lp = P([pos[0], veh.pma ? 5 : veh.moto ? 2.4 : 3.6, pos[2]]);
         if (lp) draws.push({ z: lp[2] - 1, fn: () => {
           const blink = Math.floor(t / 250) % 2 === 0;
           ctx.fillStyle = blink ? "#EF4444" : "#3B82F6"; ctx.beginPath(); ctx.arc(lp[0], lp[1], 2.4, 0, Math.PI * 2); ctx.fill();
@@ -323,6 +367,34 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           ctx.fillStyle = veh.pma ? "#34D399" : col; ctx.fillText(lab, lp[0], lp[1] - 5);
         } });
       });
+      // figure stilizzate (feriti sdraiati, soccorritori che camminano o si inginocchiano)
+      const figure = (p3: V3, pose: "walk" | "kneel" | "stand" | "lie", col: string, phase: number) => {
+        const foot = P(p3), head = P([p3[0], pose === "kneel" ? 1.7 : 2.8, p3[2]]); if (!foot || !head) return;
+        draws.push({ z: foot[2] - 0.5, fn: () => {
+          const h = Math.max(3, foot[1] - head[1]); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, h / 9);
+          if (pose === "lie") {
+            const e = P([p3[0] + 2.6, 0.2, p3[2]]); if (!e) return;
+            ctx.beginPath(); ctx.moveTo(foot[0], foot[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+            ctx.beginPath(); ctx.arc(e[0], e[1], Math.max(1.5, h / 9), 0, Math.PI * 2); ctx.fill(); return;
+          }
+          const bob = pose === "kneel" ? Math.sin(phase * 9) * h * 0.06 : 0; // massaggio cardiaco
+          const hy = head[1] + bob, hip = foot[1] - h * (pose === "kneel" ? 0.25 : 0.45);
+          ctx.beginPath(); ctx.arc(head[0], hy, h * 0.13, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(head[0], hy + h * 0.12); ctx.lineTo(foot[0], hip);
+          const sw = pose === "walk" ? Math.sin(phase * 10) * h * 0.18 : 0;
+          if (pose === "kneel") { ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] + h * 0.25, foot[1]); ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] + h * 0.3, hy + h * 0.55 + bob); }
+          else { ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] + sw, foot[1]); ctx.moveTo(foot[0], hip); ctx.lineTo(foot[0] - sw, foot[1]);
+                 ctx.moveTo(head[0], hy + h * 0.3); ctx.lineTo(head[0] - sw * 0.7, hy + h * 0.55); }
+          ctx.stroke();
+        } });
+      };
+      for (const pt of patients) {
+        figure(pt.p, "lie", "rgba(241,245,249,.9)", 0);
+        const tp = P([pt.p[0] + 0.8, 1.2, pt.p[2]]);
+        if (tp) draws.push({ z: tp[2] - 0.4, fn: () => { ctx.fillStyle = pt.tri; ctx.beginPath(); ctx.arc(tp[0], tp[1], pt.busy ? 3 : 2.2, 0, Math.PI * 2); ctx.fill(); } });
+      }
+      people.forEach((pp, k) => figure(pp.p, pp.pose, pp.col, t / 1000 + k));
+
       draws.sort((a, b) => b.z - a.z).forEach((x) => x.fn());
 
       // folla

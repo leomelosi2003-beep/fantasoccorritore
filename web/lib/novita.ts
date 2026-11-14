@@ -10,6 +10,7 @@ export const NOVITA: Novita[] = [
       "🟠 I tuoi mezzi sono arancioni, quelli delle altre associazioni azzurri; in alto i dati della maxi (mezzi, feriti, triage).",
       "📷 Trascina per girare la scena, zoom con la rotellina o con due dita, e 4 inquadrature pronte (panoramica, dall'alto, ravvicinata, area PMA).",
       "⛺ Se un'associazione porta il PMA, le ambulanze fanno la spola portando i feriti al PMA.",
+      "🚑 Modellini diversi per ambulanza, passo lungo, automedica, moto e camion PMA; i soccorritori scendono, si inginocchiano sui feriti (col colore del triage) e tornano al mezzo.",
     ],
   },
   {
