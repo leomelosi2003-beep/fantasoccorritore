@@ -100,6 +100,31 @@ const PMA: [number, number, number, number] = [48, 58, 86, 88];
 const pmaSlot = (i: number): V3 => [62 + (i % 2) * 14, 0, 64 + Math.floor(i / 2) * 9];
 const sceneSpot = (i: number): V3 => [-33 + (i % 6) * 12, 0, 27 + Math.floor(i / 6) * 9];
 type Cam = { yaw: number; el: number; dist: number; auto: boolean };
+// percorso su strada: polilinea con corsia di destra, posizione e direzione a una certa distanza
+function makePath(raw: V3[], lane = 1.9) {
+  const pts: V3[] = raw.filter((q, i) => i === 0 || Math.hypot(q[0] - raw[i - 1][0], q[2] - raw[i - 1][2]) > 0.01);
+  const nrm = (i: number): [number, number] => { const a = pts[i], b = pts[i + 1]; const l = Math.hypot(b[0] - a[0], b[2] - a[2]) || 1; return [-(b[2] - a[2]) / l, (b[0] - a[0]) / l]; };
+  const off: V3[] = pts.map((q, i) => {
+    if (i === pts.length - 1 || pts.length < 2) return q;            // l'ultimo punto (parcheggio) senza corsia
+    const n1 = nrm(Math.min(i, pts.length - 2)), n0 = i > 0 ? nrm(i - 1) : n1;
+    let nx = n0[0] + n1[0], nz = n0[1] + n1[1]; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+    return [q[0] + nx * lane, 0, q[2] + nz * lane];
+  });
+  const cum = [0]; for (let i = 1; i < off.length; i++) cum.push(cum[i - 1] + Math.hypot(off[i][0] - off[i - 1][0], off[i][2] - off[i - 1][2]));
+  const len = cum[cum.length - 1] || 1;
+  const at = (dRaw: number): { p: V3; h: number } => {
+    const dd = Math.max(0, Math.min(len, dRaw)); let i = 1; while (i < cum.length - 1 && cum[i] < dd) i++;
+    const a = off[i - 1] ?? off[0], b = off[i] ?? off[0]; const sl = (cum[i] - cum[i - 1]) || 1; const u = (dd - cum[i - 1]) / sl;
+    return { p: [a[0] + (b[0] - a[0]) * u, 0, a[2] + (b[2] - a[2]) * u], h: Math.atan2(b[2] - a[2], b[0] - a[0]) };
+  };
+  return { len, at };
+}
+const ROAD_Z = 34, ROAD_X = 95, PMA_Z = 72;
+const ENTRIES: { pts: V3[]; dir: [number, number] }[] = [
+  { pts: [[-165, 0, ROAD_Z]], dir: [-1, 0] }, { pts: [[165, 0, ROAD_Z]], dir: [1, 0] },
+  { pts: [[ROAD_X, 0, -165], [ROAD_X, 0, ROAD_Z]], dir: [0.5, -1] }, { pts: [[ROAD_X, 0, 165], [ROAD_X, 0, ROAD_Z]], dir: [0.5, 1] },
+  { pts: [[-60, 0, -165], [-60, 0, ROAD_Z]], dir: [-0.4, -1] },
+];
 export const VIEWS: { name: string; cam: Cam }[] = [
   { name: "Panoramica", cam: { yaw: 0.6, el: 0.5, dist: 150, auto: true } },
   { name: "Dall'alto", cam: { yaw: 0, el: 1.4, dist: 210, auto: false } },
@@ -395,14 +420,16 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
         const myIdx = veh.pma ? pmaIdx++ : amb++;
         const end = veh.pma ? pmaSlot(myIdx % 6) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
-        const ctrl: V3 = [(start[0] + end[0]) / 2 + Math.cos(ang) * 30, 0, (start[2] + end[2]) / 2 + Math.sin(ang) * 30];
-        const at = (u: number): V3 => [
-          (1 - u) ** 2 * start[0] + 2 * (1 - u) * u * ctrl[0] + u * u * end[0], 0,
-          (1 - u) ** 2 * start[2] + 2 * (1 - u) * u * ctrl[2] + u * u * end[2]];
+        // entra dalla strada più vicina alla direzione della sua sede
+        const sd: [number, number] = [Math.sin(ang), -Math.cos(ang)];
+        const entry = ENTRIES.reduce((b, e) => { const l = Math.hypot(...e.dir); const v = (e.dir[0] * sd[0] + e.dir[1] * sd[1]) / l; return v > b.v ? { e, v } : b; }, { e: ENTRIES[0], v: -9 }).e;
+        const approach = makePath(veh.pma
+          ? [...entry.pts, [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [end[0], 0, PMA_Z], end]
+          : [...entry.pts, [end[0], 0, ROAD_Z], end]);
         const ease = 1 - (1 - p) ** 2;
-        const park = veh.pma ? 0 : dirTo(end, CENTER) + Math.PI;            // parcheggiato col retro verso i feriti
-        let pos = at(ease); let heading = park; let label = veh.pma ? "PMA" : "SUL POSTO"; let moving = p < 1; let doorsOpen = false;
-        if (p < 1) heading = dirTo(at(Math.max(0, ease - 0.01)), at(Math.min(1, ease + 0.01)));
+        const park = approach.at(approach.len).h;                               // resta parcheggiato come è arrivato
+        const ap = approach.at(ease * approach.len);
+        let pos = ap.p; let heading = p < 1 ? ap.h : park; let label = veh.pma ? "PMA" : "SUL POSTO"; let moving = p < 1; let doorsOpen = false;
         const fwd = (h: number): V3 => [Math.cos(h), 0, Math.sin(h)];
         const rear = (q: V3, h: number, dd = 3.4): V3 => [q[0] - fwd(h)[0] * dd, 0, q[2] - fwd(h)[2] * dd];
         const crewCol = veh.mine ? "#FFB199" : "#BFE0FF";
@@ -425,7 +452,11 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             const CYC = 42; const tt = now / 1000 + off; const n = Math.floor(tt / CYC); const u = (tt % CYC) / CYC;
             transported += Math.max(0, Math.floor((sinceArr + (off % CYC)) / CYC));
             const avail = patients.filter((q) => q.freed); const pt = (avail.length ? avail : patients)[(hash(veh.id) + n * 5) % (avail.length || patients.length)];
-            const dest: V3 = hasPma ? [51 + (myIdx % 4) * 2.5, 0, 80] : [start[0] * 0.95, 0, start[2] * 0.95];
+            const dest: V3 = hasPma ? [56 + (myIdx % 4) * 3, 0, 80] : entry.pts[0];
+            const trip = makePath(hasPma ? [end, [end[0], 0, ROAD_Z], [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [dest[0], 0, PMA_Z], dest]
+                                         : [end, [end[0], 0, ROAD_Z], ...[...entry.pts].reverse()]);
+            const back = makePath(hasPma ? [dest, [dest[0], 0, PMA_Z], [ROAD_X, 0, PMA_Z], [ROAD_X, 0, ROAD_Z], [end[0], 0, ROAD_Z], end]
+                                         : [...entry.pts, [end[0], 0, ROAD_Z], end]);
             const rr = rear(end, park);
             const ptGround: V3 = [pt.p[0], 0, pt.p[2]];
             const pair = (c: V3, h: number, loaded: boolean, pose: Pose) => {   // due soccorritori ai capi della barella
@@ -446,21 +477,21 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
             else if (u < 0.45) { doorsOpen = true; pt.hidden = true; pair(lerp3(ptGround, rr, (u - 0.3) / 0.15), hWalk + Math.PI, true, "carry"); label = "BARELLA IN ARRIVO"; }
             else if (u < 0.5) { doorsOpen = true; pt.hidden = true; people.push({ p: [rr[0] + 1, 0, rr[2]], pose: "stand", col: crewCol }); label = "CARICO IN AMBULANZA"; }
-            else if (u < 0.65) { pt.hidden = true; pos = lerp3(end, dest, (u - 0.5) / 0.15); heading = dirTo(end, dest); moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ OSPEDALE"; }
+            else if (u < 0.65) { pt.hidden = true; const q = trip.at(((u - 0.5) / 0.15) * trip.len); pos = q.p; heading = q.h; moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ OSPEDALE"; }
             else if (u < 0.75) {
-              pt.hidden = true; pos = dest; heading = dirTo(end, dest);
+              pt.hidden = true; pos = dest; heading = trip.at(trip.len).h;
               if (hasPma) { doorsOpen = true; const r2 = rear(dest, heading); pair(lerp3(r2, [64, 0, 76], (u - 0.65) / 0.1), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
               else label = "IN OSPEDALE";
             }
-            else if (u < 0.92) { pos = lerp3(dest, end, (u - 0.75) / 0.17); heading = dirTo(dest, end); moving = true; label = "RIENTRO SUL POSTO"; }
+            else if (u < 0.92) { const q = back.at(((u - 0.75) / 0.17) * back.len); pos = q.p; heading = q.h; moving = true; label = "RIENTRO SUL POSTO"; }
           }
         }
         const col = veh.mine ? ORANGE : BLUE;
         // scia corta che svanisce: solo l'ultimo tratto dietro al mezzo, sparisce 6 s dopo l'arrivo
         const fade = p < 1 ? 1 : Math.max(0, 1 - (now - a1) / 6000);
         if (fade > 0) {
-          const from = Math.max(0, ease - 0.22); const steps = 10; const trail: V3[] = [];
-          for (let k = 0; k <= steps; k++) trail.push(at(from + ((ease - from) * k) / steps));
+          const dNow = ease * approach.len, from = Math.max(0, dNow - 45); const steps = 10; const trail: V3[] = [];
+          for (let k = 0; k <= steps; k++) trail.push(approach.at(from + ((dNow - from) * k) / steps).p);
           const TH = 4;
           for (let k = 0; k < steps; k++) {
             const a = trail[k], b = trail[k + 1]; const al = (0.12 * fade * (k + 1)) / steps;
