@@ -2,6 +2,7 @@
 // Scena animata di una maxi emergenza in stile "radar / centrale operativa" 3D:
 // griglia in prospettiva, scena stilizzata in bianco, mezzi con scie colorate e "velo" trasparente, HUD e scritte animate.
 import { useEffect, useRef } from "react";
+import { distKm, shuttleState, shuttleTravelS } from "../lib/maxiShuttle";
 
 export type SceneVehicle = {
   id: string; call_sign: string; org_name: string; mine: boolean; status: string;
@@ -11,6 +12,8 @@ export type SceneVehicle = {
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
   created_at: string; ends_at?: string | null; status?: string; vehicles: SceneVehicle[];
+  hospital?: { name: string; lat: number; lng: number } | null;
+  shuttle?: { scene: number; hosp: number; travel: number };   // solo per la scena di prova
 };
 
 type V3 = [number, number, number];
@@ -328,7 +331,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const stretchers: { a: V3; b: V3; loaded: boolean; color?: string }[] = [];
       const props: { c: V3; s: V3; fill: string; edge: string; yaw?: number }[] = [];
       const flashes: V3[] = [];
-      let transported = 0, extricated = 0;
+      let transported = 0, extricated = 0; const awayList: string[] = [];
       const firemen: { p: V3; pose: Pose }[] = [];
       const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
       // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
@@ -397,9 +400,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // ===== mezzi =====
       const vs = d.vehicles;
       const cLat = Math.cos((d.lat * Math.PI) / 180);
-      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0;
+      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0;
       const hasPma = vs.some((v) => v.pma && Date.parse(v.arrives_at) <= now && v.status !== "conclusa");
       const CENTER: V3 = [0, 0, 8];
+      const hosp = d.hospital;
+      const travelS = d.shuttle?.travel ?? shuttleTravelS(hosp ? distKm(d.lat, d.lng, hosp.lat, hosp.lng) : 8);
+      const EXIT_S = Math.min(18, travelS);             // secondi in cui si vede uscire (o rientrare) dalla scena
+      const hospName = hosp ? hosp.name.replace(/^Ospedale (di |del |della )?/i, "").toUpperCase() : "OSPEDALE";
       const lerp3 = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const dirTo = (x: V3, y: V3) => Math.atan2(y[2] - x[2], y[0] - x[0]);   // angolo di marcia (asse lungo del mezzo = x locale)
       vs.forEach((veh) => {
@@ -448,9 +455,24 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
             label = "PRIMO SOCCORSO";
           } else {
-            // ciclo del recupero (42 s): barella → ferito → cure → barella in ambulanza → PMA (o ospedale) → ritorno
-            const CYC = 42; const tt = now / 1000 + off; const n = Math.floor(tt / CYC); const u = (tt % CYC) / CYC;
-            transported += Math.max(0, Math.floor((sinceArr + (off % CYC)) / CYC));
+            // ciclo del recupero: barella → ferito → cure → barella in ambulanza → PMA (42 s) oppure spola con l'ospedale
+            const CYC = 42; const tt = now / 1000 + off;
+            const sh = hasPma ? null : shuttleState(a1, travelS, now, d.shuttle ?? {});
+            const n = sh ? sh.n : Math.floor(tt / CYC);
+            let u = sh ? 0 : (tt % CYC) / CYC;
+            if (sh) {
+              transported += sh.delivered;
+              if (sh.phase === "scena") u = sh.f * 0.5;
+              else if (sh.phase === "andata") u = sh.inS < EXIT_S ? 0.5 + (sh.inS / EXIT_S) * 0.15 : -1;
+              else if (sh.phase === "ritorno") u = sh.leftS < EXIT_S ? 0.75 + (1 - sh.leftS / EXIT_S) * 0.17 : -1;
+              else u = -1;
+              if (u < 0) {                                  // fuori dalla scena: in viaggio o in pronto soccorso
+                away++;
+                const mins = Math.max(1, Math.round((sh.phase === "andata" ? sh.leftS + sh.hosp + sh.travel : sh.phase === "ospedale" ? sh.leftS + sh.travel : sh.leftS) / 60));
+                awayList.push(`${veh.call_sign} ${sh.phase === "andata" ? "➜ " + hospName : sh.phase === "ospedale" ? "IN PS " + hospName : "RIENTRA"} · ${mins}'`);
+                return;
+              }
+            } else transported += Math.max(0, Math.floor((sinceArr + (off % CYC)) / CYC));
             const avail = patients.filter((q) => q.freed); const pt = (avail.length ? avail : patients)[(hash(veh.id) + n * 5) % (avail.length || patients.length)];
             const dest: V3 = hasPma ? [56 + (myIdx % 4) * 3, 0, 80] : entry.pts[0];
             const trip = makePath(hasPma ? [end, [end[0], 0, ROAD_Z], [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [dest[0], 0, PMA_Z], dest]
@@ -477,7 +499,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
             else if (u < 0.45) { doorsOpen = true; pt.hidden = true; pair(lerp3(ptGround, rr, (u - 0.3) / 0.15), hWalk + Math.PI, true, "carry"); label = "BARELLA IN ARRIVO"; }
             else if (u < 0.5) { doorsOpen = true; pt.hidden = true; people.push({ p: [rr[0] + 1, 0, rr[2]], pose: "stand", col: crewCol }); label = "CARICO IN AMBULANZA"; }
-            else if (u < 0.65) { pt.hidden = true; const q = trip.at(((u - 0.5) / 0.15) * trip.len); pos = q.p; heading = q.h; moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ OSPEDALE"; }
+            else if (u < 0.65) { pt.hidden = true; const q = trip.at(((u - 0.5) / 0.15) * trip.len); pos = q.p; heading = q.h; moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ " + hospName; }
             else if (u < 0.75) {
               pt.hidden = true; pos = dest; heading = trip.at(trip.len).h;
               if (hasPma) { doorsOpen = true; const r2 = rear(dest, heading); pair(lerp3(r2, [64, 0, 76], (u - 0.65) / 0.1), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
@@ -716,7 +738,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       ctx.fillStyle = "rgba(255,255,255,.75)";
       ctx.fillText(dt.toLocaleTimeString("it-IT") + " · " + d.lat.toFixed(4) + "N " + d.lng.toFixed(4) + "E", 14, 40);
       ctx.fillStyle = WHITE; ctx.font = "800 12px ui-monospace,monospace";
-      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
+      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}${hasPma ? "" : ` · VERSO/IN OSPEDALE ${away}`} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
       const remaining = Math.max(0, injured - transported); const red = Math.round(remaining * 0.15), yel = Math.round(remaining * 0.35), grn = remaining - red - yel;
       const left = Math.max(0, injured - transported);
       ctx.fillText(`FERITI ${left} · TRASPORTATI ${Math.min(injured, transported)} ·`, 14, 75);
@@ -728,6 +750,14 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const rem = Math.max(0, Math.round((Date.parse(d.ends_at) - now) / 1000));
         ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.font = "700 11px ui-monospace,monospace";
         ctx.fillText(`FINE INTERVENTO TRA ${Math.floor(rem / 3600)}h ${String(Math.floor((rem % 3600) / 60)).padStart(2, "0")}m`, 14, 92);
+      }
+      // mezzi fuori dalla scena (spola con l'ospedale, senza PMA)
+      if (!hasPma && awayList.length) {
+        ctx.textAlign = "right"; ctx.font = "700 11px ui-monospace,monospace";
+        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText(`🏥 FUORI SCENA · ${hosp?.name ?? "OSPEDALE"}`, W - 14, 24);
+        awayList.slice(0, 10).forEach((x, k) => { ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.fillText(x, W - 14, 40 + k * 15); });
+        if (awayList.length > 10) ctx.fillText(`+${awayList.length - 10}`, W - 14, 40 + 10 * 15);
+        ctx.textAlign = "left";
       }
 
       // scritta grande animata (ultimo evento)

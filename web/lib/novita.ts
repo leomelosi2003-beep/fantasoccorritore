@@ -4,6 +4,14 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14d", date: "14 novembre 2026", title: "Maxi senza PMA: spola con l'ospedale",
+    items: [
+      "🏥 Se alla maxi emergenza non c'è un PMA, le ambulanze caricano il ferito, escono dalla scena e lo portano all'ospedale più vicino.",
+      "🗺️ Sulla mappa principale le vedi viaggiare a sirene accese verso l'ospedale, consegnare il ferito e tornare alla maxi.",
+      "📋 Nella scena, in alto a destra, l'elenco dei mezzi fuori scena con i minuti al rientro.",
+    ],
+  },
+  {
     id: "2026-11-14c", date: "14 novembre 2026", title: "Maxi emergenze: la scena dal vivo (prova)",
     items: [
       "🎬 Nel popup di una maxi emergenza c'è «Guarda la scena dal vivo»: la scena in stile centrale operativa, con le ambulanze che arrivano in tempo reale con la loro scia.",

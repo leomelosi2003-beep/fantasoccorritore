@@ -19,6 +19,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import TutorialCoach from "@/components/TutorialCoach";
 import { playSound, soundOn, setSoundOn } from "@/lib/sound";
 import { getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
+import { shuttleState, shuttleTravelS, distKm } from "@/lib/maxiShuttle";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
 import { fetchLeg, getLeg, legKey, onRoadsLoaded, pointAt, slice, type LatLng } from "@/components/roads";
 
@@ -558,6 +559,9 @@ export default function GameMap() {
   }, [openMission]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [others, setOthers] = useState<OtherAmbulance[]>([]);
+  // maxi emergenze senza PMA: ambulanze che fanno la spola con l'ospedale
+  const [shuttles, setShuttles] = useState<{ id: string; vehicle_id: string; mission_id: string; call_sign: string; org_name: string; org_type: BasePin["org_type"];
+    mine: boolean; vehicle_image: string | null; lat: number; lng: number; hospital: string; h_lat: number; h_lng: number; arrives_at: string; ends_at: string | null }[]>([]);
   const [fleetKey, setFleetKey] = useState(0);
   // carburante: cisterna dell'associazione (1.000 L per sede) e mezzi in riserva
   const [fuel, setFuel] = useState<{ stock: number; cap: number; tanks: number; tanksMax: number; empty: number } | null>(null);
@@ -741,6 +745,8 @@ export default function GameMap() {
       // ambulanze degli altri giocatori
       const { data: o } = await supabase.from("live_ambulances").select("*");
       setOthers((o as OtherAmbulance[]) ?? []);
+      const { data: sh } = await supabase.rpc("maxi_shuttles");
+      setShuttles((sh as typeof shuttles) ?? []);
     }
     loadAssignments();
     reloadRef.current = loadAssignments;
@@ -1682,6 +1688,42 @@ export default function GameMap() {
         {Array.from(sceneCount.entries()).map(([k, c]) => (
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
+
+        {/* Maxi senza PMA: le ambulanze lasciano la scena, portano il ferito all'ospedale più vicino e tornano */}
+        {shuttles.filter((x) => x.mine || (flt.othersVehicles && !lite)).map((x) => {
+          const T = shuttleTravelS(distKm(x.lat, x.lng, x.h_lat, x.h_lng));
+          const st = shuttleState(new Date(x.arrives_at).getTime(), T, now);
+          if (!st || st.phase === "scena") return null;
+          if (x.ends_at && st.cycleStart + st.scene * 1000 > new Date(x.ends_at).getTime()) return null;
+          const t0 = st.cycleStart + st.scene * 1000, iso = (ms: number) => new Date(ms).toISOString();
+          const route: RoutePoint[] = [
+            { lat: x.lat, lng: x.lng, t: iso(t0), label: "Maxi emergenza" },
+            { lat: x.h_lat, lng: x.h_lng, t: iso(t0 + T * 1000), label: "In ospedale" },
+            { lat: x.h_lat, lng: x.h_lng, t: iso(t0 + (T + st.hosp) * 1000), label: "In ospedale" },
+            { lat: x.lat, lng: x.lng, t: iso(t0 + (2 * T + st.hosp) * 1000), label: "Maxi emergenza" },
+          ];
+          const mins = Math.max(1, Math.round(st.leftS / 60));
+          const what = st.phase === "andata" ? `🚨 Porta un ferito a ${x.hospital}` : st.phase === "ospedale" ? `🏥 Consegna in pronto soccorso a ${x.hospital}` : "🆘 Torna alla maxi emergenza";
+          return (
+            <MovingMarker key={`shut-${x.id}-${st.n}`} route={route} code="rosso" zIndexOffset={x.mine ? 900 : 0}
+                          makeIcon={(sc, fr) => ambulanceIcon(sc, livery(x.vehicle_image, x.org_type), fr)}>
+              <Popup className="fs-amb-popup">
+                <div className="fs-amb">
+                  <div className="fs-amb-bar" style={{ background: CODE_COLOR.rosso }}>
+                    <span style={{ fontSize: 17 }}>🚑</span>
+                    <span className="fs-amb-sign">{x.call_sign}</span>
+                    <span className="fs-amb-code">maxi</span>
+                  </div>
+                  <div className="fs-amb-body">
+                    {!x.mine && <div className="fs-amb-row">🏳️ <span>{x.org_name}</span></div>}
+                    <div className="fs-amb-row"><span><b>{what}</b> · {mins} min</span></div>
+                    <div className="fs-amb-row"><button onClick={() => router.push(`/maxi/${x.mission_id}`)} style={{ marginTop: 4 }}>🎬 Guarda la scena</button></div>
+                  </div>
+                </div>
+              </Popup>
+            </MovingMarker>
+          );
+        })}
 
         {flt.othersVehicles && !lite && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
