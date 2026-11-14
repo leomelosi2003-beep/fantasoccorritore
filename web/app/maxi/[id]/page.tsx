@@ -10,10 +10,31 @@ const DEMO: Record<string, string> = {
   tamponamento: "Maxi tamponamento in autostrada", "centro-commerciale": "Incendio in un centro commerciale",
   concerto: "Cedimento durante un concerto", gas: "Fuga di gas in un quartiere", alluvione: "Alluvione lampo",
   autobus: "Scontro tra due autobus", terremoto: "Scossa di terremoto",
+  incendio1: "🔥 Sterpaglie", incendio2: "🔥 Bosco", incendio3: "🔥 Interfaccia",
 };
+// prova incendio: 6 mezzi AIB che spengono e vanno a ricaricare l'acqua a turno
+function demoFire(s: string): SceneData {
+  const sev = Number(s.slice(-1)) || 2; const t0 = Date.now() - (Date.now() % 240000);
+  const lat = 43.55, lng = 10.32;
+  const vehicles: SceneVehicle[] = ["AIB 1", "AIB 2", "AIB 3", "AIB 4", "AIB 5", "AIB 6"].map((c, i) => {
+    const arr = t0 + 20000 + i * 8000; const bl = lat + 0.04 * Math.sin(i), bg = lng + 0.04 * Math.cos(i);
+    const route: { lat: number; lng: number; t: string }[] = [{ lat: bl, lng: bg, t: new Date(t0 + i * 8000).toISOString() }, { lat, lng, t: new Date(arr).toISOString() }];
+    let tt = arr; for (let k = 0; k < 6; k++) {
+      tt += 50000 + i * 3000; route.push({ lat, lng, t: new Date(tt).toISOString() });
+      tt += 20000; route.push({ lat: bl, lng: bg, t: new Date(tt).toISOString() });
+      tt += 10000; route.push({ lat: bl, lng: bg, t: new Date(tt).toISOString() });
+      tt += 20000; route.push({ lat, lng, t: new Date(tt).toISOString() });
+    }
+    return { id: "f" + i, call_sign: c, org_name: "x", mine: i % 2 === 0, status: "in_viaggio", assigned_at: new Date(t0 + i * 8000).toISOString(), arrives_at: new Date(arr).toISOString(),
+             base_lat: bl, base_lng: bg, aib: i % 3 === 0 ? "autobotte" as const : "pickup" as const, route };
+  }).filter((v) => Date.parse(v.assigned_at) <= Date.now());
+  return { id: "demo-" + s, title: "Incendio boschivo", venue: "AIB", lat, lng, created_at: new Date(t0).toISOString(),
+           ends_at: new Date(t0 + sev * 7200000).toISOString(), vehicles, fire: { severity: sev, intensity: Math.max(5, 80 - ((Date.now() - t0) / 240000) * 60) } };
+}
 
 // scena di prova: 12 mezzi che arrivano a scaglioni, ricomincia ogni 2 minuti
 function demoData(s: string, noPma = false): SceneData {
+  if (s.startsWith("incendio")) return demoFire(s);
   const t0 = Date.now() - (Date.now() % 120000);
   const sigle = ["CVL 12", "PA 7", "PMA CVL", "MISE 21", "CRI 4", "LOG 1", "CVL 31", "SVS 9", "COM 1", "PA 15", "CRI 22", "CVL 5", "MISE 3", "AUTOMED 1", "MOTO 2"];
   const vehicles: SceneVehicle[] = sigle.map((c, i) => ({
@@ -68,7 +89,7 @@ function MaxiInner() {
     <main style={{ position: "fixed", inset: 0, background: "#050B18" }}>
       {data && <MaxiScene data={data} serverOffset={offset} view={view} viewKey={viewKey} />}
       <div style={{ position: "absolute", top: 54, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-        {VIEWS.map((v, i) => (
+        {VIEWS.map((v, i) => (data?.venue === "AIB" && i === 3) ? null : (
           <button key={v.name} onClick={() => { setView(i); setViewKey((k) => k + 1); }}
                   style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.25)", fontSize: 12, cursor: "pointer", fontWeight: 700,
                            background: view === i ? "#FF5A36" : "rgba(5,11,24,.7)", color: "#fff" }}>📷 {v.name}</button>

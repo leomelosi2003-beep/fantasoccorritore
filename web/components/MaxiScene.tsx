@@ -9,12 +9,14 @@ export type SceneVehicle = {
   assigned_at: string; arrives_at: string; completes_at?: string | null;
   base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean; long?: boolean;
   maxi?: "camion" | "furgone" | null; modules?: string[];   // mezzi per le maxi emergenze e moduli caricati
+  aib?: "pickup" | "autobotte" | null; route?: { lat: number; lng: number; t: string; label?: string }[] | null;   // incendi: mezzo AIB e spola per l'acqua
 };
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
   created_at: string; ends_at?: string | null; status?: string; vehicles: SceneVehicle[];
   hospital?: { name: string; lat: number; lng: number } | null;
   shuttle?: { scene: number; hosp: number; travel: number };   // solo per la scena di prova
+  venue?: string | null; fire?: { severity: number; intensity: number; base_radius?: number } | null;   // incendi boschivi
 };
 
 type V3 = [number, number, number];
@@ -43,7 +45,7 @@ function rng(seed: number) {
 function hash(str: string) { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
 
 type Box = { c: V3; s: V3; yaw: number; roll?: number; fill?: string; edge?: string };
-type Fx = { kind: "fire" | "smoke" | "dust"; at: V3; r: number };
+type Fx = { kind: "fire" | "smoke" | "dust" | "steam" | "water"; at: V3; r: number };
 
 // Modelli stilizzati per ogni scenario
 function buildScene(kind: string, seed: number) {
@@ -92,11 +94,45 @@ function buildScene(kind: string, seed: number) {
     case "terremoto":
       for (let i = 0; i < 7; i++) house(-40 + i * 13, -14 + (i % 2) * 6, 10, 10 + r() * 10, 10, 0, (r() - 0.5) * 0.35);
       rubble(-6, 2, 28, 30); fx.push({ kind: "dust", at: [0, 2, -4], r: 18 }); break;
+    case "incendio1":                                                         // sterpaglie e campi incolti
+      for (let i = 0; i < 9; i++) boxes.push({ c: [-40 + r() * 80, 0.7, -50 + r() * 40], s: [1.6, 1.4, 1.6], yaw: r() * 3, fill: "rgba(202,138,4,.25)", edge: "rgba(250,204,21,.6)" });  // rotoballe
+      lines.push([[-70, 1, -6], [70, 1, -6]], [[-70, 0.4, -6.2], [70, 0.4, -6.2]]);                     // recinzione
+      house(52, -46, 10, 6, 8, 0.3); break;                                                             // capanno
+    case "incendio2":                                                         // bosco
+      for (let i = 0; i < 12; i++) boxes.push({ c: [-50 + r() * 100, 0.6, -70 + r() * 60], s: [1.5 + r() * 2, 1 + r(), 1.5 + r() * 2], yaw: r() * 3, fill: "rgba(120,113,108,.25)", edge: "rgba(168,162,158,.6)" }); // massi
+      { const tr: V3[] = [[-90, 0.05, -2], [-20, 0.05, -40], [40, 0.05, -60], [90, 0.05, -90]]; for (let i = 0; i < 3; i++) lines.push([tr[i], tr[i + 1]]); }   // sentiero forestale
+      break;
+    case "incendio3":                                                         // interfaccia: il fuoco minaccia le case
+      for (let i = 0; i < 6; i++) house(-45 + i * 18, -78 + (i % 2) * 5, 10, 6 + r() * 4, 9, (r() - 0.5) * 0.2);
+      lines.push([[-90, 12, -64], [90, 12, -64]]);
+      for (let i = -3; i <= 3; i++) lines.push([[i * 30, 0, -64], [i * 30, 12, -64]]);                 // linea elettrica
+      break;
     default:
       rubble(0, 0, 30, 20); fx.push({ kind: "smoke", at: [0, 5, 0], r: 10 });
   }
   return { boxes, fx, lines, water, fog, crowd };
 }
+const FIRE_C: V3 = [0, 0, -28];                                               // centro dell'incendio
+const fireSpot = (i: number): V3 => [-42 + (i % 8) * 12, 0, 23 + Math.floor(i / 8) * 4];   // mezzi AIB tra la strada e il fronte
+// incendio: dove si trova il mezzo AIB nella sua spola fuoco ↔ sede per l'acqua (dalla rotta vera)
+type FirePh = { state: "scene" | "in" | "out" | "away"; f: number; text: string; left: number };
+function firePhase(route: SceneVehicle["route"], now: number, lat: number, lng: number, EX = 15): FirePh {
+  const scene: FirePh = { state: "scene", f: 0, text: "", left: 0 };
+  if (!route || route.length < 2) return scene;
+  const near = (q: { lat: number; lng: number }) => distKm(q.lat, q.lng, lat, lng) < 0.4;
+  const ts = route.map((q) => Date.parse(q.t));
+  const last = route.length - 1;
+  if (now >= ts[last]) return near(route[last]) ? scene : { state: "away", f: 0, text: "RIENTRATO", left: 0 };
+  let i = 0; while (i < last - 1 && !(ts[i] <= now && now < ts[i + 1])) i++;
+  const na = near(route[i]), nb = near(route[i + 1]);
+  let j = i + 1; while (j < last && !near(route[j])) j++;
+  const back = Math.max(0, (ts[j] - now) / 1000);
+  if (na && nb) return scene;
+  if (!na && nb) { const left = (ts[i + 1] - now) / 1000; return left < EX ? { state: "in", f: 1 - left / EX, text: "", left } : { state: "away", f: 0, text: "💧 TORNA CON L'ACQUA", left: back }; }
+  if (na && !nb) { const since = (now - ts[i]) / 1000; return since < EX ? { state: "out", f: since / EX, text: "", left: back } : { state: "away", f: 0, text: "➜ RIFORNIMENTO", left: back }; }
+  return { state: "away", f: 0, text: "💧 CARICA ACQUA IN SEDE", left: back };
+}
+export const FIRE_TITLES = ["", "Incendio di sterpaglie", "Incendio boschivo", "Incendio d'interfaccia: il fuoco minaccia le case"];
 
 // posti auto nell'area mezzi e area PMA
 const slot = (i: number): V3 => [-78 + (i % 6) * 12, 0, 40 + Math.floor(i / 6) * 13];
@@ -152,10 +188,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const canvas = cv.current!; const ctx = canvas.getContext("2d")!;
     let raf = 0, last = 0;
     const seed = hash(data.id);
-    const kind = scenarioOf(data.title);
+    const FIRE = data.venue === "AIB";
+    const sev = Math.max(1, Math.min(3, Math.round(data.fire?.severity ?? 2)));
+    const kind = FIRE ? "incendio" + sev : scenarioOf(data.title);
+    let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
-    const captions: { text: string; hi: string; at: number }[] = [{ text: data.title, hi: "", at: performance.now() }];
+    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : data.title, hi: "", at: performance.now() }];
     const seen = new Map<string, string>();
     const injured = 24 + (seed % 46);
 
@@ -257,14 +296,27 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       ctx.strokeStyle = "rgba(241,245,249,.55)"; ctx.lineWidth = 1.2;
       for (const [a3, b3] of scene.lines) { const a = P(a3), b = P(b3); if (a && b) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
 
-      // area PMA
-      const [x1, z1, x2, z2] = PMA;
+      // area PMA (non negli incendi)
+      const [x1, z1, x2, z2] = FIRE ? [0, 0, 0, 0] : PMA;
+      if (!FIRE) {
       ctx.setLineDash([5, 4]);
       poly([[x1, 0.1, z1], [x2, 0.1, z1], [x2, 0.1, z2], [x1, 0.1, z2]], "rgba(52,211,153,.8)", "rgba(52,211,153,.07)", 1.4);
       ctx.setLineDash([]);
       const pm = P([(x1 + x2) / 2, 0.2, (z1 + z2) / 2]);
       if (pm) { ctx.fillStyle = "rgba(52,211,153,.9)"; ctx.font = "700 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText(d.vehicles.some((v) => v.pma) ? "AREA PMA" : "AREA PMA · NESSUN PMA", pm[0], pm[1]); }
       const st = P([-48, 0.2, 33]); if (st) { ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA MEZZI", st[0], st[1]); }
+      }
+      // incendio: area bruciata e fronte del fuoco
+      const fireTarget = 12 + sev * 5 + (d.fire?.intensity ?? 50) * 0.18;
+      fireR += (fireTarget - fireR) * 0.02;
+      const frontN = 48; const front: { p: V3; a: number; on: boolean }[] = [];
+      if (FIRE) {
+        const rr = (a: number) => fireR * (1 + 0.13 * Math.sin(a * 3 + seed) + 0.07 * Math.sin(a * 7 + t / 3000));
+        const burnt: V3[] = []; for (let k = 0; k < frontN; k++) { const a = (k / frontN) * Math.PI * 2; const q: V3 = [FIRE_C[0] + Math.cos(a) * rr(a), 0.08, FIRE_C[2] + Math.sin(a) * rr(a) * 0.8]; burnt.push(q); front.push({ p: [q[0], 0.5, q[2]], a, on: (d.fire?.intensity ?? 50) > 0 }); }
+        poly(burnt, "rgba(251,146,60,.5)", "rgba(28,25,23,.55)", 1.5);
+        const glow = P([FIRE_C[0], 0, FIRE_C[2]]);
+        if (glow && (d.fire?.intensity ?? 50) > 0) { const gr = ctx.createRadialGradient(glow[0], glow[1], 0, glow[0], glow[1], (f / glow[2]) * fireR * 1.3); gr.addColorStop(0, "rgba(234,88,12,.0)"); gr.addColorStop(0.7, "rgba(234,88,12,.10)"); gr.addColorStop(1, "rgba(234,88,12,0)"); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(glow[0], glow[1], (f / glow[2]) * fireR * 1.3, 0, Math.PI * 2); ctx.fill(); }
+      }
 
       // scatole (scena + mezzi), ordinate per distanza
       type Draw = { z: number; fn: () => void };
@@ -288,22 +340,31 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (let k = 0; k < 9; k++) { const a = er() * Math.PI * 2, r = 120 + er() * 30; const hh = 4 + er() * 6;
         addBox({ c: [Math.cos(a) * r, hh / 2, Math.sin(a) * r], s: [7 + er() * 6, hh, 7 + er() * 6], yaw: er(), fill: "rgba(148,163,184,.10)", edge: "rgba(148,163,184,.45)" }); }
       const trees: V3[] = [];
-      for (let k = 0; k < 160 && trees.length < 70; k++) {
+      const nTrees = FIRE ? (sev === 1 ? 45 : 170) : 70;
+      for (let k = 0; k < 420 && trees.length < nTrees; k++) {
         const x = (er() - 0.5) * 300, z = (er() - 0.5) * 300;
-        if (Math.abs(x) < 70 && z > -45 && z < 60) continue;                   // zona dell'intervento
+        if (!FIRE && Math.abs(x) < 70 && z > -45 && z < 60) continue;          // zona dell'intervento
+        if (FIRE && z > 12 && z < 60 && Math.abs(x) < 110) continue;          // fascia dei mezzi AIB e della strada
+        if (FIRE && sev === 3 && z < -70 && z > -88 && Math.abs(x) < 60) continue;  // case
         if (Math.abs(z - 34) < 8 || Math.abs(x - 95) < 8 || (Math.abs(x + 60) < 7 && z < 34)) continue;  // strade
         if (x > 40 && x < 100 && z > 50 && z < 95) continue;                    // PMA
         trees.push([x, er() * 6.28, z]);
       }
+      const burningTops: V3[] = [];
       for (const tr of trees) {
         const b0 = P([tr[0], 0, tr[2]]), m = P([tr[0], 2.2, tr[2]]), top = P([tr[0], 7.5, tr[2]]); if (!b0 || !m || !top) continue;
+        const fd = FIRE ? Math.hypot(tr[0] - FIRE_C[0], (tr[2] - FIRE_C[2]) / 0.8) : 999;
+        const burnt = fd < fireR - 5, burning = !burnt && fd < fireR + 3 && (d.fire?.intensity ?? 50) > 0;
+        if (burning) burningTops.push([tr[0], 6, tr[2]]);
+        if (burnt) { draws.push({ z: b0[2], fn: () => { const w = (f / b0[2]) * 2.4; ctx.strokeStyle = "rgba(41,37,36,.95)"; ctx.lineWidth = Math.max(1, w * 0.18); ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(top[0], top[1] + (m[1] - top[1]) * 0.35); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(m[0], m[1] - (m[1] - top[1]) * 0.3); ctx.lineTo(m[0] + w * 0.5, m[1] - (m[1] - top[1]) * 0.55); ctx.stroke(); } }); continue; }
         draws.push({ z: b0[2], fn: () => {
           const w = (f / b0[2]) * 2.4, sway = Math.sin(t / 1400 + tr[1]) * w * 0.06;
           ctx.strokeStyle = "rgba(120,90,60,.8)"; ctx.lineWidth = Math.max(1, w * 0.15); ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(m[0], m[1]); ctx.stroke();
           for (const [k, sc] of [[0, 1], [1, 0.7]] as [number, number][]) {
             const yb = m[1] - (m[1] - top[1]) * k * 0.35, yt = top[1] + (m[1] - top[1]) * (k ? 0 : 0.25);
             ctx.beginPath(); ctx.moveTo(m[0] - w * sc, yb); ctx.lineTo(m[0] + w * sc, yb); ctx.lineTo(top[0] + sway, yt); ctx.closePath();
-            ctx.fillStyle = k ? "rgba(34,197,94,.55)" : "rgba(21,128,61,.55)"; ctx.fill(); ctx.strokeStyle = "rgba(134,239,172,.6)"; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = burning ? (k ? "rgba(249,115,22,.75)" : "rgba(194,65,12,.75)") : k ? "rgba(34,197,94,.55)" : "rgba(21,128,61,.55)"; ctx.fill(); ctx.strokeStyle = burning ? "rgba(253,186,116,.8)" : "rgba(134,239,172,.6)"; ctx.lineWidth = 1; ctx.stroke();
           }
         } });
       }
@@ -314,7 +375,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const lerp3c = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const inside = scene.boxes.filter((bx) => bx.s[0] * bx.s[2] > 20);
       type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry" | "cut" | "film" | "spray" | "limp";
-      const patients = Array.from({ length: 10 + (seed % 8) }, (_, k) => {
+      const patients = Array.from({ length: FIRE ? 0 : 10 + (seed % 8) }, (_, k) => {
         const tri = k % 5 === 0 ? "#EF4444" : k % 3 === 0 ? "#FACC15" : "#22C55E";
         const trapped = k % 4 === 0 && inside.length > 0;
         let p3: V3;
@@ -337,7 +398,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const firemen: { p: V3; pose: Pose }[] = [];
       const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
       // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
-      const vvf: { p: V3; h: number; ladder: boolean }[] = [
+      const vvf: { p: V3; h: number; ladder: boolean }[] = FIRE ? [] : [
         { p: [-40, 0, -16], h: 0.3, ladder: false }, { p: [40, 0, -18], h: Math.PI - 0.3, ladder: true }, { p: [-8, 0, -34], h: 0, ladder: false }];
       for (const pt of patients) if (pt.trapped) {
         const cyc = ((now / 1000 + pt.ph * 6) % 36) / 36;
@@ -402,7 +463,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // ===== mezzi =====
       const vs = d.vehicles;
       const cLat = Math.cos((d.lat * Math.PI) / 180);
-      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0, mxIdx = 0; const modsOn = new Set<string>();
+      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0, mxIdx = 0, fireOn = 0; const hoses: [V3, V3][] = []; const modsOn = new Set<string>();
       const hasPma = vs.some((v) => v.pma && Date.parse(v.arrives_at) <= now && v.status !== "conclusa");
       const CENTER: V3 = [0, 0, 8];
       const hosp = d.hospital;
@@ -429,7 +490,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
         const isMaxiV = !!veh.maxi && !veh.pma;
         const myIdx = veh.pma ? pmaIdx++ : isMaxiV ? mxIdx++ : amb++;
-        const end = veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
+        const end = FIRE ? fireSpot(myIdx % 16) : veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
         // entra dalla strada più vicina alla direzione della sua sede
         const sd: [number, number] = [Math.sin(ang), -Math.cos(ang)];
         const entry = ENTRIES.reduce((b, e) => { const l = Math.hypot(...e.dir); const v = (e.dir[0] * sd[0] + e.dir[1] * sd[1]) / l; return v > b.v ? { e, v } : b; }, { e: ENTRIES[0], v: -9 }).e;
@@ -445,6 +506,30 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const crewCol = veh.mine ? "#FFB199" : "#BFE0FF";
 
         if (p >= 1) for (const md of veh.modules ?? []) modsOn.add(md);
+        if (FIRE && p >= 1) {
+          // AIB: spegne col naspo, poi va a ricaricare l'acqua in sede e torna (rotta vera del mezzo)
+          const ph = firePhase(veh.route, now, d.lat, d.lng);
+          if (ph.state === "away") { away++; awayList.push(`${veh.call_sign} ${ph.text}${ph.left ? ` · ${Math.max(1, Math.round(ph.left / 60))}'` : ""}`); return; }
+          if (ph.state === "in") { const q = approach.at(ph.f * approach.len); pos = q.p; heading = q.h; moving = true; label = "💧 ARRIVA CON L'ACQUA"; }
+          else if (ph.state === "out") { const op = makePath([end, [end[0], 0, ROAD_Z], ...[...entry.pts].reverse()]); const q = op.at(ph.f * op.len); pos = q.p; heading = q.h; moving = true; label = "➜ RIFORNIMENTO ACQUA"; }
+          else {
+            fireOn++;
+            const ang = Math.atan2((end[2] - FIRE_C[2]) / 0.8, end[0] - FIRE_C[0]);
+            const rr0 = rear(end, park, 2.2);
+            for (let r = 0; r < 2; r++) {
+              let a = ang + (r ? 0.16 : -0.16) + Math.sin(now / 2500 + r + myIdx) * 0.06; a = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+              const k = Math.round((a / (Math.PI * 2)) * frontN) % frontN; const fp = front[k]?.p ?? FIRE_C;
+              const dl = Math.hypot(end[0] - fp[0], end[2] - fp[2]) || 1; const nz: V3 = [fp[0] + ((end[0] - fp[0]) / dl) * 7, 0, fp[2] + ((end[2] - fp[2]) / dl) * 7];
+              const inS = (now - a1) / 1000;
+              const walk = Math.min(1, ((inS + r * 2) % 9999) / 8);
+              const at = walk < 1 ? lerp3(rr0, nz, walk) : nz;
+              people.push({ p: at, pose: walk < 1 ? "carry" : "spray", col: crewCol });
+              hoses.push([rr0, at]);
+              if (walk >= 1) { sprays.push({ from: [at[0], 1.6, at[2]], to: [fp[0], 0.6, fp[2]] }); for (let q = -2; q <= 2; q++) { const fq = front[(k + q + frontN) % frontN]; if (fq) fq.on = false; } }
+            }
+            label = "💦 SPEGNIMENTO";
+          }
+        }
         if (p >= 1 && isMaxiV) {
           // mezzi maxi: ogni modulo caricato ha la sua attività
           const mods = veh.modules ?? []; const r0 = rear(end, park, 4.5); const ph = (hash(veh.id) % 100) / 10;
@@ -494,7 +579,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
           }
         }
-        if (p >= 1 && !veh.pma && !isMaxiV) {
+        if (p >= 1 && !veh.pma && !isMaxiV && !FIRE) {
           const off = hash(veh.id) % 40;
           const sinceArr = Math.max(0, (now - a1) / 1000);
           if (veh.moto || veh.automedica) {
@@ -591,7 +676,22 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const bar2 = blinkOn ? "rgba(59,130,246,.95)" : "rgba(239,68,68,.95)";
         const dark = "rgba(15,23,42,.9)", glass = "rgba(56,189,248,.35)";
         const wheels = (xs: number[], half: number, r = 0.45) => { for (const x of xs) for (const z of [-half, half]) part(x, r, z, r * 2, r * 2, 0.35, dark, dark); };
-        if (veh.maxi === "camion") {                                         // camion maxi: cabina + cassone, fasce arancio/gialle
+        if (veh.aib === "autobotte") {                                       // autobotte AIB: cabina e cisterna rossa
+          part(2.5, 1.35, 0, 1.6, 2.1, 2.3, "rgba(241,245,249,.94)");
+          part(3.32, 1.7, 0, 0.06, 0.8, 2.0, glass, glass);
+          part(-0.9, 1.55, 0, 4.6, 1.9, 2.2, "rgba(220,38,38,.9)", "#F87171");
+          for (const z of [1.12, -1.12]) part(-0.9, 1.2, z, 4.4, 0.25, 0.04, "rgba(250,204,21,.95)", "#FACC15");
+          part(-3.4, 1.2, 0, 0.5, 1, 1.6, "rgba(15,23,42,.9)", "#F87171");                       // naspo
+          part(2.5, 2.5, 0, 0.45, 0.22, 2.0, bar, bar);
+          wheels([2.3, -1.2, -2.4], 1.15, 0.5);
+        } else if (veh.aib === "pickup") {                                    // pickup 4x4 AIB con modulo acqua
+          part(1.1, 1.05, 0, 2.6, 1.3, 2.0, "rgba(241,245,249,.94)");
+          part(1.4, 1.85, 0, 1.8, 0.8, 1.8, glass);
+          part(-1.6, 1.25, 0, 2.6, 1.2, 1.9, "rgba(220,38,38,.9)", "#F87171");                    // modulo antincendio
+          part(-2.7, 1.9, 0, 0.5, 0.5, 1.2, "rgba(15,23,42,.9)", "#F87171");
+          part(1.2, 2.35, 0, 0.4, 0.2, 1.6, bar, bar);
+          wheels([1.6, -1.7], 1.0, 0.48);
+        } else if (veh.maxi === "camion") {                                         // camion maxi: cabina + cassone, fasce arancio/gialle
           part(4.6, 1.9, 0, 2.2, 2.9, 2.6, "rgba(241,245,249,.94)");
           part(5.72, 2.3, 0, 0.06, 1.1, 2.2, glass, glass);
           part(-1.4, 2.6, 0, 9.2, 3.9, 2.8, "rgba(241,245,249,.92)");
@@ -650,7 +750,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           addBox({ c: [pos[0] + 2, 4.1, pos[2] + 8], s: [3, 0.1, 0.8], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
           addBox({ c: [pos[0] + 2, 4.1, pos[2] + 8], s: [0.8, 0.1, 3], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
         }
-        const lp = P([pos[0], veh.maxi ? 5.4 : veh.pma ? 5 : veh.moto ? 2.6 : 3.8, pos[2]]);
+        const lp = P([pos[0], veh.aib ? 3.6 : veh.maxi ? 5.4 : veh.pma ? 5 : veh.moto ? 2.6 : 3.8, pos[2]]);
         const showLab = p < 1 || moving || veh.mine || veh.pma || !!veh.maxi || cam.dist < 110;
         if (lp && showLab) draws.push({ z: lp[2] - 1, fn: () => {
           ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center";
@@ -661,6 +761,19 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         } });
       });
 
+      // incendio: tubi del naspo a terra ed elicottero con la benna (gravità 3)
+      for (const [a3, b3] of hoses) { const a = P([a3[0], 0.15, a3[2]]), b = P([b3[0], 0.15, b3[2]]); if (a && b) draws.push({ z: Math.max(a[2], b[2]), fn: () => { ctx.strokeStyle = "rgba(239,68,68,.9)"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo((a[0] + b[0]) / 2 + 4, (a[1] + b[1]) / 2 + 3, b[0], b[1]); ctx.stroke(); } }); }
+      if (FIRE && sev === 3 && (d.fire?.intensity ?? 50) > 0) {
+        const cyc = (now % 40000) / 40000; const k0 = Math.floor(now / 40000) * 7 % frontN; const tgtP = front[k0]?.p ?? FIRE_C;
+        const orbit: V3 = [FIRE_C[0] + Math.cos(now / 9000) * 80, 32, FIRE_C[2] + Math.sin(now / 9000) * 60];
+        const hp: V3 = cyc < 0.3 ? lerp3(orbit, [tgtP[0], 26, tgtP[2]], cyc / 0.3) : cyc < 0.45 ? [tgtP[0], 26, tgtP[2]] : lerp3([tgtP[0], 26, tgtP[2]], orbit, (cyc - 0.45) / 0.55);
+        addBox({ c: hp, s: [4, 1.6, 1.6], yaw: now / 9000, fill: "rgba(239,68,68,.9)", edge: "#F87171" });
+        addBox({ c: [hp[0], hp[1] + 1.1, hp[2]], s: [9, 0.08, 0.3], yaw: now / 60, fill: "rgba(203,213,225,.8)", edge: "#CBD5E1" });
+        addBox({ c: [hp[0], hp[1] - 6, hp[2]], s: [0.9, 0.9, 0.9], yaw: 0, fill: "rgba(249,115,22,.9)", edge: "#F97316" });   // benna
+        if (cyc >= 0.3 && cyc < 0.45) { for (let q = -3; q <= 3; q++) { const fq = front[(k0 + q + frontN) % frontN]; if (fq) fq.on = false; }
+          for (let q = 0; q < 6; q++) particles.push({ p: [hp[0] + (Math.random() - 0.5) * 3, hp[1] - 6, hp[2] + (Math.random() - 0.5) * 3], v: [0, -0.9, 0], life: 0, max: 26, kind: "water" }); }
+        const lab = P([hp[0], hp[1] + 3, hp[2]]); if (lab) draws.push({ z: lab[2] - 1, fn: () => { ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#F87171"; ctx.fillText("ELICOTTERO AIB", lab[0], lab[1]); } });
+      }
       // ===== figure: soccorritori, feriti, barelle =====
       const figure = (p3: V3, pose: Pose, col: string, phase: number) => {
         const base = p3[1]; const low = pose === "kneel" || pose === "sit" || pose === "cut";
@@ -755,7 +868,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       }
       firemen.forEach((fm, k) => figure(fm.p, fm.pose, "#F87171", t / 1000 + k * 0.9 + 3));
       // cordone: nastro della polizia, auto della polizia, curiosi che filmano
-      { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
+      if (!FIRE) { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
         const tp = tape.map(P); if (tp.every(Boolean)) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(250,204,21,.85)"; ctx.lineWidth = 1.4; ctx.beginPath(); tp.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1] + Math.sin(t / 400 + k) * 0.6) : ctx.moveTo(q![0], q![1]))); ctx.stroke(); ctx.setLineDash([]); }
         const bys = rng(seed + 99);
         for (let k = 0; k < 12; k++) { const a = Math.PI * 1.1 + bys() * Math.PI * 0.8; const r = 62 + bys() * 6;
@@ -782,6 +895,14 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (const c of scene.crowd) { const q = P([c[0] + Math.sin(t / 900 + c[0]) * 0.4, 0.5, c[2]]); if (q) ctx.fillRect(q[0], q[1], 1.6, 1.6); }
 
       // fuoco, fumo, polvere
+      if (FIRE && (d.fire?.intensity ?? 50) > 0) {
+        const intens = (d.fire?.intensity ?? 50) / 100;
+        for (const fr of front) if (particles.length < 520 && Math.random() < (fr.on ? 0.35 + intens * 0.4 : 0.12))
+          particles.push(fr.on ? { p: [fr.p[0] + (Math.random() - 0.5) * 3, 0.5, fr.p[2] + (Math.random() - 0.5) * 3], v: [(Math.random() - 0.5) * 0.12, 0.3 + Math.random() * 0.2, (Math.random() - 0.5) * 0.12], life: 0, max: 14 + Math.random() * 8, kind: "fire" }
+                               : { p: [fr.p[0], 0.5, fr.p[2]], v: [(Math.random() - 0.5) * 0.1, 0.2, (Math.random() - 0.5) * 0.1], life: 0, max: 40, kind: "steam" });
+        for (const bt of burningTops) if (particles.length < 520 && Math.random() < 0.3) particles.push({ p: [bt[0] + (Math.random() - 0.5) * 2, bt[1], bt[2]], v: [0, 0.3, 0], life: 0, max: 16, kind: "fire" });
+        if (particles.length < 540) for (let q = 0; q < 2; q++) particles.push({ p: [FIRE_C[0] + (Math.random() - 0.5) * fireR, 4, FIRE_C[2] + (Math.random() - 0.5) * fireR * 0.8], v: [0.05 + Math.random() * 0.08, 0.25, (Math.random() - 0.5) * 0.08], life: 0, max: 110, kind: "smoke" });
+      }
       for (const e of scene.fx) if (particles.length < 260 && Math.random() < (e.kind === "fire" ? 0.9 : 0.5)) {
         particles.push({ p: [e.at[0] + (Math.random() - 0.5) * e.r, e.at[1], e.at[2] + (Math.random() - 0.5) * e.r],
           v: [(Math.random() - 0.5) * 0.15, e.kind === "fire" ? 0.35 : e.kind === "smoke" ? 0.22 : 0.08, (Math.random() - 0.5) * 0.15],
@@ -792,7 +913,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         if (q.life > q.max) { particles.splice(k, 1); continue; }
         const s = P(q.p); if (!s) continue; const u = q.life / q.max; const rad = (f / s[2]) * (q.kind === "fire" ? 1.8 : 3 + u * 6);
         ctx.fillStyle = q.kind === "fire" ? `rgba(255,${120 + Math.floor(u * 100)},40,${0.7 * (1 - u)})`
-          : q.kind === "smoke" ? `rgba(60,70,85,${0.35 * (1 - u)})` : `rgba(200,190,170,${0.18 * (1 - u)})`;
+          : q.kind === "smoke" ? `rgba(60,70,85,${0.35 * (1 - u)})` : q.kind === "steam" ? `rgba(226,232,240,${0.3 * (1 - u)})`
+          : q.kind === "water" ? `rgba(125,211,252,${0.8 * (1 - u)})` : `rgba(200,190,170,${0.18 * (1 - u)})`;
         ctx.beginPath(); ctx.arc(s[0], s[1], rad, 0, Math.PI * 2); ctx.fill();
       }
       if (scene.fog) { ctx.fillStyle = `rgba(180,195,215,${0.08 + 0.03 * Math.sin(t / 1500)})`; ctx.fillRect(0, H * 0.35, W, H * 0.4); }
@@ -800,14 +922,22 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // HUD in alto a sinistra
       const dt = new Date(now);
       ctx.textAlign = "left"; ctx.font = "700 11px ui-monospace,monospace";
-      ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText("MAXI EMERGENZA · ", 14, 24);
+      const head = FIRE ? "INCENDIO BOSCHIVO · " : "MAXI EMERGENZA · ";
+      ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText(head, 14, 24);
       const tag = dt.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
-      const w1 = ctx.measureText("MAXI EMERGENZA · ").width;
+      const w1 = ctx.measureText(head).width;
       ctx.fillStyle = "#E2E8F0"; ctx.fillRect(14 + w1, 13, ctx.measureText(tag).width + 6, 14);
       ctx.fillStyle = "#0B1A33"; ctx.fillText(tag, 17 + w1, 24);
       ctx.fillStyle = "rgba(255,255,255,.75)";
       ctx.fillText(dt.toLocaleTimeString("it-IT") + " · " + d.lat.toFixed(4) + "N " + d.lng.toFixed(4) + "E", 14, 40);
       ctx.fillStyle = WHITE; ctx.font = "800 12px ui-monospace,monospace";
+      if (FIRE) {
+        const inten = Math.round(d.fire?.intensity ?? 0), need = sev + 1;
+        ctx.fillText(`MEZZI AIB ${onSite + coming} · SPENGONO ${fireOn} · IN ARRIVO ${coming} · A RIFORNIRSI ${away} · NE SERVONO ${need}`, 14, 58);
+        const stato = inten === 0 ? "✅ DOMATO" : inten >= 70 ? "FUORI CONTROLLO" : fireOn >= need ? "IN SPEGNIMENTO" : "IN ESPANSIONE";
+        ctx.fillStyle = inten === 0 ? "#22C55E" : inten >= 70 ? "#EF4444" : fireOn >= need ? "#FACC15" : "#F97316";
+        ctx.fillText(`GRAVITÀ ${sev}/3 · INTENSITÀ ${inten}% · ${stato}`, 14, 75);
+      } else {
       ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}${hasPma ? "" : ` · VERSO/IN OSPEDALE ${away}`} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
       const remaining = Math.max(0, injured - transported); const red = Math.round(remaining * 0.15), yel = Math.round(remaining * 0.35), grn = remaining - red - yel;
       const left = Math.max(0, injured - transported);
@@ -816,6 +946,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       ctx.fillStyle = "#EF4444"; ctx.fillText(`● ${red}`, 14 + wf, 75);
       ctx.fillStyle = "#FACC15"; ctx.fillText(`● ${yel}`, 14 + wf + 38, 75);
       ctx.fillStyle = "#22C55E"; ctx.fillText(`● ${grn}`, 14 + wf + 76, 75);
+      }
       if (d.ends_at) {
         const rem = Math.max(0, Math.round((Date.parse(d.ends_at) - now) / 1000));
         ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.font = "700 11px ui-monospace,monospace";
@@ -829,7 +960,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // mezzi fuori dalla scena (spola con l'ospedale, senza PMA)
       if (!hasPma && awayList.length) {
         ctx.textAlign = "right"; ctx.font = "700 11px ui-monospace,monospace";
-        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText(`🏥 FUORI SCENA · ${hosp?.name ?? "OSPEDALE"}`, W - 14, 24);
+        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText(FIRE ? "💧 FUORI SCENA · SPOLA PER L'ACQUA" : `🏥 FUORI SCENA · ${hosp?.name ?? "OSPEDALE"}`, W - 14, 24);
         awayList.slice(0, 10).forEach((x, k) => { ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.fillText(x, W - 14, 40 + k * 15); });
         if (awayList.length > 10) ctx.fillText(`+${awayList.length - 10}`, W - 14, 40 + 10 * 15);
         ctx.textAlign = "left";

@@ -1538,6 +1538,9 @@ export default function GameMap() {
                       </div>
                     )}
                     <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#C2410C" }}>Solo mezzi antincendio (AIB). Più mezzi mandi, prima lo domate.</div>
+                    <button onClick={() => router.push(`/maxi/${m.id}`)}
+                            style={{ marginTop: 8, width: "100%", border: "1px solid #C2410C", borderRadius: 10, padding: "8px 10px", cursor: "pointer",
+                                     background: "#fff", color: "#C2410C", fontWeight: 800 }}>🎬 Guarda l'incendio dal vivo</button>
                     {org && m.status === "aperta" && (
                       <button onClick={() => setSelected(m)}
                               style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
