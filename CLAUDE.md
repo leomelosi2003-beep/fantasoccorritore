@@ -143,3 +143,11 @@ Risposte brevi in italiano. Fai tutto tu, senza chiedere passaggi tecnici all'ut
 ## Novità del gioco (13/11/2026)
 - **A ogni aggiornamento aggiungere una voce IN CIMA a `web/lib/novita.ts`** (id nuovo tipo `2026-11-14a`, data, titolo, 2-4 righe semplici). Pagina `/novita`, voce "🆕 Novità del gioco" nel menu con pallino e avviso sulla mappa finché il giocatore non la apre (`localStorage fs_novita_seen`).
 - Officina: riquadri "da sistemare" (guasti, revisioni, gomme, pezzi, carrozzeria) che filtrano i mezzi + "✅ Sistema tutto" (`fixAll` lato web: per ogni mezzo fermo in sede chiama in ordine repair_vehicle, service_vehicle, replace_part, mount_tires con la gomma migliore in magazzino adatta alla stagione, repair_body; se il mezzo è già in officina si ferma e va ripremuto dopo).
+
+## SQL automatico sul server (14/11/2026) — usarlo quando non c'è Chrome
+- Ogni file nuovo in `server/sql-auto/NNNN_nome.sql` viene eseguito UNA volta dal guardiano (ogni 2 min, dopo la build) in una sola transazione (`psql -1`, se fallisce non cambia niente; non viene ripetuto: per riprovare creare un file nuovo). Utente `postgres`; con `.admin.` nel nome usa `supabase_admin` (serve per pg_cron).
+- Esito: `/api/sql-status` (output completo solo per i file `*.mostra.sql`, per gli altri solo righe con ERROR/NOTICE/ESITO). Lettura da qui: `gh api -X POST repos/leomelosi2003-beep/fantasoccorritore/actions/workflows/sql-status.yml/dispatches -f ref=main`, poi log del job (workflow `esito-sql`, stampa anche la versione del sito). Non selezionare dati personali nei `.mostra.` (endpoint e log pubblici).
+
+## Sedi: prezzi e affitto (sql-auto 0003-0004, 14/11/2026)
+- `base_buy_cost(n)` = 0 la prima, poi 300.000 + 150.000 × (n−1), max 3.000.000 (`build_base` patchata). `my_base_prices()` per il sito. `base_market_value` = 150.000 + ampliamenti.
+- Affitto: `rent_base(name,lng,lat)` (non per la prima sede), `bases.rented/rent_daily (3% del prezzo, min 9.000)/rent_buy_price/rent_paid_until/rent_debt/rent_paid_total`; cron `base-rent` (:05 ogni ora) → `charge_base_rent()`; debito → `claim_mission_as` dà `BASE_RENT_UNPAID`. `pay_base_rent_debt`, `buyout_base` (riscatto al prezzo fissato), `release_base` (mezzi e carte alla sede principale, poi `scrap_base`). Trigger: sedi in affitto non cambiano proprietario e non vanno all'asta (`RENTED_BASE`). UI in `/sedi`.
