@@ -4,6 +4,15 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14b", date: "14 novembre 2026", title: "Personalizza le tue sedi",
+    items: [
+      "⚙️ In Sedi ogni sede ha il tasto «Personalizza»: amplia il garage, metti pannelli solari, cambia la caldaia, migliora l'area volontari.",
+      "🔧 Nuove migliorie: officina interna (mezzi meno usurati), centrale radio (servizi pagati di più), bar sociale (entrate ogni ora).",
+      "🎨 Scegli il colore della sede: si vede sulla mappa e i colori chiari fanno risparmiare 600 €/ora.",
+      "💶 Pannelli, caldaia, bar e colori chiari rendono soldi ogni ora; area volontari, officina e radio migliorano volontari e mezzi.",
+    ],
+  },
+  {
     id: "2026-11-14a", date: "14 novembre 2026", title: "Sedi: nuovi prezzi e affitto",
     items: [
       "🏠 Nuovi prezzi delle sedi: 300.000 € la seconda, poi 150.000 € in più per ogni sede, al massimo 3.000.000 €.",

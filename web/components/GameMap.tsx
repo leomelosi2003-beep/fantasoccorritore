@@ -422,12 +422,12 @@ function lastSeen(t: string) {
 
 // Icona della sede: stemma in un quadrato arrotondato con la casetta (i servizi invece sono "gocce"),
 // stella sulla sede principale, pallino verde se il proprietario è online
-function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false) {
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false, color?: string | null) {
   const svg = emblemSvg(type, mine ? (logo ? 36 : 28) : (logo ? 28 : 20), logo);
   const s = mine ? 44 : 34;
-  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}`, () => L.divIcon({
+  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}`, () => L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:10px;background:#fff;display:flex;
+    html: `<div style="position:relative;width:${s}px;height:${s}px;border-radius:10px;background:${color ?? "#fff"};display:flex;
            align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
            border:${mine ? "3px solid #111" : "2px solid #6B7280"}">${svg}
            <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "#111" : "#6B7280"};color:#fff;border-radius:6px;
@@ -814,6 +814,7 @@ export default function GameMap() {
   // Officina: mezzi guasti + segnalazioni dei volontari non lette (pallino nel menu)
   const [shopAlerts, setShopAlerts] = useState(0);
   const [novUnseen, setNovUnseen] = useState(false);
+  const [baseColors, setBaseColors] = useState<Record<string, string>>({});
   useEffect(() => {
     const v = novitaUnseen(); setNovUnseen(v);
     if (v) setTimeout(() => showToast(`🆕 Novità: ${NOVITA[0].title}. Apri il menu → Novità del gioco`), 2500);
@@ -917,7 +918,12 @@ export default function GameMap() {
       setError(null);
       setMissions((m.data as MissionPin[]) ?? []);
       if (wf && !wf.error) setFires((wf.data as typeof fires) ?? []);
-      if (b && !b.error) setBases((b.data as BasePin[]) ?? []);
+      if (b && !b.error) {
+        setBases((b.data as BasePin[]) ?? []);
+        supabase.rpc("base_colors").then(({ data, error }) => {
+          if (!error) setBaseColors(Object.fromEntries(((data as { id: string; color: string }[]) ?? []).map((r) => [r.id, r.color])));
+        });
+      }
     }
     load();
     // aggiornamento ogni 12 secondi (niente tempo reale: pesava troppo sul server)
@@ -1404,7 +1410,7 @@ export default function GameMap() {
         )), [flt.hospitals, hospitals])}
 
         {useMemo(() => bases.filter(showBase).map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters)}
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
               <div style={{ minWidth: 210 }}>
@@ -1468,7 +1474,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        )), [bases, flt.bases, org?.id, baseCars])}
+        )), [bases, flt.bases, org?.id, baseCars, baseColors])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);

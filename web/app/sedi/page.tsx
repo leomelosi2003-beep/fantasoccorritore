@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { gameConfirm } from "@/lib/confirm";
+import BasePerksPanel from "@/components/BasePerksPanel";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
@@ -9,7 +10,7 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 const PickBaseMap = dynamic(() => import("@/components/PickBaseMap"), { ssr: false });
 
 type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean; level: number;
-  rented: boolean; rent_daily: number | null; rent_buy_price: number | null; rent_debt: number; rent_paid_until: string | null };
+  rented: boolean; rent_daily: number | null; rent_buy_price: number | null; rent_debt: number; rent_paid_until: string | null; color: string | null };
 type Prices = { owned: number; buy: number; rent_daily: number };
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
@@ -42,6 +43,7 @@ export default function Sedi() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [mapKey, setMapKey] = useState(0);
   const [prices, setPrices] = useState<Prices | null>(null);
+  const [custom, setCustom] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -51,7 +53,7 @@ export default function Sedi() {
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
     const [bs, vs, pr] = await Promise.all([
-      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level,rented,rent_daily,rent_buy_price,rent_debt,rent_paid_until").eq("org_id", o.id).order("built_at"),
+      supabase.from("bases").select("id,name,vehicle_capacity,is_headquarters,level,rented,rent_daily,rent_buy_price,rent_debt,rent_paid_until,color").eq("org_id", o.id).order("built_at"),
       supabase.from("my_fleet").select("base_id,boat,mine").eq("mine", true),
       supabase.rpc("my_base_prices"),
     ]);
@@ -158,11 +160,12 @@ export default function Sedi() {
       <div style={wrap}>
         <div style={box}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>Le tue sedi</div>
-          <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Amplia una sede per avere più posti per le ambulanze (fino al livello {MAX_LEVEL}, {MAX_LEVEL + 2} posti).</div>
+          <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Con ⚙️ Personalizza amplia il garage e aggiungi pannelli solari, caldaia, area volontari, officina, centrale radio, bar sociale e colore: rendono ogni ora o migliorano mezzi e volontari.</div>
           {msg && <div style={{ color: msg.ok ? "#15803D" : "#B91C1C", margin: "6px 0", fontWeight: 600 }}>{msg.text}</div>}
           {bases.map((b) => (
-            <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #f0f0f0" }}>
-              <span style={{ fontSize: 22 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
+            <div key={b.id} style={{ padding: "8px 0", borderTop: "1px solid #f0f0f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 22, background: b.color ?? "transparent", borderRadius: 8, padding: b.color ? "0 4px" : 0 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{b.name}</div>
                 <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>
@@ -191,6 +194,10 @@ export default function Sedi() {
                 <button disabled={busy} onClick={() => sellBase(b)} title="Metti la sede all'asta"
                         style={{ ...btn, fontSize: 13, padding: "8px 10px", background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>🏷️</button>
               )}
+              <button onClick={() => setCustom(custom === b.id ? null : b.id)} title="Personalizza la sede"
+                      style={{ ...btn, fontSize: 13, padding: "8px 10px", background: custom === b.id ? "#111" : "#7C3AED" }}>⚙️ Personalizza</button>
+            </div>
+            {custom === b.id && <BasePerksPanel base={b} funds={org.funds} onChange={load} />}
             </div>
           ))}
         </div>
