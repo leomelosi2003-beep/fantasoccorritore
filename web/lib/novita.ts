@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14e", date: "14 novembre 2026", title: "Nuovi ospedali",
+    items: [
+      "🏥 Aggiunti gli ospedali di Castelnuovo di Garfagnana, Pontremoli e La Spezia (Sant'Andrea): le ambulanze di quelle zone ora scaricano lì.",
+    ],
+  },
+  {
     id: "2026-11-14d", date: "14 novembre 2026", title: "Maxi senza PMA: spola con l'ospedale",
     items: [
       "🏥 Se alla maxi emergenza non c'è un PMA, le ambulanze caricano il ferito, escono dalla scena e lo portano all'ospedale più vicino.",
