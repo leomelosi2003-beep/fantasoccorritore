@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14k", date: "14 novembre 2026", title: "Maxi emergenze e incendi da qualsiasi sede",
+    items: ["📍 Alle maxi emergenze e agli incendi boschivi puoi mandare mezzi da qualunque sede, anche oltre i 25 km: più è lontana, più ci mettono ad arrivare."],
+  },
+  {
     id: "2026-11-14j", date: "14 novembre 2026", title: "Sedi gemellate con due loghi",
     items: [
       "🤝 Le sedi condivise in gemellaggio ora mostrano sulla mappa i loghi di tutte e due le associazioni, anche nel riquadro della sede.",

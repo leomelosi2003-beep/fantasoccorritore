@@ -188,7 +188,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (v.automedica && (mission.category !== "emergenza_118" || !["giallo", "rosso"].includes(mission.code) || mission.transport === "trasferimento"))
       return "automedica: solo gialli e rossi";
     if (v.automedica && waiting) return "la tua automedica è già qui: manda un'ambulanza";
-    if (v.base_lat != null && v.base_lng != null) {
+    if (v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)) {   // maxi e incendi: nessun limite
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
     }
