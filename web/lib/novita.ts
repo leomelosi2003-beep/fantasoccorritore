@@ -13,6 +13,8 @@ export const NOVITA: Novita[] = [
       "🚑 Modellini dettagliati (ruote, vetri, fasce, croce, lampeggianti) per ambulanza, passo lungo, automedica, moto e camion PMA.",
       "🚒 Operazioni congiunte coi Vigili del Fuoco: tagliano le lamiere e tolgono le macerie per estricare i feriti intrappolati, poi li affidano alle ambulanze; dove c'è fuoco spengono con la lancia.",
       "🎞️ Tutti più animati: braccia e gambe che si muovono, massaggio cardiaco, pompieri che tagliano, feriti che chiedono aiuto o zoppicano, porte dell'ambulanza che si aprono, cordone della polizia con curiosi che filmano.",
+      "🌲 Scena più realistica: strade con la segnaletica, alberi che ondeggiano, campi e case in lontananza.",
+      "🛠️ Soccorso tecnico completo: i VVF mettono i cunei, tagliano (la lamiera vibra), tolgono il pannello, poi VVF e sanitari mettono collare e tavola spinale e lo portano fuori in quattro; il coordinatore del triage gira tra i feriti; flebo, DAE e scariche del defibrillatore sui codici rossi.",
       "🩹 Feriti anche dentro la scena (nei vagoni, sotto le macerie) che chiedono aiuto; i soccorritori vanno con la barella, stabilizzano, caricano in ambulanza e portano al PMA o in ospedale.",
     ],
   },
