@@ -26,7 +26,7 @@ function demoFire(s: string): SceneData {
       tt += 20000; route.push({ lat, lng, t: new Date(tt).toISOString() });
     }
     return { id: "f" + i, call_sign: c, org_name: "x", mine: i % 2 === 0, status: "in_viaggio", assigned_at: new Date(t0 + i * 8000).toISOString(), arrives_at: new Date(arr).toISOString(),
-             base_lat: bl, base_lng: bg, aib: i % 3 === 0 ? "autobotte" as const : "pickup" as const, route };
+             base_lat: bl, base_lng: bg, aib: (["daily", "ranger", "scorpio"] as const)[i % 3], route };
   }).filter((v) => Date.parse(v.assigned_at) <= Date.now());
   return { id: "demo-" + s, title: "Incendio boschivo", venue: "AIB", lat, lng, created_at: new Date(t0).toISOString(),
            ends_at: new Date(t0 + sev * 7200000).toISOString(), vehicles, fire: { severity: sev, intensity: Math.max(5, 80 - ((Date.now() - t0) / 240000) * 60) } };

@@ -9,7 +9,7 @@ export type SceneVehicle = {
   assigned_at: string; arrives_at: string; completes_at?: string | null;
   base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean; long?: boolean;
   maxi?: "camion" | "furgone" | null; modules?: string[];   // mezzi per le maxi emergenze e moduli caricati
-  aib?: "pickup" | "autobotte" | null; route?: { lat: number; lng: number; t: string; label?: string }[] | null;   // incendi: mezzo AIB e spola per l'acqua
+  aib?: "daily" | "ranger" | "scorpio" | "pickup" | "autobotte" | null; route?: { lat: number; lng: number; t: string; label?: string }[] | null;   // incendi: mezzo AIB e spola per l'acqua
 };
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
@@ -113,7 +113,6 @@ function buildScene(kind: string, seed: number) {
   return { boxes, fx, lines, water, fog, crowd };
 }
 const FIRE_C: V3 = [0, 0, -28];                                               // centro dell'incendio
-const fireSpot = (i: number): V3 => [-42 + (i % 8) * 12, 0, 23 + Math.floor(i / 8) * 4];   // mezzi AIB tra la strada e il fronte
 // incendio: dove si trova il mezzo AIB nella sua spola fuoco ↔ sede per l'acqua (dalla rotta vera)
 type FirePh = { state: "scene" | "in" | "out" | "away"; f: number; text: string; left: number };
 function firePhase(route: SceneVehicle["route"], now: number, lat: number, lng: number, EX = 15): FirePh {
@@ -181,7 +180,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
   useEffect(() => {
     const v = VIEWS[view] ?? VIEWS[0]; const c = camRef.current;
     c.tYaw = v.cam.yaw; c.tEl = v.cam.el; c.tDist = v.cam.dist; c.auto = v.cam.auto;
-    c.tgtX = view === 3 ? 66 : 0; c.tgtZ = view === 3 ? 72 : 18;
+    const fireV = dataRef.current.venue === "AIB";
+    c.tgtX = view === 3 && !fireV ? 66 : 0; c.tgtZ = fireV ? -12 : view === 3 ? 72 : 18;
   }, [view, viewKey]);
 
   useEffect(() => {
@@ -490,11 +490,24 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
         const isMaxiV = !!veh.maxi && !veh.pma;
         const myIdx = veh.pma ? pmaIdx++ : isMaxiV ? mxIdx++ : amb++;
-        const end = FIRE ? fireSpot(myIdx % 16) : veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
+        const end: V3 = FIRE ? [0, 0, 0] : veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
         // entra dalla strada più vicina alla direzione della sua sede
         const sd: [number, number] = [Math.sin(ang), -Math.cos(ang)];
         const entry = ENTRIES.reduce((b, e) => { const l = Math.hypot(...e.dir); const v = (e.dir[0] * sd[0] + e.dir[1] * sd[1]) / l; return v > b.v ? { e, v } : b; }, { e: ENTRIES[0], v: -9 }).e;
-        const approach = makePath(veh.pma
+        // incendio: i mezzi AIB si dispongono in cerchio attorno al fronte (dal sud, poi a destra e sinistra)
+        const nF = Math.max(1, vs.length), stepA = Math.min(0.55, (Math.PI * 2) / nF);
+        const aT = Math.PI / 2 + (myIdx % 2 ? 1 : -1) * Math.ceil(myIdx / 2) * stepA;
+        const Rr = fireR + 9;
+        const ringPt = (a: number): V3 => [FIRE_C[0] + Math.cos(a) * Rr, 0, FIRE_C[2] + Math.sin(a) * Rr * 0.8];
+        const fireRaw: V3[] = [];
+        if (FIRE) {
+          const s0 = ringPt(Math.PI / 2); fireRaw.push(...entry.pts, [s0[0], 0, ROAD_Z], s0);
+          const nSteps = Math.ceil(Math.abs(aT - Math.PI / 2) / 0.15);
+          for (let k = 1; k <= nSteps; k++) fireRaw.push(ringPt(Math.PI / 2 + ((aT - Math.PI / 2) * k) / nSteps));
+        }
+        const fEnd = FIRE ? fireRaw[fireRaw.length - 1] : end;
+        if (FIRE) { end[0] = fEnd[0]; end[2] = fEnd[2]; }
+        const approach = makePath(FIRE ? fireRaw : veh.pma
           ? [...entry.pts, [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [end[0], 0, PMA_Z], end]
           : [...entry.pts, [end[0], 0, ROAD_Z], end]);
         // nella scena il mezzo entra solo negli ultimi secondi prima dell'arrivo vero, a velocità normale:
@@ -516,10 +529,10 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           const ph = firePhase(veh.route, now, d.lat, d.lng);
           if (ph.state === "away") { away++; awayList.push(`${veh.call_sign} ${ph.text}${ph.left ? ` · ${Math.max(1, Math.round(ph.left / 60))}'` : ""}`); return; }
           if (ph.state === "in") { const q = approach.at(ph.f * approach.len); pos = q.p; heading = q.h; moving = true; label = "💧 ARRIVA CON L'ACQUA"; }
-          else if (ph.state === "out") { const op = makePath([end, [end[0], 0, ROAD_Z], ...[...entry.pts].reverse()]); const q = op.at(ph.f * op.len); pos = q.p; heading = q.h; moving = true; label = "➜ RIFORNIMENTO ACQUA"; }
+          else if (ph.state === "out") { const op = makePath([...fireRaw].reverse()); const q = op.at(ph.f * op.len); pos = q.p; heading = q.h; moving = true; label = "➜ RIFORNIMENTO ACQUA"; }
           else {
             fireOn++;
-            const ang = Math.atan2((end[2] - FIRE_C[2]) / 0.8, end[0] - FIRE_C[0]);
+            const ang = aT;
             const rr0 = rear(end, park, 2.2);
             for (let r = 0; r < 2; r++) {
               let a = ang + (r ? 0.16 : -0.16) + Math.sin(now / 2500 + r + myIdx) * 0.06; a = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -681,21 +694,35 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const bar2 = blinkOn ? "rgba(59,130,246,.95)" : "rgba(239,68,68,.95)";
         const dark = "rgba(15,23,42,.9)", glass = "rgba(56,189,248,.35)";
         const wheels = (xs: number[], half: number, r = 0.45) => { for (const x of xs) for (const z of [-half, half]) part(x, r, z, r * 2, r * 2, 0.35, dark, dark); };
-        if (veh.aib === "autobotte") {                                       // autobotte AIB: cabina e cisterna rossa
-          part(2.5, 1.35, 0, 1.6, 2.1, 2.3, "rgba(241,245,249,.94)");
-          part(3.32, 1.7, 0, 0.06, 0.8, 2.0, glass, glass);
-          part(-0.9, 1.55, 0, 4.6, 1.9, 2.2, "rgba(220,38,38,.9)", "#F87171");
-          for (const z of [1.12, -1.12]) part(-0.9, 1.2, z, 4.4, 0.25, 0.04, "rgba(250,204,21,.95)", "#FACC15");
-          part(-3.4, 1.2, 0, 0.5, 1, 1.6, "rgba(15,23,42,.9)", "#F87171");                       // naspo
-          part(2.5, 2.5, 0, 0.45, 0.22, 2.0, bar, bar);
-          wheels([2.3, -1.2, -2.4], 1.15, 0.5);
-        } else if (veh.aib === "pickup") {                                    // pickup 4x4 AIB con modulo acqua
-          part(1.1, 1.05, 0, 2.6, 1.3, 2.0, "rgba(241,245,249,.94)");
-          part(1.4, 1.85, 0, 1.8, 0.8, 1.8, glass);
-          part(-1.6, 1.25, 0, 2.6, 1.2, 1.9, "rgba(220,38,38,.9)", "#F87171");                    // modulo antincendio
-          part(-2.7, 1.9, 0, 0.5, 0.5, 1.2, "rgba(15,23,42,.9)", "#F87171");
-          part(1.2, 2.35, 0, 0.4, 0.2, 1.6, bar, bar);
-          wheels([1.6, -1.7], 1.0, 0.48);
+        const W1 = "rgba(241,245,249,.95)", OR = "rgba(249,115,22,.95)", YE = "rgba(250,204,21,.95)";
+        const chk = (x0: number, len: number, y: number, z: number) => { for (let k = 0; k < Math.floor(len / 0.5); k++) part(x0 - len / 2 + 0.25 + k * 0.5, y, z, 0.48, 0.22, 0.04, k % 2 ? YE : OR, k % 2 ? "#FACC15" : "#F97316"); };
+        if (veh.aib === "daily" || veh.aib === "autobotte") {               // come il D-Daily AIB: doppia cabina alta + modulo antincendio
+          part(1.55, 1.75, 0, 3.0, 2.3, 2.2, W1);                                                  // doppia cabina
+          part(3.25, 1.2, 0, 0.5, 1.1, 2.1, W1);                                                   // muso
+          part(2.9, 2.25, 0, 0.06, 1.0, 1.9, glass, glass);
+          for (const z of [1.12, -1.12]) { part(1.3, 2.25, z, 2.2, 0.75, 0.04, glass, glass); part(1.6, 1.45, z, 3.0, 0.22, 0.04, OR, "#F97316"); chk(1.6, 3, 0.95, z); }
+          part(-1.75, 1.75, 0, 3.4, 2.1, 2.3, W1);                                                 // modulo
+          for (const z of [1.17, -1.17]) {
+            part(-1.75, 2.65, z, 3.3, 0.22, 0.04, OR, "#F97316"); chk(-1.75, 3.2, 0.85, z);
+            part(-2.6, 1.7, z, 0.7, 0.9, 0.05, "rgba(220,38,38,.95)", "#EF4444"); part(-2.6, 1.7, z + Math.sign(z) * 0.02, 0.35, 0.45, 0.04, YE, "#FACC15");   // naspi rossi/gialli
+            part(-1.4, 1.6, z, 0.9, 0.9, 0.05, "rgba(148,163,184,.9)", "#94A3B8");                      // serbatoio e pompa
+          }
+          part(-1.75, 2.95, 0, 3.4, 0.08, 1.4, "rgba(203,213,225,.9)", "#CBD5E1");                 // scala sul tetto
+          part(1.9, 3.0, 0, 0.45, 0.2, 1.4, bar, bar);
+          wheels([2.4, -2.4], 1.15, 0.6);
+        } else if (veh.aib === "ranger" || veh.aib === "scorpio" || veh.aib === "pickup") {   // pickup doppia cabina (Ranger / Scorpio) con modulo e naspo nel cassone
+          const sc = veh.aib === "scorpio" ? 0.92 : 1;
+          part(0.5 * sc, 1.3, 0, 2.4 * sc, 1.25, 1.95, W1);                                        // doppia cabina
+          part(2.25 * sc, 0.95, 0, 1.4 * sc, 0.65, 1.9, W1);                                       // cofano
+          part(1.55 * sc, 1.55, 0, 0.06, 0.6, 1.7, glass, glass);
+          for (const z of [0.99, -0.99]) { part(0.5 * sc, 1.65, z, 2.0 * sc, 0.5, 0.04, glass, glass); part(0.6 * sc, 1.1, z, 4.2 * sc, 0.22, 0.04, OR, "#F97316"); chk(0.2 * sc, 3.4 * sc, 0.6, z); }
+          part(-1.7 * sc, 0.95, 0, 2.2 * sc, 0.65, 1.95, W1);                                      // cassone
+          part(-1.4 * sc, 1.65, 0, 1.0, 0.8, 1.2, "rgba(148,163,184,.92)", "#94A3B8");             // serbatoio + motopompa
+          part(-2.35 * sc, 1.85, 0, 0.35, veh.aib === "scorpio" ? 1.25 : 1.0, 1.1, "rgba(220,38,38,.95)", "#EF4444");   // naspo
+          if (veh.aib === "scorpio") part(-0.75 * sc, 1.9, 0, 0.12, 0.9, 1.8, "rgba(203,213,225,.9)", "#CBD5E1");        // roll bar
+          part(2.95 * sc, 0.75, 0, 0.25, 0.5, 1.7, "rgba(15,23,42,.9)", "#334155");                 // bull bar
+          part(0.6 * sc, 2.0, 0, 0.4, 0.18, 1.3, bar, bar);
+          wheels([1.85 * sc, -1.75 * sc], 1.0, 0.5);
         } else if (veh.maxi === "camion") {                                         // camion maxi: cabina + cassone, fasce arancio/gialle
           part(4.6, 1.9, 0, 2.2, 2.9, 2.6, "rgba(241,245,249,.94)");
           part(5.72, 2.3, 0, 0.06, 1.1, 2.2, glass, glass);
