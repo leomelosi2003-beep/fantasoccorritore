@@ -95,7 +95,7 @@ function buildScene(kind: string, seed: number) {
 }
 
 // posti auto nell'area mezzi e area PMA
-const slot = (i: number): V3 => [-62 + (i % 6) * 8.5, 0, 42 + Math.floor(i / 6) * 9];
+const slot = (i: number): V3 => [-78 + (i % 6) * 12, 0, 40 + Math.floor(i / 6) * 13];
 const PMA: [number, number, number, number] = [28, 34, 62, 62];
 
 export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData; serverOffset?: number }) {
@@ -184,7 +184,7 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       ctx.setLineDash([]);
       const pm = P([(x1 + x2) / 2, 0.2, (z1 + z2) / 2]);
       if (pm) { ctx.fillStyle = "rgba(52,211,153,.9)"; ctx.font = "700 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA PMA", pm[0], pm[1]); }
-      const st = P([-41, 0.2, 38]); if (st) { ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA MEZZI", st[0], st[1]); }
+      const st = P([-48, 0.2, 33]); if (st) { ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillText("AREA MEZZI", st[0], st[1]); }
 
       // scatole (scena + mezzi), ordinate per distanza
       type Draw = { z: number; fn: () => void };
@@ -274,7 +274,7 @@ export default function MaxiScene({ data, serverOffset = 0 }: { data: SceneData;
       for (let k = particles.length - 1; k >= 0; k--) {
         const q = particles[k]; q.life++; q.p = [q.p[0] + q.v[0] + 0.03, q.p[1] + q.v[1], q.p[2] + q.v[2]];
         if (q.life > q.max) { particles.splice(k, 1); continue; }
-        const s = P(q.p); if (!s) continue; const u = q.life / q.max; const rad = (f / s[2]) * (q.kind === "fire" ? 1.2 : 2.5 + u * 4);
+        const s = P(q.p); if (!s) continue; const u = q.life / q.max; const rad = (f / s[2]) * (q.kind === "fire" ? 1.8 : 3 + u * 6);
         ctx.fillStyle = q.kind === "fire" ? `rgba(255,${120 + Math.floor(u * 100)},40,${0.7 * (1 - u)})`
           : q.kind === "smoke" ? `rgba(60,70,85,${0.35 * (1 - u)})` : `rgba(200,190,170,${0.18 * (1 - u)})`;
         ctx.beginPath(); ctx.arc(s[0], s[1], rad, 0, Math.PI * 2); ctx.fill();
