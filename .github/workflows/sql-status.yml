@@ -1,0 +1,7 @@
+name: esito-sql
+on: workflow_dispatch
+jobs:
+  leggi:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sf -m 30 https://fantaserver.tail9a3baf.ts.net/api/sql-status | jq -r '.[] | "=== \(.file) rc=\(.rc) \(.at)\n\(.out)\n"'

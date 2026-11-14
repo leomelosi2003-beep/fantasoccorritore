@@ -23,6 +23,19 @@ if [ "$HEAD" != "$(cat $BASE/.built 2>/dev/null)" ]; then
   if build; then echo $HEAD > $BASE/.built; systemctl restart fs-web; log "Aggiornato."; else log "Build fallita, resta la versione precedente."; fi
 fi
 
+# SQL automatico: ogni file nuovo in server/sql-auto/ viene eseguito UNA volta, in una sola transazione
+# (se fallisce non cambia niente). Esito in $BASE/sql-status/<file>.json, letto da /api/sql-status.
+SQLDIR=$REPO/server/sql-auto; DONE=$BASE/.sql-applicati; mkdir -p $BASE/sql-status; touch $DONE
+for f in $(ls $SQLDIR/*.sql 2>/dev/null | sort); do
+  n=$(basename $f); grep -qx "$n" $DONE && continue
+  echo "$n" >> $DONE
+  case "$n" in *.admin.*) U=supabase_admin ;; *) U=postgres ;; esac
+  out=$(docker exec -i supabase-db psql -U $U -d postgres -v ON_ERROR_STOP=1 -1 -X -A < $f 2>&1); rc=$?
+  log "SQL $n ($U) rc=$rc"
+  jq -n --arg n "$n" --argjson rc $rc --arg out "$(printf '%s' "$out" | tail -c 60000)" --arg at "$(date -Is)" \
+     '{file:$n, rc:$rc, out:$out, at:$at}' > $BASE/sql-status/$n.json
+done
+
 if ! curl -sf -m 20 http://localhost:3000/api/version >/dev/null; then
   sleep 20; curl -sf -m 20 http://localhost:3000/api/version >/dev/null || { log "Sito fermo, lo riavvio"; systemctl restart fs-web; }
 fi
