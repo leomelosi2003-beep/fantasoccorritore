@@ -8,6 +8,7 @@ export const NOVITA: Novita[] = [
     items: [
       "🔥 Nel popup di un incendio c'è «Guarda l'incendio dal vivo»: tre scenari in base alla gravità (sterpaglie, bosco, interfaccia con le case).",
       "🚒 Le autobotti e i pickup AIB arrivano dalla strada, i volontari stendono il naspo e spengono il fronte; quando finiscono l'acqua vanno a ricaricare in sede e tornano (come succede davvero nel gioco).",
+      "⏱️ Nella scena i mezzi entrano solo negli ultimi secondi del viaggio, così arrivano sul posto insieme alla mappa principale; prima sono nell'elenco «In arrivo» con il conto alla rovescia.",
       "📊 In alto intensità, gravità, mezzi che spengono e quanti ne servono; il fronte si allarga o si restringe con l'intensità. Negli incendi gravi arriva anche l'elicottero con la benna.",
     ],
   },

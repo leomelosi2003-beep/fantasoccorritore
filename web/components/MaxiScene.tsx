@@ -394,7 +394,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const stretchers: { a: V3; b: V3; loaded: boolean; color?: string }[] = [];
       const props: { c: V3; s: V3; fill: string; edge: string; yaw?: number }[] = [];
       const flashes: V3[] = [];
-      let transported = 0, extricated = 0; const awayList: string[] = [];
+      let transported = 0, extricated = 0; const awayList: string[] = []; const comingList: { s: string; ms: number }[] = [];
       const firemen: { p: V3; pose: Pose }[] = [];
       const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
       // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
@@ -497,7 +497,12 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const approach = makePath(veh.pma
           ? [...entry.pts, [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [end[0], 0, PMA_Z], end]
           : [...entry.pts, [end[0], 0, ROAD_Z], end]);
-        const ease = 1 - (1 - p) ** 2;
+        // nella scena il mezzo entra solo negli ultimi secondi prima dell'arrivo vero, a velocità normale:
+        // prima è nell'elenco "in arrivo", così arriva sul posto nello stesso momento della mappa principale
+        const ENTRY = 18000;
+        if (now < a1 - ENTRY) { comingList.push({ s: `${veh.call_sign}${veh.pma ? " (PMA)" : ""}`, ms: a1 - now }); return; }
+        const pe = Math.max(0, Math.min(1, (now - (a1 - ENTRY)) / ENTRY));
+        const ease = pe < 1 ? 1 - (1 - pe) ** 1.6 : 1;
         const park = approach.at(approach.len).h;                               // resta parcheggiato come è arrivato
         const ap = approach.at(ease * approach.len);
         let pos = ap.p; let heading = p < 1 ? ap.h : park; let label = veh.pma ? "PMA" : "SUL POSTO"; let moving = p < 1; let doorsOpen = false;
@@ -958,12 +963,20 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         ctx.fillText("MODULI: " + [...modsOn].map((x) => nm[x] ?? x).join(" · "), 14, 109);
       }
       // mezzi fuori dalla scena (spola con l'ospedale, senza PMA)
+      // elenchi a sinistra sotto i dati: mezzi in arrivo (con i minuti) e mezzi fuori scena
+      let ly = 132; ctx.textAlign = "left"; ctx.font = "700 11px ui-monospace,monospace";
+      if (comingList.length) {
+        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText("🚨 IN ARRIVO SUL POSTO", 14, ly); ly += 15;
+        comingList.sort((a, b) => a.ms - b.ms).slice(0, 8).forEach((x) => {
+          const sec = Math.round(x.ms / 1000); ctx.fillStyle = "rgba(226,232,240,.9)";
+          ctx.fillText(`${x.s} · ${sec >= 60 ? `${Math.floor(sec / 60)}' ${String(sec % 60).padStart(2, "0")}"` : `${sec}"`}`, 14, ly); ly += 15; });
+        if (comingList.length > 8) { ctx.fillText(`+${comingList.length - 8}`, 14, ly); ly += 15; }
+        ly += 6;
+      }
       if (!hasPma && awayList.length) {
-        ctx.textAlign = "right"; ctx.font = "700 11px ui-monospace,monospace";
-        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText(FIRE ? "💧 FUORI SCENA · SPOLA PER L'ACQUA" : `🏥 FUORI SCENA · ${hosp?.name ?? "OSPEDALE"}`, W - 14, 24);
-        awayList.slice(0, 10).forEach((x, k) => { ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.fillText(x, W - 14, 40 + k * 15); });
-        if (awayList.length > 10) ctx.fillText(`+${awayList.length - 10}`, W - 14, 40 + 10 * 15);
-        ctx.textAlign = "left";
+        ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText(FIRE ? "💧 FUORI SCENA · SPOLA PER L'ACQUA" : `🏥 FUORI SCENA · ${hosp?.name ?? "OSPEDALE"}`, 14, ly); ly += 15;
+        awayList.slice(0, 8).forEach((x) => { ctx.fillStyle = "rgba(226,232,240,.9)"; ctx.fillText(x, 14, ly); ly += 15; });
+        if (awayList.length > 8) ctx.fillText(`+${awayList.length - 8}`, 14, ly);
       }
 
       // scritta grande animata (ultimo evento)
