@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-14h", date: "14 novembre 2026", title: "Niente più tassa patrimoniale",
+    items: ["💰 La tassa patrimoniale oraria è stata eliminata: il patrimonio non viene più tassato. Resta la trattenuta sui premi dei servizi."],
+  },
+  {
     id: "2026-11-14g", date: "14 novembre 2026", title: "Incendi: la scena dal vivo",
     items: [
       "🔥 Nel popup di un incendio c'è «Guarda l'incendio dal vivo»: tre scenari in base alla gravità (sterpaglie, bosco, interfaccia con le case).",
