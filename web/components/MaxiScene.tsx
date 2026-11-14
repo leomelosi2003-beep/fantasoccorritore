@@ -96,8 +96,8 @@ function buildScene(kind: string, seed: number) {
 
 // posti auto nell'area mezzi e area PMA
 const slot = (i: number): V3 => [-78 + (i % 6) * 12, 0, 40 + Math.floor(i / 6) * 13];
-const PMA: [number, number, number, number] = [28, 34, 62, 62];
-const pmaSlot = (i: number): V3 => [40 + (i % 2) * 14, 0, 40 + Math.floor(i / 2) * 9];
+const PMA: [number, number, number, number] = [48, 58, 86, 88];
+const pmaSlot = (i: number): V3 => [62 + (i % 2) * 14, 0, 64 + Math.floor(i / 2) * 9];
 const sceneSpot = (i: number): V3 => [-33 + (i % 6) * 12, 0, 27 + Math.floor(i / 6) * 9];
 type Cam = { yaw: number; el: number; dist: number; auto: boolean };
 export const VIEWS: { name: string; cam: Cam }[] = [
@@ -115,7 +115,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
   useEffect(() => {
     const v = VIEWS[view] ?? VIEWS[0]; const c = camRef.current;
     c.tYaw = v.cam.yaw; c.tEl = v.cam.el; c.tDist = v.cam.dist; c.auto = v.cam.auto;
-    c.tgtX = view === 3 ? 45 : 0; c.tgtZ = view === 3 ? 48 : 18;
+    c.tgtX = view === 3 ? 66 : 0; c.tgtZ = view === 3 ? 72 : 18;
   }, [view, viewKey]);
 
   useEffect(() => {
@@ -246,6 +246,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
 
       // ===== feriti: a terra intorno alla scena e DENTRO la scena (nei vagoni, sotto le macerie...) =====
       const pr = rng(seed + 7);
+      const lerp3c = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const inside = scene.boxes.filter((bx) => bx.s[0] * bx.s[2] > 20);
       type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry";
       const patients = Array.from({ length: 10 + (seed % 8) }, (_, k) => {
@@ -255,7 +256,9 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         if (trapped) { const bx = inside[k % inside.length]; p3 = [bx.c[0] + (pr() - 0.5) * bx.s[0] * 0.5, Math.max(0, bx.c[1] - bx.s[1] / 2 + 0.3), bx.c[2] + (pr() - 0.5) * 1]; }
         else p3 = [(pr() - 0.5) * 44, 0, 2 + pr() * 16];
         const pose: Pose = trapped ? (tri === "#22C55E" ? "wave" : "lie") : tri === "#EF4444" ? "lie" : tri === "#FACC15" ? (k % 2 ? "sit" : "lie") : "walk";
-        return { p: p3, home: p3, tri, pose, trapped, hidden: false, busy: false, ph: pr() * 6 };
+        const bx0 = trapped ? inside[k % inside.length] : null;
+        const handoff: V3 = bx0 ? [bx0.c[0] + (pr() - 0.5) * 4, 0, bx0.c[2] + bx0.s[2] / 2 + 4 + pr() * 2] : p3;
+        return { p: p3, home: p3, handoff, tri, pose, trapped, freed: !trapped, hidden: false, busy: false, ph: pr() * 6 };
       });
       // i feriti verdi camminano zoppicando vicino al loro punto
       for (const pt of patients) if (pt.pose === "walk") {
@@ -263,7 +266,31 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       }
       const people: { p: V3; pose: Pose; col: string }[] = [];
       const stretchers: { a: V3; b: V3; loaded: boolean }[] = [];
-      let transported = 0;
+      let transported = 0, extricated = 0;
+      const firemen: { p: V3; pose: Pose }[] = [];
+      const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
+      // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
+      const vvf: { p: V3; h: number; ladder: boolean }[] = [
+        { p: [-40, 0, -16], h: 0.3, ladder: false }, { p: [40, 0, -18], h: Math.PI - 0.3, ladder: true }, { p: [-8, 0, -34], h: 0, ladder: false }];
+      for (const pt of patients) if (pt.trapped) {
+        const cyc = ((now / 1000 + pt.ph * 6) % 36) / 36;
+        const g: V3 = [pt.home[0], 0, pt.home[2]];
+        if (cyc < 0.55) {            // taglio delle lamiere / rimozione macerie
+          firemen.push({ p: [g[0] - 1.2, 0, g[2] + 1.6], pose: "kneel" }, { p: [g[0] + 1.3, 0, g[2] + 1.4], pose: "kneel" });
+          if (Math.floor(t / 120) % 2 === 0) sparks.push([pt.home[0], pt.home[1] + 1, pt.home[2]]);
+          pt.freed = false;
+        } else if (cyc < 0.65) {     // lo portano fuori
+          const u = (cyc - 0.55) / 0.1; pt.p = lerp3c(pt.home, pt.handoff, u); pt.pose = "lie";
+          firemen.push({ p: [pt.p[0] - 1.3, 0, pt.p[2]], pose: "carry" }, { p: [pt.p[0] + 1.3, 0, pt.p[2]], pose: "carry" });
+          pt.freed = false;
+        } else { pt.p = pt.handoff; pt.pose = "lie"; pt.freed = true; extricated++;
+          firemen.push({ p: [pt.handoff[0] + 2.5, 0, pt.handoff[2] - 1], pose: "stand" }); }
+      }
+      // con fuoco: un vigile con la lancia spegne le fiamme
+      for (const e of scene.fx) if (e.kind === "fire") {
+        const from: V3 = [e.at[0] + 14, 0, e.at[2] + 14];
+        firemen.push({ p: from, pose: "stand" }); sprays.push({ from: [from[0], 1.6, from[2]], to: e.at });
+      }
 
       // ===== mezzi =====
       const vs = d.vehicles;
@@ -308,7 +335,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           const sinceArr = Math.max(0, (now - a1) / 1000);
           if (veh.moto || veh.automedica) {
             // primo soccorso: vanno dal ferito più grave e lo assistono
-            const pt = patients[(hash(veh.id) >>> 2) % patients.length]; pt.busy = true;
+            const avail2 = patients.filter((q) => q.freed); const pt = (avail2.length ? avail2 : patients)[(hash(veh.id) >>> 2) % (avail2.length || patients.length)]; pt.busy = true;
             const cyc = ((now / 1000 + off) % 30) / 30; const r0 = rear(end, park, 1.5);
             for (let r = 0; r < (veh.moto ? 1 : 2); r++) {
               const tgt: V3 = [pt.p[0] + (r ? 1 : -1), 0, pt.p[2] + 0.6];
@@ -320,8 +347,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             // ciclo del recupero (42 s): barella → ferito → cure → barella in ambulanza → PMA (o ospedale) → ritorno
             const CYC = 42; const tt = now / 1000 + off; const n = Math.floor(tt / CYC); const u = (tt % CYC) / CYC;
             transported += Math.max(0, Math.floor((sinceArr + (off % CYC)) / CYC));
-            const pt = patients[(hash(veh.id) + n * 5) % patients.length];
-            const dest: V3 = hasPma ? [31 + (myIdx % 4) * 2.5, 0, 56] : [start[0] * 0.95, 0, start[2] * 0.95];
+            const avail = patients.filter((q) => q.freed); const pt = (avail.length ? avail : patients)[(hash(veh.id) + n * 5) % (avail.length || patients.length)];
+            const dest: V3 = hasPma ? [51 + (myIdx % 4) * 2.5, 0, 80] : [start[0] * 0.95, 0, start[2] * 0.95];
             const rr = rear(end, park);
             const ptGround: V3 = [pt.p[0], 0, pt.p[2]];
             const pair = (c: V3, h: number, loaded: boolean, pose: Pose) => {   // due soccorritori ai capi della barella
@@ -341,7 +368,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             else if (u < 0.65) { pt.hidden = true; pos = lerp3(end, dest, (u - 0.5) / 0.15); heading = dirTo(end, dest); moving = true; label = hasPma ? "➜ PMA CON FERITO" : "➜ OSPEDALE"; }
             else if (u < 0.75) {
               pt.hidden = true; pos = dest; heading = dirTo(end, dest);
-              if (hasPma) { const r2 = rear(dest, heading); pair(lerp3(r2, [45, 0, 52], (u - 0.65) / 0.1), dirTo(r2, [45, 0, 52]), true, "carry"); label = "CONSEGNA AL PMA"; }
+              if (hasPma) { const r2 = rear(dest, heading); pair(lerp3(r2, [64, 0, 76], (u - 0.65) / 0.1), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
               else label = "IN OSPEDALE";
             }
             else if (u < 0.92) { pos = lerp3(dest, end, (u - 0.75) / 0.17); heading = dirTo(dest, end); moving = true; label = "RIENTRO SUL POSTO"; }
@@ -477,6 +504,34 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         } });
       }
       people.forEach((pp, k) => figure(pp.p, pp.pose, pp.col, t / 1000 + k * 0.7));
+      // mezzi VVF
+      for (const v of vvf) {
+        const cs = Math.cos(v.h), sn = Math.sin(v.h);
+        const part = (dx: number, dy: number, dz: number, w: number, h: number, dd: number, fill: string, edge = "#F87171") =>
+          addBox({ c: [v.p[0] + dx * cs - dz * sn, dy, v.p[2] + dx * sn + dz * cs], s: [w, h, dd], yaw: v.h, fill, edge });
+        const bl = Math.floor(t / 220) % 2 === 0 ? "rgba(59,130,246,.95)" : "rgba(147,197,253,.6)";
+        part(2.8, 1.5, 0, 2.2, 2.6, 2.5, "rgba(220,38,38,.9)");                 // cabina
+        part(3.95, 1.9, 0, 0.06, 0.9, 2.1, "rgba(56,189,248,.35)", "rgba(56,189,248,.6)");
+        part(-1.6, 1.6, 0, 6.6, 2.8, 2.5, "rgba(220,38,38,.85)");              // cassone
+        part(-1.6, 1.0, 1.27, 6.4, 0.3, 0.04, "rgba(250,250,250,.9)", "#FFF"); part(-1.6, 1.0, -1.27, 6.4, 0.3, 0.04, "rgba(250,250,250,.9)", "#FFF");
+        part(2.8, 2.95, 0, 0.5, 0.25, 2.1, bl, bl);
+        if (v.ladder) part(-1, 3.3, 0, 8.5, 0.35, 0.9, "rgba(203,213,225,.85)", "#CBD5E1"); // autoscala
+        for (const x of [2.8, -3.6]) for (const z of [-1.3, 1.3]) part(x, 0.5, z, 1, 1, 0.35, "rgba(15,23,42,.9)", "rgba(15,23,42,.9)");
+        const lp = P([v.p[0], 4.2, v.p[2]]);
+        if (lp && cam.dist < 160) draws.push({ z: lp[2] - 1, fn: () => { ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#F87171"; ctx.fillText("VVF", lp[0], lp[1]); } });
+      }
+      firemen.forEach((fm, k) => figure(fm.p, fm.pose, "#F87171", t / 1000 + k * 0.9 + 3));
+      for (const fm of firemen) { const hp = P([fm.p[0], fm.pose === "kneel" ? 1.95 : 3.05, fm.p[2]]); if (hp) draws.push({ z: hp[2] - 0.7, fn: () => { ctx.fillStyle = "#FACC15"; ctx.fillRect(hp[0] - 2, hp[1] - 1, 4, 2); } }); }
+      for (const sp of sparks) { const q = P(sp); if (q) draws.push({ z: q[2] - 0.8, fn: () => {
+        ctx.strokeStyle = "#FDE047"; ctx.lineWidth = 1.2; ctx.beginPath();
+        for (let k = 0; k < 7; k++) { const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 7; ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0] + Math.cos(a) * r, q[1] + Math.sin(a) * r - 2); }
+        ctx.stroke(); } }); }
+      for (const sp of sprays) {
+        for (let k = 0; k < 14; k++) {
+          const u = ((t / 900 + k / 14) % 1); const x = lerp3c(sp.from, sp.to, u); x[1] += Math.sin(u * Math.PI) * 6;
+          const q = P(x); if (q) draws.push({ z: q[2] - 0.5, fn: () => { ctx.fillStyle = "rgba(125,211,252,.85)"; ctx.beginPath(); ctx.arc(q[0], q[1], 1.8, 0, Math.PI * 2); ctx.fill(); } });
+        }
+      }
       draws.sort((a, b) => b.z - a.z).forEach((x) => x.fn());
 
       // folla
@@ -510,7 +565,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       ctx.fillStyle = "rgba(255,255,255,.75)";
       ctx.fillText(dt.toLocaleTimeString("it-IT") + " · " + d.lat.toFixed(4) + "N " + d.lng.toFixed(4) + "E", 14, 40);
       ctx.fillStyle = WHITE; ctx.font = "800 12px ui-monospace,monospace";
-      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}`, 14, 58);
+      ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
       const remaining = Math.max(0, injured - transported); const red = Math.round(remaining * 0.15), yel = Math.round(remaining * 0.35), grn = remaining - red - yel;
       const left = Math.max(0, injured - transported);
       ctx.fillText(`FERITI ${left} · TRASPORTATI ${Math.min(injured, transported)} ·`, 14, 75);
