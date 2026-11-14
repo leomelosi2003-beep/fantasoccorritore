@@ -9,7 +9,7 @@ import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
   lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; long_emergency?: boolean; service_due?: boolean; issue_open?: boolean; issue_title?: string | null;
-  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; moor_lat?: number | null; moor_lng?: number | null };
+  fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; maxi?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
 function km(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -144,7 +144,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,moor_lat,moor_lng,service_due,issue_open,issue_title").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,maxi,moor_lat,moor_lng,service_due,issue_open,issue_title").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -170,6 +170,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
     if (fire && !v.aib) return "all'incendio va solo un mezzo antincendio (AIB)";
     if (v.aib && !fire) return "il mezzo antincendio va solo sugli incendi boschivi";
+    if (v.maxi && !(mission.category === "grande_evento" && !mission.event_id && !fire)) return "il mezzo maxi va solo sulle maxi emergenze";
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";
@@ -201,7 +202,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const have = (Number(v.battery_pct ?? 0) / 100) * (v.range_km ?? 0);
       if (need > have) return `batteria scarica: ${Math.round(have)} km, ne servono ${Math.round(need)}`;
     }
-    if (v.automedica) return null; // ECG e defibrillatore già a bordo
+    if (v.automedica || v.maxi) return null; // ECG e defibrillatore già a bordo; i mezzi maxi portano moduli, non presidi
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
       return "solo trasporti";
     const p = provides(v.equipment);
@@ -534,7 +535,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           return v ? (
             <div style={{ border: "2px solid " + code.color, borderRadius: 12, padding: 10, marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 22 }}>{v.boat ? "⛵" : v.moto ? "🛵" : v.automedica ? "🩺" : v.aib ? "🚒" : "🚑"}</span>
+                <span style={{ fontSize: 22 }}>{v.boat ? "⛵" : v.moto ? "🛵" : v.automedica ? "🩺" : v.aib ? "🚒" : v.maxi ? "🚛" : "🚑"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800 }}>{v.call_sign}</div>
                   <div style={{ fontSize: 12, color: "#555" }}>{eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>

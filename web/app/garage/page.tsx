@@ -11,7 +11,7 @@ import TutorialCoach from "@/components/TutorialCoach";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number; vmax_kmh?: number | null; agility?: number | null;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
-  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; transfer_only?: boolean };
+  tank_liters: number; consumption_l100: number; electric?: boolean; range_km?: number | null; ability_label?: string | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; maxi?: boolean; maxi_slots?: number; transfer_only?: boolean };
 type Builder = { id: string; name: string; cost: number; value_score: number; reliability: number;
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
@@ -29,7 +29,7 @@ const SERVICE_KM = 15000; // revisione obbligatoria ogni 15.000 km (tutti i mezz
 const SERVICE_WARN = 2000; // avviso negli ultimi 2.000 km
 const kmFmt = (n: number) => Math.round(n).toLocaleString("it-IT") + " km";
 // Tipo di mezzo nel garage (per ordinare e filtrare)
-type Kind = "emergenza" | "ordinaria" | "passo_lungo" | "automedica" | "moto" | "barca" | "aib";
+type Kind = "emergenza" | "ordinaria" | "passo_lungo" | "automedica" | "moto" | "barca" | "aib" | "maxi";
 const KINDS: { k: Kind; icon: string; label: string }[] = [
   { k: "emergenza", icon: "🚑", label: "Emergenza" },
   { k: "ordinaria", icon: "🚗", label: "Ordinarie" },
@@ -38,6 +38,7 @@ const KINDS: { k: Kind; icon: string; label: string }[] = [
   { k: "moto", icon: "🛵", label: "Moto" },
   { k: "barca", icon: "⛵", label: "Barche" },
   { k: "aib", icon: "🔥", label: "Antincendio" },
+  { k: "maxi", icon: "🆘", label: "Maxi emergenze" },
 ];
 const kindRank = (k: Kind) => KINDS.findIndex((x) => x.k === k);
 type Cert = "trasporto" | "base" | "avanzata_rianimazione";
@@ -64,7 +65,7 @@ const CAN: Record<string, string> = {
   cucchiaio: "Cadute dall'alto", steccobende: "Fratture",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
-type Power = "gasolio" | "elettrica" | "automedica" | "moto" | "barca" | "ordinaria" | "aib";
+type Power = "gasolio" | "elettrica" | "automedica" | "moto" | "barca" | "ordinaria" | "aib" | "maxi";
 const TYPES: { k: Power; icon: string; label: string; color: string; what: string; info: string }[] = [
   { k: "gasolio", icon: "🚑", label: "Ambulanza", color: "#111", what: "Emergenze 118: verdi, gialli e rossi",
     info: "Il mezzo di base del gioco: fa tutte le emergenze 118. Più presidi monti, più tipi di servizio può fare." },
@@ -80,6 +81,8 @@ const TYPES: { k: Power; icon: string; label: string; color: string; what: strin
     info: "Costa poco e non monta presidi. È l'unico mezzo che fa dimissioni e trasporti ordinari." },
   { k: "aib", icon: "🔥", label: "Antincendio (AIB)", color: "#C2410C", what: "Incendi boschivi",
     info: "Pickup 4x4 con acqua e naspo: va solo sugli incendi boschivi, con volontari AIB a bordo." },
+  { k: "maxi", icon: "🆘", label: "Maxi emergenze", color: "#B91C1C", what: "PMA, logistica, cinofila, droni",
+    info: "Camion e furgone comando: vanno solo sulle maxi emergenze. Dentro ci carichi i moduli (PMA, unità logistica, ricerca e soccorso/cinofila, droni) da Officina → Presidi: più moduli, più guadagni sulla maxi. Col PMA i feriti vanno al PMA invece che in ospedale." },
 ];
 // Kit di presidi pronti (chiave = slot)
 const KITS: { k: string; label: string; what: string; pick: Record<string, string> }[] = [
@@ -183,10 +186,10 @@ export default function Garage() {
   const firstVehicle = vehicles.length === 0;
   const priceOf = (e: Equip) => (firstVehicle && e.starter ? 0 : e.cost);
   const eqCost = equip.filter((e) => pickedCodes.includes(e.code)).reduce((t, e) => t + priceOf(e), 0);
-  const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + (model?.ordinaria || model?.aib ? 0 : eqCost);
+  const total = (model?.base_cost ?? 0) + (builder?.cost ?? 0) + (model?.ordinaria || model?.aib || model?.maxi ? 0 : eqCost);
   const isAm = !!model?.automedica || !!model?.boat; // automedica, moto e barca non hanno la barella
   const isOrd = !!model?.ordinaria; // macchine ordinarie: niente presidi da scegliere
-  const isAib = !!model?.aib; // mezzi antincendio: niente presidi
+  const isAib = !!model?.aib || !!model?.maxi; // mezzi antincendio e maxi: niente presidi (i moduli maxi si montano in Officina)
   const noKit = isOrd || isAib;
   const ready = !!model && !!builder && (noKit || (!!picked.monitor && (isAm || !!picked.barella)));
   // passo della guida all'acquisto: 1 modello, 2 allestitore, 3 presidi, 4 sigla e compra
@@ -220,6 +223,7 @@ export default function Garage() {
     if (!m) return "emergenza";
     if (m.boat) return "barca";
     if (m.aib) return "aib";
+    if (m.maxi) return "maxi";
     if (m.moto) return "moto";
     if (m.automedica) return "automedica";
     if (m.ordinaria || v.converted_ordinaria) return "ordinaria";
@@ -288,7 +292,7 @@ export default function Garage() {
     for (const cs of list) {
       const { error } = await supabase.rpc("buy_vehicle", {
         p_model_id: model.id, p_builder_id: builder.id, p_base_id: baseId, p_call_sign: cs,
-        p_equipment: model.ordinaria || model.aib ? [] : pickedCodes,
+        p_equipment: model.ordinaria || model.aib || model.maxi ? [] : pickedCodes,
       });
       if (error) { err = `${cs}: ${garageError(error.message)}`; break; }
       done.push(cs);
@@ -494,7 +498,7 @@ export default function Garage() {
         {/* Acquisto: negozio guidato, un passo alla volta */}
         {shop && (() => {
           const typeModels = (k: Power) => models.filter((m) =>
-            k === "barca" ? !!m.boat : m.boat ? false : k === "aib" ? !!m.aib : m.aib ? false :
+            k === "maxi" ? !!m.maxi : m.maxi ? false : k === "barca" ? !!m.boat : m.boat ? false : k === "aib" ? !!m.aib : m.aib ? false :
             k === "ordinaria" ? !!m.ordinaria : m.ordinaria ? false : k === "moto" ? !!m.moto :
             k === "automedica" ? !!m.automedica && !m.moto : !m.automedica && (k === "elettrica") === !!m.electric);
           const T = TYPES.find((t) => t.k === power)!;
@@ -945,7 +949,7 @@ export default function Garage() {
                     </button>
                   )}
                   {(() => {
-                    const conv = !!m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.transfer_only;
+                    const conv = !!m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.maxi && !m.transfer_only;
                     const km = kmEm(v);
                     const tot = Number(v.odometer_km ?? 0);
                     const ks = kmServ(v);
@@ -1034,7 +1038,7 @@ export default function Garage() {
                       Manutenzione · {euro(cost)}
                     </button>
                   )}
-                  {m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && (() => {
+                  {m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.maxi && (() => {
                     const cur = v.converted_ordinaria ? "ordinari" : (m.transfer_only && !v.long_emergency) ? "trasferimenti" : "emergenze";
                     const opts: [string, string][] = m.transfer_only
                       ? [["trasferimenti", "⇄ Solo trasferimenti"], ["emergenze", "🚨 Trasf. + emergenze"], ["ordinari", "🚗 Solo ordinari"]]

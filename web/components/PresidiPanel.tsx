@@ -5,19 +5,22 @@ import { supabase } from "@/lib/supabase";
 
 type Eq = { code: string; slot: string; name: string; cost: number; category: string; description: string | null; sort: number };
 type V = { id: string; call_sign: string; status: string; equipment: string[] | null; base_id: string | null; base_name: string | null;
-           mine: boolean; boat: boolean; aib: boolean; ordinaria: boolean };
+           mine: boolean; boat: boolean; aib: boolean; ordinaria: boolean; maxi?: boolean };
 
 const SLOT_NAMES: Record<string, string> = {
   barella: "Barella", borsoni: "Borsoni", monitor: "Monitor / DAE", massaggiatore: "Massaggiatore",
   collari: "Collari", cucchiaio: "Barella a cucchiaio", ked: "KED", materasso: "Materasso a depressione",
   spinale: "Tavola spinale", spinale_ped: "Tavola spinale pediatrica", steccobende: "Steccobende",
+  maxi_pma: "🆘 Modulo PMA", maxi_logistica: "🆘 Modulo logistica", maxi_cinofila: "🆘 Modulo ricerca/cinofila", maxi_droni: "🆘 Modulo droni",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 const btn: CSSProperties = { border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, cursor: "pointer", fontSize: 13 };
 const ERR: Record<string, string> = {
   VEHICLE_BUSY: "Il mezzo è in servizio: aspetta che rientri.", NO_STOCK: "Non ce l'hai in magazzino: compralo prima.",
   INSUFFICIENT_FUNDS: "Soldi insufficienti.", ALREADY_INSTALLED: "È già montato su questo mezzo.",
-  NO_EQUIPMENT_ON_THIS_VEHICLE: "Questo mezzo non porta presidi.", NOT_INSTALLED: "Non è montato su questo mezzo.",
+  NO_EQUIPMENT_ON_THIS_VEHICLE: "Questo mezzo non porta questi presidi.",
+  MAXI_MODULE_ONLY: "I moduli maxi vanno solo sul camion o sul furgone per le maxi emergenze.",
+  MAXI_SLOTS_FULL: "Il mezzo è pieno: il camion porta 3 moduli, il furgone 2. Togline uno prima.", NOT_INSTALLED: "Non è montato su questo mezzo.",
 };
 const errText = (m: string) => Object.entries(ERR).find(([k]) => m.includes(k))?.[1] ?? m;
 
@@ -35,7 +38,7 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
   const load = useCallback(async () => {
     const [e, f, s] = await Promise.all([
       supabase.from("equipment").select("code,slot,name,cost,category,description,sort").order("slot").order("sort"),
-      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,ordinaria").order("call_sign"),
+      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,ordinaria,maxi").order("call_sign"),
       supabase.from("org_equipment_stock").select("code,qty"),
     ]);
     setEq((e.data as Eq[]) ?? []);
@@ -109,7 +112,7 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
                 </div>
                 {openV === v.id && (
                   <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                    {slots.map((slot) => {
+                    {slots.filter((slot) => slot.startsWith("maxi_") === !!v.maxi).map((slot) => {
                       const cur = mounted.find((c) => byCode[c]?.slot === slot);
                       const alts = eq.filter((e) => e.slot === slot && e.code !== cur);
                       const key = v.id + slot;
@@ -124,7 +127,7 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
                               <select value={moveTo[key] ?? ""} onChange={(ev) => setMoveTo((m) => ({ ...m, [key]: ev.target.value }))}
                                       style={{ padding: 4, borderRadius: 6, border: "1px solid #ccc", maxWidth: 160 }}>
                                 <option value="">Sposta su…</option>
-                                {veh.filter((x) => x.id !== v.id && !(x.equipment ?? []).includes(cur)).map((x) => <option key={x.id} value={x.id}>{x.call_sign}</option>)}
+                                {veh.filter((x) => x.id !== v.id && !!x.maxi === !!v.maxi && !(x.equipment ?? []).includes(cur)).map((x) => <option key={x.id} value={x.id}>{x.call_sign}</option>)}
                               </select>
                               {moveTo[key] && (
                                 <button disabled={busy || !inBase} onClick={() => run("equip_move", { p_from: v.id, p_to: moveTo[key], p_code: cur },

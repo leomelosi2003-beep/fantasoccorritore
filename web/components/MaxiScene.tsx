@@ -8,6 +8,7 @@ export type SceneVehicle = {
   id: string; call_sign: string; org_name: string; mine: boolean; status: string;
   assigned_at: string; arrives_at: string; completes_at?: string | null;
   base_lat: number | null; base_lng: number | null; automedica?: boolean; moto?: boolean; pma?: boolean; long?: boolean;
+  maxi?: "camion" | "furgone" | null; modules?: string[];   // mezzi per le maxi emergenze e moduli caricati
 };
 export type SceneData = {
   id: string; title: string; description?: string | null; lat: number; lng: number;
@@ -101,6 +102,7 @@ function buildScene(kind: string, seed: number) {
 const slot = (i: number): V3 => [-78 + (i % 6) * 12, 0, 40 + Math.floor(i / 6) * 13];
 const PMA: [number, number, number, number] = [48, 58, 86, 88];
 const pmaSlot = (i: number): V3 => [62 + (i % 2) * 14, 0, 64 + Math.floor(i / 2) * 9];
+const maxiSlot = (i: number): V3 => [16 + (i % 3) * 13, 0, 46 + Math.floor(i / 3) * 12];   // area logistica, a sud della strada
 const sceneSpot = (i: number): V3 => [-33 + (i % 6) * 12, 0, 27 + Math.floor(i / 6) * 9];
 type Cam = { yaw: number; el: number; dist: number; auto: boolean };
 // percorso su strada: polilinea con corsia di destra, posizione e direzione a una certa distanza
@@ -400,7 +402,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // ===== mezzi =====
       const vs = d.vehicles;
       const cLat = Math.cos((d.lat * Math.PI) / 180);
-      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0;
+      let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0, mxIdx = 0; const modsOn = new Set<string>();
       const hasPma = vs.some((v) => v.pma && Date.parse(v.arrives_at) <= now && v.status !== "conclusa");
       const CENTER: V3 = [0, 0, 8];
       const hosp = d.hospital;
@@ -425,8 +427,9 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         let ang = (hash(veh.id) % 628) / 100;
         if (veh.base_lat != null && veh.base_lng != null) ang = Math.atan2((veh.base_lng - d.lng) * cLat, veh.base_lat - d.lat);
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
-        const myIdx = veh.pma ? pmaIdx++ : amb++;
-        const end = veh.pma ? pmaSlot(myIdx % 6) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
+        const isMaxiV = !!veh.maxi && !veh.pma;
+        const myIdx = veh.pma ? pmaIdx++ : isMaxiV ? mxIdx++ : amb++;
+        const end = veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
         // entra dalla strada più vicina alla direzione della sua sede
         const sd: [number, number] = [Math.sin(ang), -Math.cos(ang)];
         const entry = ENTRIES.reduce((b, e) => { const l = Math.hypot(...e.dir); const v = (e.dir[0] * sd[0] + e.dir[1] * sd[1]) / l; return v > b.v ? { e, v } : b; }, { e: ENTRIES[0], v: -9 }).e;
@@ -441,7 +444,57 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const rear = (q: V3, h: number, dd = 3.4): V3 => [q[0] - fwd(h)[0] * dd, 0, q[2] - fwd(h)[2] * dd];
         const crewCol = veh.mine ? "#FFB199" : "#BFE0FF";
 
-        if (p >= 1 && !veh.pma) {
+        if (p >= 1) for (const md of veh.modules ?? []) modsOn.add(md);
+        if (p >= 1 && isMaxiV) {
+          // mezzi maxi: ogni modulo caricato ha la sua attività
+          const mods = veh.modules ?? []; const r0 = rear(end, park, 4.5); const ph = (hash(veh.id) % 100) / 10;
+          label = mods.length ? mods.map((md) => ({ unita_logistica: "LOGISTICA", unita_cinofila: "CINOFILA", unita_droni: "DRONI", pma_tenda: "PMA" } as Record<string, string>)[md] ?? "").filter(Boolean).join(" · ") : "SUL POSTO";
+          doorsOpen = true;
+          if (!mods.length) people.push({ p: [r0[0], 0, r0[2] + 1], pose: "stand", col: crewCol });
+          if (mods.includes("unita_logistica")) {
+            const g: V3 = [end[0] + 2, 0, end[2] + 8];
+            addBox({ c: [g[0], 1.6, g[2]], s: [6, 3.2, 5], yaw: 0, fill: "rgba(241,245,249,.25)", edge: "rgba(241,245,249,.9)" });       // gazebo
+            addBox({ c: [g[0], 3.3, g[2]], s: [6.4, 0.25, 5.4], yaw: 0, fill: "rgba(249,115,22,.85)", edge: "#F97316" });
+            props.push({ c: [end[0] - 6, 0.6, end[2] + 6], s: [1.8, 1.2, 1.1], fill: "rgba(249,115,22,.9)", edge: "#F97316" });           // generatore
+            props.push({ c: [end[0] - 6, 4, end[2] + 2], s: [0.15, 8, 0.15], fill: "rgba(203,213,225,.9)", edge: "#CBD5E1" });           // torre faro
+            props.push({ c: [end[0] - 6, 8.2, end[2] + 2], s: [1.6, 0.5, 0.5], fill: "rgba(254,249,195,.98)", edge: "#FEF9C3" });
+            const lt = P([end[0] - 6, 8.2, end[2] + 2]);
+            if (lt) draws.push({ z: lt[2] - 3, fn: () => { const gr = ctx.createRadialGradient(lt[0], lt[1], 0, lt[0], lt[1], 40); gr.addColorStop(0, "rgba(254,249,195,.55)"); gr.addColorStop(1, "rgba(254,249,195,0)"); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(lt[0], lt[1], 40, 0, Math.PI * 2); ctx.fill(); } });
+            const u = ((now / 1000 + ph) % 16) / 16; const a = r0, b: V3 = [g[0], 0, g[2] - 3];
+            people.push({ p: u < 0.5 ? lerp3(a, b, u * 2) : lerp3(b, a, (u - 0.5) * 2), pose: u < 0.5 ? "carry" : "walk", col: crewCol });
+            people.push({ p: [g[0] - 1.5, 0, g[2]], pose: "stand", col: crewCol }, { p: [g[0] + 1.5, 0, g[2] + 0.5], pose: "sit", col: "#E2E8F0" });
+          }
+          if (mods.includes("unita_cinofila")) {
+            for (let k = 0; k < 2; k++) {
+              const tt2 = now / 1000 / 7 + k * 2.1 + ph; const rad = 9 + 6 * Math.sin(tt2 * 0.7 + k);
+              const dp: V3 = [CENTER[0] + Math.cos(tt2) * rad, 0, CENTER[2] - 6 + Math.sin(tt2 * 1.3) * rad * 0.6];
+              const dh = Math.atan2(Math.cos(tt2 * 1.3) * 1.3 * rad * 0.6, -Math.sin(tt2) * rad);
+              const sniff = Math.abs(Math.sin(now / 160 + k)) * 0.12;
+              props.push({ c: [dp[0], 0.65, dp[2]], s: [1.3, 0.45, 0.45], fill: "rgba(161,98,7,.95)", edge: "#A16207", yaw: dh });                  // cane
+              props.push({ c: [dp[0] + Math.cos(dh) * 0.8, 0.75 - sniff, dp[2] + Math.sin(dh) * 0.8], s: [0.45, 0.35, 0.35], fill: "rgba(120,53,15,.95)", edge: "#78350F", yaw: dh });
+              for (const lx of [0.45, -0.45]) props.push({ c: [dp[0] + Math.cos(dh) * lx, 0.22, dp[2] + Math.sin(dh) * lx], s: [0.12, 0.44, 0.5], fill: "rgba(120,53,15,.95)", edge: "#78350F", yaw: dh });
+              people.push({ p: [dp[0] - Math.cos(dh) * 2.6, 0, dp[2] - Math.sin(dh) * 2.6], pose: "walk", col: "#FDBA74" });
+              if (((now / 1000 + k * 9 + ph) % 22) < 3) {                       // il cane segnala un disperso
+                flashes.push([dp[0], 0.8, dp[2]]); const q = P([dp[0], 3, dp[2]]);
+                if (q) draws.push({ z: q[2] - 2, fn: () => { ctx.font = "800 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#FDE68A"; ctx.fillText("🐕 SEGNALAZIONE", q[0], q[1] - 8); } });
+              }
+            }
+          }
+          if (mods.includes("unita_droni")) {
+            people.push({ p: [r0[0] + 1.5, 0, r0[2] + 2], pose: "film", col: crewCol });
+            for (let k = 0; k < 2; k++) {
+              const a = now / 1000 / 6 + k * Math.PI + ph; const dp: V3 = [CENTER[0] + Math.cos(a) * (18 + k * 8), 20 + k * 4 + Math.sin(now / 700 + k) * 0.6, CENTER[2] + Math.sin(a) * (14 + k * 6)];
+              props.push({ c: dp, s: [0.8, 0.25, 0.8], fill: "rgba(30,41,59,.95)", edge: "#94A3B8" });
+              props.push({ c: dp, s: [2.6, 0.08, 0.18], fill: "rgba(148,163,184,.9)", edge: "#94A3B8", yaw: Math.PI / 4 }, { c: dp, s: [2.6, 0.08, 0.18], fill: "rgba(148,163,184,.9)", edge: "#94A3B8", yaw: -Math.PI / 4 });
+              props.push({ c: [dp[0], dp[1] - 0.2, dp[2]], s: [0.2, 0.15, 0.2], fill: Math.floor(now / 300) % 2 ? "rgba(239,68,68,.95)" : "rgba(34,197,94,.95)", edge: "#fff" });
+              const top = P(dp), gnd = P([dp[0], 0, dp[2]]);
+              if (top && gnd) draws.push({ z: gnd[2] - 0.2, fn: () => {      // cono della termocamera
+                const gr = ctx.createLinearGradient(top[0], top[1], gnd[0], gnd[1]); gr.addColorStop(0, "rgba(250,204,21,.35)"); gr.addColorStop(1, "rgba(250,204,21,0)");
+                ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(gnd[0] - 22, gnd[1]); ctx.lineTo(gnd[0] + 22, gnd[1]); ctx.closePath(); ctx.fill(); } });
+            }
+          }
+        }
+        if (p >= 1 && !veh.pma && !isMaxiV) {
           const off = hash(veh.id) % 40;
           const sinceArr = Math.max(0, (now - a1) / 1000);
           if (veh.moto || veh.automedica) {
@@ -538,7 +591,24 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const bar2 = blinkOn ? "rgba(59,130,246,.95)" : "rgba(239,68,68,.95)";
         const dark = "rgba(15,23,42,.9)", glass = "rgba(56,189,248,.35)";
         const wheels = (xs: number[], half: number, r = 0.45) => { for (const x of xs) for (const z of [-half, half]) part(x, r, z, r * 2, r * 2, 0.35, dark, dark); };
-        if (veh.pma) {
+        if (veh.maxi === "camion") {                                         // camion maxi: cabina + cassone, fasce arancio/gialle
+          part(4.6, 1.9, 0, 2.2, 2.9, 2.6, "rgba(241,245,249,.94)");
+          part(5.72, 2.3, 0, 0.06, 1.1, 2.2, glass, glass);
+          part(-1.4, 2.6, 0, 9.2, 3.9, 2.8, "rgba(241,245,249,.92)");
+          for (const z of [1.42, -1.42]) { part(-1.4, 2.4, z, 9, 0.35, 0.04, "rgba(249,115,22,.95)", "#F97316"); part(-1.4, 1.5, z, 9, 0.3, 0.04, "rgba(250,204,21,.95)", "#FACC15"); }
+          part(4.6, 3.45, 0, 0.5, 0.22, 1.8, bar, bar); part(-5.9, 4.65, 0.9, 0.3, 0.2, 0.3, bar2, bar2);
+          if (doorsOpen) part(-6.3, 0.6, 0, 1.4, 0.12, 2.6, "rgba(148,163,184,.9)", "#94A3B8");   // sponda idraulica giù
+          wheels([4.4, -3.4, -4.9], 1.3, 0.6);
+        } else if (veh.maxi === "furgone") {                                 // furgone comando giallo con torre faro
+          part(-0.4, 1.9, 0, 6.2, 2.9, 2.4, "rgba(250,204,21,.92)", "#FACC15");
+          part(3.15, 1.35, 0, 1.5, 1.8, 2.3, "rgba(250,204,21,.92)", "#FACC15");
+          part(3.92, 1.7, 0, 0.06, 0.8, 2.0, glass, glass);
+          for (const z of [1.22, -1.22]) part(-0.4, 1.5, z, 6, 0.3, 0.04, "rgba(30,58,138,.95)", "#1E3A8A");
+          part(-1.2, 3.55, 0, 3.8, 0.12, 0.5, "rgba(203,213,225,.9)", "#CBD5E1");                  // traliccio torre faro
+          part(0.8, 3.6, 0, 1.2, 0.35, 0.9, "rgba(241,245,249,.9)");                               // condizionatore
+          part(3, 3.45, 0, 0.45, 0.22, 2.0, bar, bar); part(-3.3, 3.45, 0, 0.3, 0.22, 1.6, bar2, bar2);
+          wheels([2.8, -2.4], 1.15, 0.5);
+        } else if (veh.pma) {
           part(3.8, 1.5, 0, 2, 2.6, 2.5, "rgba(241,245,249,.92)");
           part(4.75, 2, 0, 0.1, 1, 2.1, glass, glass);
           part(-1.6, 2.1, 0, 7.4, 3.4, 2.7, "rgba(52,211,153,.8)", "#34D399");
@@ -580,8 +650,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           addBox({ c: [pos[0] + 2, 4.1, pos[2] + 8], s: [3, 0.1, 0.8], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
           addBox({ c: [pos[0] + 2, 4.1, pos[2] + 8], s: [0.8, 0.1, 3], yaw: 0, fill: "rgba(239,68,68,.95)", edge: "#EF4444" });
         }
-        const lp = P([pos[0], veh.pma ? 5 : veh.moto ? 2.6 : 3.8, pos[2]]);
-        const showLab = p < 1 || moving || veh.mine || veh.pma || cam.dist < 110;
+        const lp = P([pos[0], veh.maxi ? 5.4 : veh.pma ? 5 : veh.moto ? 2.6 : 3.8, pos[2]]);
+        const showLab = p < 1 || moving || veh.mine || veh.pma || !!veh.maxi || cam.dist < 110;
         if (lp && showLab) draws.push({ z: lp[2] - 1, fn: () => {
           ctx.font = "700 10px ui-monospace,monospace"; ctx.textAlign = "center";
           const eta = Math.max(0, Math.round((a1 - now) / 1000));
@@ -750,6 +820,11 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const rem = Math.max(0, Math.round((Date.parse(d.ends_at) - now) / 1000));
         ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.font = "700 11px ui-monospace,monospace";
         ctx.fillText(`FINE INTERVENTO TRA ${Math.floor(rem / 3600)}h ${String(Math.floor((rem % 3600) / 60)).padStart(2, "0")}m`, 14, 92);
+      }
+      if (modsOn.size) {
+        const nm: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ LOGISTICA", unita_cinofila: "🐕 CINOFILA", unita_droni: "🛸 DRONI" };
+        ctx.fillStyle = "#FDE68A"; ctx.font = "700 11px ui-monospace,monospace";
+        ctx.fillText("MODULI: " + [...modsOn].map((x) => nm[x] ?? x).join(" · "), 14, 109);
       }
       // mezzi fuori dalla scena (spola con l'ospedale, senza PMA)
       if (!hasPma && awayList.length) {

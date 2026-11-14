@@ -15,11 +15,13 @@ const DEMO: Record<string, string> = {
 // scena di prova: 12 mezzi che arrivano a scaglioni, ricomincia ogni 2 minuti
 function demoData(s: string, noPma = false): SceneData {
   const t0 = Date.now() - (Date.now() % 120000);
-  const sigle = ["CVL 12", "PA 7", "PMA CVL", "MISE 21", "CRI 4", "CVL 31", "SVS 9", "PA 15", "CRI 22", "CVL 5", "MISE 3", "AUTOMED 1", "MOTO 2"];
+  const sigle = ["CVL 12", "PA 7", "PMA CVL", "MISE 21", "CRI 4", "LOG 1", "CVL 31", "SVS 9", "COM 1", "PA 15", "CRI 22", "CVL 5", "MISE 3", "AUTOMED 1", "MOTO 2"];
   const vehicles: SceneVehicle[] = sigle.map((c, i) => ({
     id: "demo" + i, call_sign: c, org_name: i % 3 === 0 ? "La tua associazione" : "Altra associazione", mine: i % 3 === 0,
     status: "in_viaggio", assigned_at: new Date(t0 + i * 7000).toISOString(), arrives_at: new Date(t0 + i * 7000 + 25000 + (i % 4) * 6000).toISOString(),
     base_lat: 43.55 + Math.sin(i * 1.7) * 0.2, base_lng: 10.32 + Math.cos(i * 1.7) * 0.2, automedica: c.startsWith("AUTOMED"), moto: c.startsWith("MOTO"), pma: c.startsWith("PMA"),
+    maxi: c.startsWith("PMA") || c.startsWith("LOG") ? "camion" as const : c.startsWith("COM") ? "furgone" as const : null,
+    modules: c.startsWith("PMA") ? ["pma_tenda"] : c.startsWith("LOG") ? ["unita_logistica", "unita_cinofila"] : c.startsWith("COM") ? ["unita_droni"] : [],
   })).filter((v) => Date.parse(v.assigned_at) <= Date.now() && !(noPma && v.pma));
   return { id: "demo-" + s, title: DEMO[s] ?? DEMO.deragliamento, lat: 43.55, lng: 10.32, created_at: new Date(t0).toISOString(),
            ends_at: new Date(t0 + 2 * 3600 * 1000).toISOString(), vehicles,
