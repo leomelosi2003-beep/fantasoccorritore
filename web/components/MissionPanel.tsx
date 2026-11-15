@@ -91,6 +91,8 @@ function claimError(m: string) {
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
+  if (m.includes("PC_NEEDS_MAXI")) return "Alle missioni di protezione civile vanno solo i camion e i furgoni maxi.";
+  if (m.includes("PC_NEEDS_MODULE")) return "Su questo mezzo manca il modulo che serve (leggi la descrizione): montalo dal Negozio presidi.";
   if (m.includes("ISLAND")) return "Le ambulanze non attraversano il mare: per le isole servono mezzi con sede sull'isola (o una barca).";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
@@ -180,7 +182,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
     if (fire && !v.aib) return "all'incendio va solo un mezzo antincendio (AIB)";
     if (v.aib && !fire) return "il mezzo antincendio va solo sugli incendi boschivi";
-    if (v.maxi && !(mission.category === "grande_evento" && !mission.event_id && !fire)) return "il mezzo maxi va solo sulle maxi emergenze";
+    if (v.maxi && !(mission.category === "grande_evento" && !mission.event_id && !fire)) return "il mezzo maxi va solo sulle maxi emergenze e sulle missioni di protezione civile";
+    if (mission.category === "grande_evento" && !mission.event_id && mission.venue === "PC" && !v.maxi) return "qui vanno solo camion e furgoni maxi con i moduli";
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";
@@ -401,8 +404,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const canGo = !!vehicleId && crew.length > 0 && missing.length === 0 && !busy && (secondsLeft > 0 || contest || support || companion) && !full;
   const isEvent = mission.category === "grande_evento";
   const isFire = isEvent && !mission.event_id && mission.venue === "AIB";
-  const isMaxi = isEvent && !mission.event_id && mission.venue !== "AIB";
+  const isPC = isEvent && !mission.event_id && mission.venue === "PC";
+  const isMaxi = isEvent && !mission.event_id && mission.venue !== "AIB" && !isPC;
   const code = isFire ? { label: "🔥 Incendio boschivo", color: "#C2410C" }
+    : isPC ? { label: "🦺 Protezione civile", color: "#13294B" }
     : isMaxi ? { label: "🆘 Maxi-emergenza", color: "#DC2626" }
     : isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
@@ -416,7 +421,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.9, textTransform: "uppercase" }}>{code.label}</div>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>{mission.title}</div>
-            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{(isMaxi || isFire) ? mission.description : `${mission.venue} · ${mission.description}`}</div>}
+            {isEvent && <div style={{ fontSize: 13, opacity: 0.9 }}>{(isMaxi || isFire || isPC) ? mission.description : `${mission.venue} · ${mission.description}`}</div>}
           </div>
           <button onClick={onClose} style={{ ...btn, background: "rgba(0,0,0,.25)", padding: "4px 10px" }}>✕</button>
         </div>

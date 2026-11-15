@@ -229,6 +229,16 @@ function fireIcon() {
 }
 
 // Icona speciale della maxi-emergenza: grande, rossa, pulsante.
+function pcIcon() {
+  const s = 48;
+  return memoIcon("pc", () => L.divIcon({
+    className: "",
+    html: `<div style="width:${s}px;height:${s}px;border-radius:14px;display:flex;align-items:center;justify-content:center;transform:rotate(45deg);
+           background:linear-gradient(135deg,#FACC15,#EA6A1F);border:3px solid #13294B;box-shadow:0 3px 10px rgba(0,0,0,.35)">
+           <span style="transform:rotate(-45deg);font-size:24px">🦺</span></div>`,
+    iconSize: [s, s], iconAnchor: [s / 2, s / 2],
+  }));
+}
 function maxiIcon() {
   const s = 54;
   return memoIcon("maxi", () => L.divIcon({
@@ -1562,15 +1572,16 @@ export default function GameMap() {
 
         {missions.filter((m) => m.category === "grande_evento" && (flt.events || !m.event_id || (m.my_vehicles ?? 0) > 0)).map((m) => {
           const isFire = !m.event_id && m.venue === "AIB";
-          const isMaxi = !m.event_id && m.venue !== "AIB";
+          const isPC = !m.event_id && m.venue === "PC";
+          const isMaxi = !m.event_id && m.venue !== "AIB" && !isPC;
           const fire = fires.find((x) => x.mission_id === m.id);
           return (
           <Marker key={m.id} position={[m.lat, m.lng]}
-                  icon={isFire ? fireIcon() : isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
+                  icon={isFire ? fireIcon() : isPC ? pcIcon() : isMaxi ? maxiIcon() : eventIcon(upcoming.find((e) => e.id === m.event_id)?.kind ?? "altro", m.status === "aperta")}>
             <Popup className="fs-mis-popup">
-              <div className="fs-mis-bar" style={{ background: isFire ? "#C2410C" : isMaxi ? "#DC2626" : "#7C3AED" }}>
+              <div className="fs-mis-bar" style={{ background: isFire ? "#C2410C" : isPC ? "#13294B" : isMaxi ? "#DC2626" : "#7C3AED" }}>
                 <span className="fs-mis-title">{m.title}</span>
-                <span className="fs-mis-code">{isFire ? "🔥" : isMaxi ? "MAXI" : "evento"}</span>
+                <span className="fs-mis-code">{isFire ? "🔥" : isPC ? "P.C." : isMaxi ? "MAXI" : "evento"}</span>
               </div>
               <div className="fs-mis-body">
                 {isFire ? (
@@ -1601,6 +1612,21 @@ export default function GameMap() {
                       <button onClick={() => setSelected(m)}
                               style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
                                        background: "#C2410C", color: "#fff", fontWeight: 800 }}>🔥 Manda un mezzo AIB</button>
+                    )}
+                  </>
+                ) : isPC ? (
+                  <>
+                    {m.description && <div style={{ marginBottom: 6 }}>{m.description}</div>}
+                    <div className="fs-mis-meta">
+                      <span>🚛 {m.slots_taken}/{m.slots_total} sul posto</span>
+                      <span>💶 {m.reward_funds.toLocaleString("it-IT")} €/mezzo</span>
+                      <span>⏱️ {new Date(m.expires_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#13294B" }}>Solo camion e furgoni maxi con il modulo giusto. I moduli fanno guadagnare di più.</div>
+                    {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
+                      <button onClick={() => setSelected(m)}
+                              style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
+                                       background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", fontWeight: 800 }}>🦺 Manda un mezzo maxi</button>
                     )}
                   </>
                 ) : isMaxi ? (

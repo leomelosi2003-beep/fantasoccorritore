@@ -8,6 +8,7 @@ export const HELP: Record<string, Help> = {
       ["🗺️", "Sulla mappa le gocce colorate sono i servizi da fare: rosso = urgentissimo, giallo = urgente, verde/bianco = tranquillo."],
       ["👆", "Tocca una goccia, scegli un'ambulanza ferma in sede e l'equipaggio, poi premi Invia: il mezzo parte e lo vedi muoversi."],
       ["💶", "Quando il servizio finisce incassi i soldi e la reputazione ⭐. Chi arriva prima vince il servizio."],
+      ["🦺", "I rombi gialli sono missioni di protezione civile (dispersi, allagamenti…): ci vanno i camion e furgoni maxi con i moduli."],
       ["🏠", "I quadrati sono le sedi: lì stanno i mezzi. Puoi mandare mezzi entro 25 km dalla loro sede (maxi e incendi da ovunque)."],
       ["☰", "Dal menu (tasto arancione in alto a sinistra) trovi garage, squadra, officina, sedi e tutto il resto."],
     ],
