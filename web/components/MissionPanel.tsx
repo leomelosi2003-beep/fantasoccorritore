@@ -91,6 +91,7 @@ function claimError(m: string) {
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
+  if (m.includes("ISLAND")) return "Le ambulanze non attraversano il mare: per le isole servono mezzi con sede sull'isola (o una barca).";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
@@ -112,6 +113,15 @@ function claimError(m: string) {
   if (m.includes("AUTOMEDICA_ONLY_EMERGENCY")) return "🩺 L'automedica va solo su codici gialli e rossi.";
   return m;
 }
+
+// stessi riquadri di island_of() nel database: i mezzi di terra non passano dal continente alle isole
+const ISLANDS: [string, number, number, number, number][] = [
+  ["elba", 10.08, 10.45, 42.70, 42.89], ["capraia", 9.77, 9.86, 43.00, 43.08], ["gorgona", 9.87, 9.93, 43.41, 43.45],
+  ["pianosa", 10.06, 10.12, 42.56, 42.61], ["montecristo", 10.28, 10.34, 42.31, 42.36], ["giglio", 10.85, 10.95, 42.30, 42.40],
+  ["giannutri", 11.08, 11.12, 42.23, 42.27], ["ischia", 13.84, 13.97, 40.69, 40.78], ["procida", 13.99, 14.05, 40.74, 40.78],
+  ["capri", 14.18, 14.28, 40.53, 40.57], ["sardegna", 8.10, 9.85, 38.85, 41.32], ["sicilia", 12.30, 15.60, 36.60, 38.32],
+];
+const islandOf = (lat: number, lng: number) => ISLANDS.find(([, x1, x2, y1, y2]) => lng >= x1 && lng <= x2 && lat >= y1 && lat <= y2)?.[0] ?? null;
 
 export default function MissionPanel({ mission, onClose, onClaimed }: {
   mission: MissionPin; onClose: () => void; onClaimed: (text: string) => void;
@@ -188,6 +198,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (v.automedica && (mission.category !== "emergenza_118" || !["giallo", "rosso"].includes(mission.code) || mission.transport === "trasferimento"))
       return "automedica: solo gialli e rossi";
     if (v.automedica && waiting) return "la tua automedica è già qui: manda un'ambulanza";
+    if (!v.boat && v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)
+        && islandOf(v.base_lat, v.base_lng) !== islandOf(mission.lat, mission.lng))
+      return "è su un'altra isola o sul continente: le ambulanze non attraversano il mare";
     if (v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)) {   // maxi e incendi: nessun limite
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
