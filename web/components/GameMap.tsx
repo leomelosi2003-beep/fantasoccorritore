@@ -1640,6 +1640,9 @@ export default function GameMap() {
                               style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
                                        background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", fontWeight: 800 }}>🦺 Manda un mezzo maxi</button>
                     )}
+                    <button onClick={() => router.push(`/maxi/${m.id}`)}
+                            style={{ marginTop: 6, width: "100%", border: "1px solid #13294B", borderRadius: 10, padding: "8px 10px", cursor: "pointer",
+                                     background: "#fff", color: "#13294B", fontWeight: 800 }}>🎬 Guarda la scena dal vivo</button>
                   </>
                 ) : isMaxi ? (
                   <>

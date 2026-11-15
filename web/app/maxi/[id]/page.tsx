@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import MaxiScene, { VIEWS, type SceneData, type SceneVehicle } from "@/components/MaxiScene";
+import MaxiScene, { VIEWS, PC_TITLES, type SceneData, type SceneVehicle } from "@/components/MaxiScene";
 
 const DEMO: Record<string, string> = {
   deragliamento: "Deragliamento di un treno", crollo: "Crollo di una palazzina", fabbrica: "Esplosione in una fabbrica",
@@ -11,7 +11,28 @@ const DEMO: Record<string, string> = {
   concerto: "Cedimento durante un concerto", gas: "Fuga di gas in un quartiere", alluvione: "Alluvione lampo",
   autobus: "Scontro tra due autobus", terremoto: "Scossa di terremoto",
   incendio1: "🔥 Sterpaglie", incendio2: "🔥 Bosco", incendio3: "🔥 Interfaccia",
+  ...Object.fromEntries(Object.keys(PC_TITLES).map((k) => [k, "🦺 " + PC_TITLES[k]])),
 };
+// titolo vero di una missione di protezione civile per ogni scenario di prova
+const PC_DEMO_TITLE: Record<string, string> = {
+  "pc-bosco": "Fungaiolo disperso nel bosco", "pc-anziano": "Anziano scomparso da casa", "pc-macerie": "Crollo di una palazzina: ricerca sotto le macerie",
+  "pc-allagamento": "Allerta rossa: quartiere allagato", "pc-argine": "Sorveglianza di un argine a rischio", "pc-frana": "Frana sulla strada provinciale",
+  "pc-accoglienza": "Campo di accoglienza per gli sfollati", "pc-gelo": "Ondata di gelo e black-out", "pc-evento": "Supporto a una manifestazione pubblica",
+  "pc-costa": "Ricerca lungo la costa",
+};
+// prova protezione civile: 4 mezzi maxi con moduli diversi, il lavoro avanza in 3 minuti
+function demoPC(s: string): SceneData {
+  const t0 = Date.now() - (Date.now() % 180000);
+  const kit: [string, "camion" | "furgone", string[]][] = [["LOG 1", "camion", ["unita_logistica", "unita_cinofila"]], ["COM 1", "furgone", ["unita_droni"]],
+    ["PMA PC", "camion", ["pma_tenda", "unita_logistica"]], ["CINO 2", "furgone", ["unita_cinofila", "unita_droni"]]];
+  const vehicles: SceneVehicle[] = kit.map(([c, mx, mods], i) => ({
+    id: "pc" + i, call_sign: c, org_name: "x", mine: i % 2 === 0, status: "in_viaggio", assigned_at: new Date(t0 + i * 6000).toISOString(),
+    arrives_at: new Date(t0 + i * 6000 + 20000).toISOString(), base_lat: 43.55 + Math.sin(i) * 0.2, base_lng: 10.32 + Math.cos(i) * 0.2,
+    maxi: mx, modules: mods, pma: mods.includes("pma_tenda"),
+  })).filter((v) => Date.parse(v.assigned_at) <= Date.now());
+  return { id: "demo-" + s, title: "🦺 PROTEZIONE CIVILE: " + (PC_DEMO_TITLE[s] ?? "") + " — Prova", venue: "PC", lat: 43.55, lng: 10.32,
+           created_at: new Date(t0).toISOString(), ends_at: new Date(t0 + 180000).toISOString(), vehicles };
+}
 // prova incendio: 6 mezzi AIB che spengono e vanno a ricaricare l'acqua a turno
 function demoFire(s: string): SceneData {
   const sev = Number(s.slice(-1)) || 2; const t0 = Date.now() - (Date.now() % 240000);
@@ -35,6 +56,7 @@ function demoFire(s: string): SceneData {
 // scena di prova: 12 mezzi che arrivano a scaglioni, ricomincia ogni 2 minuti
 function demoData(s: string, noPma = false): SceneData {
   if (s.startsWith("incendio")) return demoFire(s);
+  if (s.startsWith("pc-")) return demoPC(s);
   const t0 = Date.now() - (Date.now() % 120000);
   const sigle = ["CVL 12", "PA 7", "PMA CVL", "MISE 21", "CRI 4", "LOG 1", "CVL 31", "SVS 9", "COM 1", "PA 15", "CRI 22", "CVL 5", "MISE 3", "AUTOMED 1", "MOTO 2"];
   const vehicles: SceneVehicle[] = sigle.map((c, i) => ({
@@ -89,7 +111,7 @@ function MaxiInner() {
     <main style={{ position: "fixed", inset: 0, background: "#050B18" }}>
       {data && <MaxiScene data={data} serverOffset={offset} view={view} viewKey={viewKey} />}
       <div style={{ position: "absolute", top: 54, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-        {VIEWS.map((v, i) => (data?.venue === "AIB" && i === 3) ? null : (
+        {VIEWS.map((v, i) => ((data?.venue === "AIB" || data?.venue === "PC") && i === 3) ? null : (
           <button key={v.name} onClick={() => { setView(i); setViewKey((k) => k + 1); }}
                   style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.25)", fontSize: 12, cursor: "pointer", fontWeight: 700,
                            background: view === i ? "#FF5A36" : "rgba(5,11,24,.7)", color: "#fff" }}>📷 {v.name}</button>

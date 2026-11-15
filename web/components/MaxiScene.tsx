@@ -37,6 +37,30 @@ export function scenarioOf(title: string): string {
   return "generico";
 }
 
+// protezione civile: uno scenario diverso per ogni tipo di missione
+export function pcKindOf(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes("anziano")) return "pc-anziano";
+  if (t.includes("escursionista") || t.includes("fungaiolo") || t.includes("disperso")) return "pc-bosco";
+  if (t.includes("macerie") || t.includes("crollo")) return "pc-macerie";
+  if (t.includes("allagat")) return "pc-allagamento";
+  if (t.includes("argine")) return "pc-argine";
+  if (t.includes("frana")) return "pc-frana";
+  if (t.includes("accoglienza") || t.includes("sfollati")) return "pc-accoglienza";
+  if (t.includes("gelo") || t.includes("black-out")) return "pc-gelo";
+  if (t.includes("manifestazione")) return "pc-evento";
+  if (t.includes("costa")) return "pc-costa";
+  return "pc-bosco";
+}
+export const PC_TITLES: Record<string, string> = {
+  "pc-bosco": "Ricerca di un disperso nel bosco", "pc-anziano": "Ricerca di un anziano scomparso", "pc-macerie": "Ricerca sotto le macerie",
+  "pc-allagamento": "Quartiere allagato", "pc-argine": "Sorveglianza dell'argine", "pc-frana": "Frana sulla provinciale",
+  "pc-accoglienza": "Campo di accoglienza per gli sfollati", "pc-gelo": "Ondata di gelo e black-out", "pc-evento": "Assistenza a una manifestazione",
+  "pc-costa": "Ricerca lungo la costa",
+};
+type PcExtra = { sea?: boolean; river?: boolean; snow?: boolean; tents?: V3[]; homes?: V3[]; sectors?: [number, number, number, number][];
+                 lost?: V3; search: V3; sr: number; pumps?: V3[]; trees: number; clear?: [number, number, number, number]; pma?: boolean };
+
 // numeri pseudo-casuali ripetibili (la scena è sempre uguale per la stessa maxi)
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
@@ -52,6 +76,7 @@ function buildScene(kind: string, seed: number) {
   const r = rng(seed);
   const boxes: Box[] = []; const fx: Fx[] = []; const lines: [V3, V3][] = [];
   let water = false, fog = false; const crowd: V3[] = [];
+  let pc: PcExtra | null = null;
   const house = (x: number, z: number, w: number, h: number, d: number, yaw = 0, roll = 0) => boxes.push({ c: [x, h / 2, z], s: [w, h, d], yaw, roll });
   const rubble = (x: number, z: number, n: number, spread: number) => {
     for (let i = 0; i < n; i++) { const s = 1 + r() * 3; boxes.push({ c: [x + (r() - 0.5) * spread, s / 2 + r() * 2, z + (r() - 0.5) * spread], s: [s, s * 0.6, s], yaw: r() * 3, roll: (r() - 0.5) }); }
@@ -107,10 +132,79 @@ function buildScene(kind: string, seed: number) {
       lines.push([[-90, 12, -64], [90, 12, -64]]);
       for (let i = -3; i <= 3; i++) lines.push([[i * 30, 0, -64], [i * 30, 12, -64]]);                 // linea elettrica
       break;
+    // ===== protezione civile =====
+    case "pc-bosco": {                                                        // sentieri nel bosco, settori di ricerca
+      const tr: V3[] = [[-70, 0.05, 30], [-40, 0.05, -10], [-10, 0.05, -45], [25, 0.05, -70], [60, 0.05, -110]];
+      for (let i = 0; i < tr.length - 1; i++) lines.push([tr[i], tr[i + 1]]);
+      lines.push([[-10, 0.05, -45], [-60, 0.05, -80]]);
+      for (let i = 0; i < 10; i++) boxes.push({ c: [-60 + r() * 120, 0.6, -100 + r() * 80], s: [1.5 + r() * 2, 1 + r(), 1.5 + r() * 2], yaw: r() * 3, fill: "rgba(120,113,108,.25)", edge: "rgba(168,162,158,.6)" });
+      pc = { search: [-5, 0, -50], sr: 2.4, trees: 210, lost: [30 + r() * 20, 0, -75 - r() * 20],
+             sectors: [[-60, -100, 50, 45], [-10, -100, 50, 45], [40, -100, 50, 45], [-60, -55, 50, 45], [-10, -55, 50, 45], [40, -55, 50, 45]] };
+      break; }
+    case "pc-anziano": {                                                      // paese, campi coltivati e fossi
+      for (let i = 0; i < 6; i++) house(-70 + i * 14, 18 - (i % 2) * 6, 10, 6 + r() * 4, 9);
+      for (let i = 0; i < 14; i++) boxes.push({ c: [-60 + r() * 120, 0.7, -110 + r() * 80], s: [1.6, 1.4, 1.6], yaw: r() * 3, fill: "rgba(202,138,4,.25)", edge: "rgba(250,204,21,.6)" });
+      for (const x of [-45, 0, 45]) lines.push([[x, 0.05, -120], [x, 0.05, 0]]);                        // fossi tra i campi
+      lines.push([[-90, 0.6, -60], [90, 0.6, -60]]);
+      pc = { search: [0, 0, -55], sr: 2.6, trees: 50, lost: [-30 + r() * 60, 0, -90 - r() * 15], clear: [-90, -130, 90, 25],
+             sectors: [[-70, -110, 45, 50], [-25, -110, 50, 50], [25, -110, 45, 50], [-70, -60, 45, 50], [-25, -60, 50, 50], [25, -60, 45, 50]] };
+      break; }
+    case "pc-macerie":
+      house(-26, -6, 14, 28, 14); house(26, -6, 14, 22, 14); rubble(0, -4, 46, 20);
+      boxes.push({ c: [0, 4, -12], s: [16, 0.6, 10], yaw: 0.2, roll: 0.5 }, { c: [-4, 6, -8], s: [12, 0.6, 8], yaw: -0.3, roll: -0.6 });  // solai crollati
+      fx.push({ kind: "dust", at: [0, 3, -4], r: 14 });
+      pc = { search: [0, 0, -4], sr: 0.9, trees: 40, clear: [-60, -45, 60, 30], lost: [3, 0, -6] };
+      break;
+    case "pc-allagamento":
+      water = true; for (let i = 0; i < 6; i++) house(-45 + i * 18, -14 - (i % 2) * 10, 11, 7 + r() * 5, 10);
+      for (let i = 0; i < 7; i++) boxes.push({ c: [(r() - 0.5) * 70, 0.6, -40 + r() * 60], s: [4.2, 1.5, 1.9], yaw: r() * 3, roll: (r() - 0.5) * 0.5 });
+      pc = { search: [0, 0, -15], sr: 1.4, trees: 40, clear: [-85, -55, 85, 32], pumps: [[-30, 0, 26], [0, 0, 26], [30, 0, 26]],
+             homes: [[-45, 0, -14], [-27, 0, -24], [-9, 0, -14], [9, 0, -24], [27, 0, -14], [45, 0, -24]] };
+      break;
+    case "pc-argine":
+      for (const z of [-24, -56]) boxes.push({ c: [0, 1.5, z], s: [180, 3, 6], yaw: 0, fill: "rgba(132,204,22,.12)", edge: "rgba(163,230,53,.6)" });   // argini
+      for (let i = 0; i < 26; i++) boxes.push({ c: [-60 + i * 4.8, 3.4, -24 + (r() - 0.5)], s: [4, 0.9, 1.6], yaw: (r() - 0.5) * 0.2, fill: "rgba(202,138,4,.45)", edge: "rgba(250,204,21,.8)" });   // sacchi di sabbia
+      for (let i = 0; i < 4; i++) house(-50 + i * 30, 10 - (i % 2) * 4, 10, 6 + r() * 3, 9);
+      lines.push([[-20, 4, -60], [-20, 4, -20]], [[20, 4, -60], [20, 4, -20]]);                          // ponte
+      pc = { river: true, search: [0, 0, -40], sr: 2.2, trees: 60, clear: [-110, -70, 110, 22] };
+      break;
+    case "pc-frana":
+      lines.push([[-110, 0.05, -18], [110, 0.05, -18]], [[-110, 0.05, -10], [110, 0.05, -10]]);       // la provinciale
+      boxes.push({ c: [0, 8, -55], s: [70, 16, 40], yaw: 0, roll: 0.45, fill: "rgba(120,53,15,.25)", edge: "rgba(180,83,9,.7)" });   // versante franato
+      for (let i = 0; i < 40; i++) { const sz = 1 + r() * 3.5; boxes.push({ c: [(r() - 0.5) * 50, sz / 2, -14 - r() * 22], s: [sz, sz * 0.7, sz], yaw: r() * 3, roll: (r() - 0.5), fill: "rgba(146,64,14,.4)", edge: "rgba(217,119,6,.75)" }); }
+      boxes.push({ c: [-8, 1, -14], s: [4.2, 1.5, 1.9], yaw: 0.6, roll: 0.5 });                         // auto travolta
+      for (let i = 0; i < 4; i++) house(-70 + i * 46, -95 - (i % 2) * 8, 10, 6 + r() * 3, 9);            // case isolate oltre la frana
+      fx.push({ kind: "dust", at: [0, 2, -25], r: 16 });
+      pc = { search: [0, 0, -30], sr: 1.6, trees: 150, clear: [-40, -80, 40, 30], lost: [-8, 0, -16] };
+      break;
+    case "pc-accoglienza": {
+      const tents: V3[] = []; for (let i = 0; i < 24; i++) tents.push([-55 + (i % 8) * 13, 0, -60 + Math.floor(i / 8) * 14]);
+      house(-70, -20, 14, 5, 10);                                                                         // palestra del paese
+      for (let i = 0; i < 60; i++) crowd.push([(r() - 0.5) * 90, 0, -5 + r() * 25]);
+      pc = { search: [0, 0, -40], sr: 2, trees: 45, clear: [-90, -80, 90, 32], tents, pma: true };
+      break; }
+    case "pc-gelo": {
+      const homes: V3[] = []; for (let i = 0; i < 9; i++) { const x = -60 + (i % 5) * 28, z = -20 - Math.floor(i / 5) * 30; house(x, z, 11, 7 + r() * 5, 10); homes.push([x, 0, z]); }
+      lines.push([[-90, 10, 2], [90, 10, 2]]); for (let i = -3; i <= 3; i++) lines.push([[i * 28, 0, 2], [i * 28, 10, 2]]);   // linea elettrica caduta
+      boxes.push({ c: [10, 3, 2], s: [0.4, 7, 0.4], yaw: 0, roll: 1.1 });
+      pc = { snow: true, search: [0, 0, -30], sr: 1.6, trees: 70, clear: [-85, -75, 85, 30], homes };
+      break; }
+    case "pc-evento":
+      for (const x of [-18, 18]) lines.push([[x, 0, -30], [x, 16, -30]], [[x, 0, -42], [x, 16, -42]]);
+      lines.push([[-18, 16, -30], [18, 16, -30]], [[-18, 16, -42], [18, 16, -42]], [[18, 16, -30], [18, 16, -42]], [[-18, 16, -30], [-18, 16, -42]]);
+      boxes.push({ c: [0, 1.2, -36], s: [40, 2.4, 14], yaw: 0 });
+      for (let i = 0; i < 260; i++) crowd.push([(r() - 0.5) * 90, 0, -24 + r() * 40]);
+      pc = { search: [0, 0, -10], sr: 2.2, trees: 40, clear: [-90, -60, 90, 32], pma: true };
+      break;
+    case "pc-costa":
+      for (let i = 0; i < 12; i++) { const h = 4 + r() * 10; boxes.push({ c: [-90 + i * 16 + r() * 4, h / 2, -28 - r() * 8], s: [12 + r() * 6, h, 8 + r() * 6], yaw: r(), fill: "rgba(120,113,108,.25)", edge: "rgba(168,162,158,.65)" }); }   // scogliera
+      lines.push([[-110, 0.05, -20], [110, 0.05, -20]]);
+      pc = { sea: true, search: [10, 0, -75], sr: 2.6, trees: 40, clear: [-130, -160, 130, -14], lost: [30 + r() * 30, 0, -90 - r() * 25] };
+      break;
     default:
       rubble(0, 0, 30, 20); fx.push({ kind: "smoke", at: [0, 5, 0], r: 10 });
   }
-  return { boxes, fx, lines, water, fog, crowd };
+  return { boxes, fx, lines, water, fog, crowd, pc: pc as PcExtra | null };
 }
 const FIRE_C: V3 = [0, 0, -28];                                               // centro dell'incendio
 // incendio: dove si trova il mezzo AIB nella sua spola fuoco ↔ sede per l'acqua (dalla rotta vera)
@@ -190,11 +284,14 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const seed = hash(data.id);
     const FIRE = data.venue === "AIB";
     const sev = Math.max(1, Math.min(3, Math.round(data.fire?.severity ?? 2)));
-    const kind = FIRE ? "incendio" + sev : scenarioOf(data.title);
+    const PC = data.venue === "PC";                                          // protezione civile
+    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : scenarioOf(data.title);
     let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
+    const X = PC ? scene.pc : null;
+    let pcFound = false;
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
-    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : data.title, hi: "", at: performance.now() }];
+    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + (PC_TITLES[kind] ?? "Protezione civile") : data.title, hi: "", at: performance.now() }];
     const seen = new Map<string, string>();
     const injured = 24 + (seed % 46);
 
@@ -231,6 +328,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       if (t - last < 33) return; last = t;
       const W = canvas.clientWidth, H = canvas.clientHeight; const d = dataRef.current;
       const now = Date.now() + serverOffset;
+      // protezione civile: quanto è avanti il lavoro (cresce solo con mezzi sul posto) e quali moduli lavorano
+      const pcMods = new Set<string>(); let pcOn = 0;
+      if (PC) for (const v of d.vehicles) if (v.status !== "conclusa" && v.status !== "rientro" && Date.parse(v.arrives_at) <= now) { pcOn++; for (const md of v.modules ?? []) pcMods.add(md); }
+      const pcT0 = Date.parse(d.created_at), pcT1 = d.ends_at ? Date.parse(d.ends_at) : pcT0 + 3 * 3600000;
+      const pcEl = Math.max(0, Math.min(1, (now - pcT0) / Math.max(1, pcT1 - pcT0)));
+      const pcProg = pcOn ? Math.min(1, pcEl * 1.6 + pcOn * 0.04) : 0;
+      const logiOn = pcMods.has("unita_logistica"), dogsOn = pcMods.has("unita_cinofila"), dronesOn = pcMods.has("unita_droni");
 
       // camera che gira piano attorno alla scena
       if (cam.auto) cam.tYaw += 0.0012;
@@ -292,13 +396,36 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         poly([[-80, 0.4, -50], [80, 0.4, -50], [80, 0.4, 30], [-80, 0.4, 30]], `rgba(108,180,255,.5)`, `rgba(40,120,220,${sh})`);
         for (let k = 0; k < 10; k++) { const z = -45 + k * 8, o = ((t / 60 + k * 13) % 160) - 80; const a = P([o, 0.5, z]), b = P([o + 10, 0.5, z]); if (a && b) { ctx.strokeStyle = "rgba(170,215,255,.35)"; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
       }
+      if (X?.sea) {                                                           // mare aperto a nord della scogliera
+        const sh = 0.2 + 0.05 * Math.sin(t / 700);
+        poly([[-160, 0.3, -160], [160, 0.3, -160], [160, 0.3, -22], [-160, 0.3, -22]], "rgba(108,180,255,.6)", `rgba(30,100,200,${sh})`);
+        for (let k = 0; k < 14; k++) { const z = -150 + k * 9, o = ((t / 80 + k * 23) % 300) - 150; const a = P([o, 0.4, z]), b = P([o + 14, 0.4, z]); if (a && b) { ctx.strokeStyle = "rgba(186,230,253,.35)"; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
+      }
+      if (X?.river) {                                                         // fiume in piena tra gli argini
+        poly([[-160, 0.3, -52], [160, 0.3, -52], [160, 0.3, -28], [-160, 0.3, -28]], "rgba(108,180,255,.6)", `rgba(120,90,40,${0.35 + 0.05 * Math.sin(t / 600)})`);
+        for (let k = 0; k < 6; k++) { const z = -49 + k * 4, o = ((t / 25 + k * 37) % 320) - 160; const a = P([o, 0.4, z]), b = P([o + 12, 0.4, z]); if (a && b) { ctx.strokeStyle = "rgba(214,211,209,.45)"; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
+      }
+      // settori di ricerca: battuti (verde), in corso (arancione), da fare
+      if (X?.sectors) {
+        const nDone = Math.floor((pcProg / 0.75) * X.sectors.length);
+        X.sectors.forEach(([sx, sz, sw, sd], i) => {
+          const done = i < nDone || pcFound, cur = !done && i === nDone && pcOn > 0;
+          ctx.setLineDash([5, 5]);
+          poly([[sx, 0.1, sz], [sx + sw, 0.1, sz], [sx + sw, 0.1, sz + sd], [sx, 0.1, sz + sd]], done ? "rgba(34,197,94,.7)" : cur ? `rgba(249,115,22,${0.5 + 0.3 * Math.sin(t / 300)})` : "rgba(148,163,184,.45)",
+               done ? "rgba(34,197,94,.08)" : cur ? "rgba(249,115,22,.08)" : undefined, 1.2);
+          ctx.setLineDash([]);
+          const q = P([sx + sw / 2, 0.2, sz + sd / 2]);
+          if (q) { ctx.font = "800 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = done ? "#4ADE80" : cur ? "#FDBA74" : "rgba(203,213,225,.7)"; ctx.fillText(`SETTORE ${String.fromCharCode(65 + i)}${done ? " ✓" : ""}`, q[0], q[1]); }
+        });
+      }
       // linee della scena (binari, strade, tralicci)
       ctx.strokeStyle = "rgba(241,245,249,.55)"; ctx.lineWidth = 1.2;
       for (const [a3, b3] of scene.lines) { const a = P(a3), b = P(b3); if (a && b) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
 
       // area PMA (non negli incendi)
-      const [x1, z1, x2, z2] = FIRE ? [0, 0, 0, 0] : PMA;
-      if (!FIRE) {
+      const showPma = !FIRE && (!PC || !!X?.pma);
+      const [x1, z1, x2, z2] = showPma ? PMA : [0, 0, 0, 0];
+      if (showPma) {
       ctx.setLineDash([5, 4]);
       poly([[x1, 0.1, z1], [x2, 0.1, z1], [x2, 0.1, z2], [x1, 0.1, z2]], "rgba(52,211,153,.8)", "rgba(52,211,153,.07)", 1.4);
       ctx.setLineDash([]);
@@ -340,10 +467,12 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (let k = 0; k < 9; k++) { const a = er() * Math.PI * 2, r = 120 + er() * 30; const hh = 4 + er() * 6;
         addBox({ c: [Math.cos(a) * r, hh / 2, Math.sin(a) * r], s: [7 + er() * 6, hh, 7 + er() * 6], yaw: er(), fill: "rgba(148,163,184,.10)", edge: "rgba(148,163,184,.45)" }); }
       const trees: V3[] = [];
-      const nTrees = FIRE ? (sev === 1 ? 45 : 170) : 70;
+      const nTrees = FIRE ? (sev === 1 ? 45 : 170) : X ? X.trees : 70;
       for (let k = 0; k < 420 && trees.length < nTrees; k++) {
         const x = (er() - 0.5) * 300, z = (er() - 0.5) * 300;
-        if (!FIRE && Math.abs(x) < 70 && z > -45 && z < 60) continue;          // zona dell'intervento
+        if (!FIRE && !PC && Math.abs(x) < 70 && z > -45 && z < 60) continue;   // zona dell'intervento
+        if (X?.clear && x > X.clear[0] && z > X.clear[1] && x < X.clear[2] && z < X.clear[3]) continue;
+        if (PC && z > 20 && z < 95 && x > -40 && x < 75) continue;            // area dei mezzi e posto di comando
         if (FIRE && z > 12 && z < 60 && Math.abs(x) < 110) continue;          // fascia dei mezzi AIB e della strada
         if (FIRE && sev === 3 && z < -70 && z > -88 && Math.abs(x) < 60) continue;  // case
         if (Math.abs(z - 34) < 8 || Math.abs(x - 95) < 8 || (Math.abs(x + 60) < 7 && z < 34)) continue;  // strade
@@ -364,7 +493,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           for (const [k, sc] of [[0, 1], [1, 0.7]] as [number, number][]) {
             const yb = m[1] - (m[1] - top[1]) * k * 0.35, yt = top[1] + (m[1] - top[1]) * (k ? 0 : 0.25);
             ctx.beginPath(); ctx.moveTo(m[0] - w * sc, yb); ctx.lineTo(m[0] + w * sc, yb); ctx.lineTo(top[0] + sway, yt); ctx.closePath();
-            ctx.fillStyle = burning ? (k ? "rgba(249,115,22,.75)" : "rgba(194,65,12,.75)") : k ? "rgba(34,197,94,.55)" : "rgba(21,128,61,.55)"; ctx.fill(); ctx.strokeStyle = burning ? "rgba(253,186,116,.8)" : "rgba(134,239,172,.6)"; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = burning ? (k ? "rgba(249,115,22,.75)" : "rgba(194,65,12,.75)") : X?.snow ? (k ? "rgba(241,245,249,.7)" : "rgba(148,163,184,.55)") : k ? "rgba(34,197,94,.55)" : "rgba(21,128,61,.55)"; ctx.fill(); ctx.strokeStyle = burning ? "rgba(253,186,116,.8)" : "rgba(134,239,172,.6)"; ctx.lineWidth = 1; ctx.stroke();
           }
         } });
       }
@@ -375,7 +504,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const lerp3c = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const inside = scene.boxes.filter((bx) => bx.s[0] * bx.s[2] > 20);
       type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry" | "cut" | "film" | "spray" | "limp";
-      const patients = Array.from({ length: FIRE ? 0 : 10 + (seed % 8) }, (_, k) => {
+      const patients = Array.from({ length: FIRE || PC ? 0 : 10 + (seed % 8) }, (_, k) => {
         const tri = k % 5 === 0 ? "#EF4444" : k % 3 === 0 ? "#FACC15" : "#22C55E";
         const trapped = k % 4 === 0 && inside.length > 0;
         let p3: V3;
@@ -398,7 +527,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const firemen: { p: V3; pose: Pose }[] = [];
       const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
       // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
-      const vvf: { p: V3; h: number; ladder: boolean }[] = FIRE ? [] : [
+      const vvf: { p: V3; h: number; ladder: boolean }[] = FIRE || PC ? [] : [
         { p: [-40, 0, -16], h: 0.3, ladder: false }, { p: [40, 0, -18], h: Math.PI - 0.3, ladder: true }, { p: [-8, 0, -34], h: 0, ladder: false }];
       for (const pt of patients) if (pt.trapped) {
         const cyc = ((now / 1000 + pt.ph * 6) % 36) / 36;
@@ -465,7 +594,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const cLat = Math.cos((d.lat * Math.PI) / 180);
       let onSite = 0, coming = 0, pmaOn = 0, amb = 0, pmaIdx = 0, away = 0, mxIdx = 0, fireOn = 0; const hoses: [V3, V3][] = []; const modsOn = new Set<string>();
       const hasPma = vs.some((v) => v.pma && Date.parse(v.arrives_at) <= now && v.status !== "conclusa");
-      const CENTER: V3 = [0, 0, 8];
+      const CENTER: V3 = X ? X.search : [0, 0, 8]; const SR = X?.sr ?? 1;
       const hosp = d.hospital;
       const travelS = d.shuttle?.travel ?? shuttleTravelS(hosp ? distKm(d.lat, d.lng, hosp.lat, hosp.lng) : 8);
       const EXIT_S = Math.min(18, travelS);             // secondi in cui si vede uscire (o rientrare) dalla scena
@@ -569,7 +698,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           }
           if (mods.includes("unita_cinofila")) {
             for (let k = 0; k < 2; k++) {
-              const tt2 = now / 1000 / 7 + k * 2.1 + ph; const rad = 9 + 6 * Math.sin(tt2 * 0.7 + k);
+              const tt2 = now / 1000 / 7 + k * 2.1 + ph; const rad = (9 + 6 * Math.sin(tt2 * 0.7 + k)) * SR;
               const dp: V3 = [CENTER[0] + Math.cos(tt2) * rad, 0, CENTER[2] - 6 + Math.sin(tt2 * 1.3) * rad * 0.6];
               const dh = Math.atan2(Math.cos(tt2 * 1.3) * 1.3 * rad * 0.6, -Math.sin(tt2) * rad);
               const sniff = Math.abs(Math.sin(now / 160 + k)) * 0.12;
@@ -586,7 +715,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           if (mods.includes("unita_droni")) {
             people.push({ p: [r0[0] + 1.5, 0, r0[2] + 2], pose: "film", col: crewCol });
             for (let k = 0; k < 2; k++) {
-              const a = now / 1000 / 6 + k * Math.PI + ph; const dp: V3 = [CENTER[0] + Math.cos(a) * (18 + k * 8), 20 + k * 4 + Math.sin(now / 700 + k) * 0.6, CENTER[2] + Math.sin(a) * (14 + k * 6)];
+              const a = now / 1000 / 6 + k * Math.PI + ph; const dp: V3 = [CENTER[0] + Math.cos(a) * (18 + k * 8) * SR, 20 + k * 4 + Math.sin(now / 700 + k) * 0.6, CENTER[2] + Math.sin(a) * (14 + k * 6) * SR];
               props.push({ c: dp, s: [0.8, 0.25, 0.8], fill: "rgba(30,41,59,.95)", edge: "#94A3B8" });
               props.push({ c: dp, s: [2.6, 0.08, 0.18], fill: "rgba(148,163,184,.9)", edge: "#94A3B8", yaw: Math.PI / 4 }, { c: dp, s: [2.6, 0.08, 0.18], fill: "rgba(148,163,184,.9)", edge: "#94A3B8", yaw: -Math.PI / 4 });
               props.push({ c: [dp[0], dp[1] - 0.2, dp[2]], s: [0.2, 0.15, 0.2], fill: Math.floor(now / 300) % 2 ? "rgba(239,68,68,.95)" : "rgba(34,197,94,.95)", edge: "#fff" });
@@ -858,6 +987,97 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           else { const radio = Math.max(0, Math.sin(phase * 0.5)) ** 8; limb(shX, sy, 0.15 + radio * 2.5, 0.1 + radio * 3.3, A); limb(shX, sy, -0.15, -0.05, A); }
         } });
       };
+      // ===== protezione civile: posto di comando e lavoro dello scenario =====
+      let pcStat = "", pcCol = "#FDE68A";
+      if (PC && X) {
+        const ucl: V3 = [-28, 0, 52];
+        addBox({ c: [ucl[0], 1.5, ucl[2]], s: [7, 3, 5], yaw: 0, fill: "rgba(37,99,235,.35)", edge: "#93C5FD" });
+        addBox({ c: [ucl[0], 3.2, ucl[2]], s: [7.4, 0.3, 5.4], yaw: 0, fill: "rgba(250,204,21,.85)", edge: "#FACC15" });
+        props.push({ c: [ucl[0] + 4.5, 3, ucl[2] - 2], s: [0.12, 6, 0.12], fill: "rgba(203,213,225,.9)", edge: "#CBD5E1" });   // antenna radio
+        const ul = P([ucl[0], 5, ucl[2]]);
+        if (ul && cam.dist < 200) draws.push({ z: ul[2] - 2, fn: () => { ctx.font = "800 10px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#FACC15"; ctx.fillText("POSTO DI COMANDO", ul[0], ul[1]); } });
+        if (pcOn) { people.push({ p: [ucl[0] - 2, 0, ucl[2] + 3.5], pose: "stand", col: "#FACC15" }, { p: [ucl[0] + 1.5, 0, ucl[2] + 3.2], pose: "sit", col: "#FACC15" }); }
+        const tag = (p3: V3, txt: string, col: string) => { const q = P(p3); if (q) draws.push({ z: q[2] - 3, fn: () => { ctx.font = "800 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = col; ctx.fillText(txt, q[0], q[1]); } }); };
+        const found = (need: boolean, at: number, msg: string) => {
+          const ok = need && pcProg >= at;
+          if (ok && !pcFound) { pcFound = true; captions.push({ text: msg, hi: "", at: t }); }
+          return ok || pcFound;
+        };
+        const lost = X.lost;
+        switch (kind) {
+          case "pc-bosco": case "pc-anziano": {
+            const ok = lost && found(dogsOn || dronesOn, 0.75, kind === "pc-anziano" ? "Anziano ritrovato!" : "Disperso ritrovato!");
+            if (lost && ok) {
+              const back = Math.min(1, Math.max(0, (pcProg - 0.85) / 0.15));      // dopo un po' lo riportano al posto di comando
+              const at = lerp3(lost, [ucl[0] + 3, 0, ucl[2] - 4], back);
+              people.push({ p: at, pose: back > 0 && back < 1 ? "limp" : "wave", col: "#F1F5F9" }, { p: [at[0] + 1.4, 0, at[2] + 0.6], pose: back > 0 && back < 1 ? "walk" : "kneel", col: "#FDBA74" });
+              if (Math.floor(t / 400) % 2 === 0 && back < 1) flashes.push([at[0], 0.8, at[2]]);
+              tag([at[0], 6, at[2]], back >= 1 ? "✅ AFFIDATO AI SANITARI" : "🎯 RITROVATO", "#4ADE80");
+            }
+            pcStat = ok ? (kind === "pc-anziano" ? "✅ ANZIANO RITROVATO" : "✅ DISPERSO RITROVATO")
+              : pcOn ? `RICERCA IN CORSO · AREA BATTUTA ${Math.round(Math.min(0.99, pcProg / 0.75) * 100)}%${dogsOn || dronesOn ? "" : " · SERVONO CANI O DRONI"}` : "IN ATTESA DELLE SQUADRE";
+            pcCol = ok ? "#4ADE80" : "#FDBA74";
+            break; }
+          case "pc-macerie": {
+            const n = dogsOn || dronesOn ? Math.min(3, Math.floor(pcProg * 3.99)) : 0;
+            for (let k = 0; k < n; k++) { const q: V3 = [-10 + k * 9, 1.2, -4 + (k % 2) * 4]; if (Math.floor(t / 350 + k) % 2 === 0) flashes.push(q); tag([q[0], 5, q[2]], "📍 PERSONA LOCALIZZATA", "#FDE68A"); }
+            if (n && !pcFound) { pcFound = true; captions.push({ text: "Persona localizzata sotto le macerie", hi: "", at: t }); }
+            pcStat = pcOn ? `PERSONE LOCALIZZATE ${n}/3 · ${logiOn ? "CANTIERE ILLUMINATO" : "SERVE LA LOGISTICA PER LA LUCE"}` : "IN ATTESA DELLE SQUADRE";
+            break; }
+          case "pc-allagamento": {
+            const water = Math.round(100 - pcProg * 75);
+            if (logiOn) for (const pu of X.pumps ?? []) {
+              props.push({ c: [pu[0], 0.6, pu[2]], s: [2, 1.2, 1.2], fill: "rgba(249,115,22,.9)", edge: "#F97316" });
+              { const ha = P([pu[0], 0.15, pu[2] - 22]), hb = P([pu[0], 0.15, pu[2]]); if (ha && hb) draws.push({ z: Math.max(ha[2], hb[2]), fn: () => { ctx.strokeStyle = "rgba(239,68,68,.9)"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(ha[0], ha[1]); ctx.lineTo(hb[0], hb[1]); ctx.stroke(); } }); }
+              sprays.push({ from: [pu[0] + 1, 1.2, pu[2]], to: [pu[0] + 6, 0.2, pu[2] + 14] });
+              people.push({ p: [pu[0] - 2, 0, pu[2] + 1.5], pose: "stand", col: "#FDBA74" });
+            }
+            pcStat = pcOn ? `POMPE ATTIVE ${logiOn ? (X.pumps ?? []).length : 0} · ACQUA NELLE STRADE ${water}%${dronesOn ? " · DRONI SUGLI ARGINI" : ""}` : "IN ATTESA DELLE SQUADRE";
+            break; }
+          case "pc-argine": {
+            const lvl = 4.15 + 0.25 * Math.sin(now / 900000 + seed) - pcProg * 0.4;
+            if (logiOn) for (let k = 0; k < 4; k++) { const x = -45 + k * 30; props.push({ c: [x, 6, -18], s: [0.15, 8, 0.15], fill: "rgba(203,213,225,.9)", edge: "#CBD5E1" }, { c: [x, 10, -18], s: [1.6, 0.5, 0.5], fill: "rgba(254,249,195,.98)", edge: "#FEF9C3" }); }
+            if (pcOn) for (let k = 0; k < 3; k++) { const u = ((now / 1000 / 40 + k / 3) % 1); people.push({ p: [-70 + u * 140, 3, -21], pose: "walk", col: "#FDBA74" }); }
+            pcStat = `LIVELLO FIUME ${lvl.toFixed(2).replace(".", ",")} m · GUARDIA 4,50 m · ${pcOn ? (dronesOn ? "ARGINE SORVEGLIATO DAI DRONI" : "SORVEGLIANZA A PIEDI") : "IN ATTESA DELLE SQUADRE"}`;
+            pcCol = lvl > 4.3 ? "#F97316" : "#FDE68A";
+            break; }
+          case "pc-frana": {
+            const ok = lost && found(dogsOn, 0.5, "Auto travolta: nessuno a bordo");
+            if (ok && lost) tag([lost[0], 5, lost[2]], "✅ NESSUNO A BORDO", "#4ADE80");
+            pcStat = pcOn ? `FRONTE DELLA FRANA ${dronesOn ? "MAPPATO DAI DRONI" : "DA CONTROLLARE"} · ${ok ? "AUTO VERIFICATA" : dogsOn ? "CANI SULL'AUTO TRAVOLTA" : "AUTO DA VERIFICARE"}` : "IN ATTESA DELLE SQUADRE";
+            break; }
+          case "pc-accoglienza": {
+            const n = logiOn ? Math.min((X.tents ?? []).length, 4 + Math.round(pcProg * 20)) : 4;
+            (X.tents ?? []).slice(0, n).forEach((tp, k) => {
+              addBox({ c: [tp[0], 1.3, tp[2]], s: [8, 2.6, 6], yaw: 0, fill: "rgba(37,99,235,.3)", edge: "#60A5FA" });
+              addBox({ c: [tp[0], 2.8, tp[2]], s: [8.4, 0.4, 6.4], yaw: 0, fill: "rgba(30,64,175,.7)", edge: "#93C5FD" });
+              if (k % 2 === 0) people.push({ p: [tp[0] + 2, 0, tp[2] + 4], pose: k % 4 ? "sit" : "stand", col: "#E2E8F0" });
+            });
+            if (n < (X.tents ?? []).length && logiOn) { const nx = (X.tents ?? [])[n]; people.push({ p: [nx[0] - 3, 0, nx[2]], pose: "carry", col: "#FDBA74" }, { p: [nx[0] + 3, 0, nx[2]], pose: "carry", col: "#FDBA74" }); }
+            pcStat = `TENDE MONTATE ${n}/${(X.tents ?? []).length} · SFOLLATI SISTEMATI ${n * 4} · ${pmaOn ? "PMA ATTIVO" : "PMA NON ANCORA ARRIVATO"}`;
+            break; }
+          case "pc-gelo": {
+            const homes = X.homes ?? []; const lit = logiOn ? Math.min(homes.length, 1 + Math.floor(pcProg * homes.length)) : 0;
+            homes.forEach((h, k) => { const on = k < lit;
+              for (const dx of [-2.6, 2.6]) props.push({ c: [h[0] + dx, 3, h[2] + 5.1], s: [1.4, 1.2, 0.1], fill: on ? "rgba(253,224,71,.95)" : "rgba(15,23,42,.9)", edge: on ? "#FDE047" : "#334155" });
+              if (on && logiOn) props.push({ c: [h[0] + 6.5, 0.5, h[2] + 4], s: [1.4, 1, 0.9], fill: "rgba(249,115,22,.9)", edge: "#F97316" });   // generatore davanti a casa
+            });
+            if (logiOn && pcOn) { const k = Math.floor(now / 9000) % Math.max(1, lit); const h = homes[k]; if (h) people.push({ p: [h[0] - 4, 0, h[2] + 7], pose: "carry", col: "#FDBA74" }); }
+            pcStat = `CASE CON LA CORRENTE ${lit}/${homes.length} · ${logiOn ? "GENERATORI E BEVANDE CALDE" : "SERVE LA LOGISTICA"}`;
+            pcCol = lit === homes.length && lit ? "#4ADE80" : "#93C5FD";
+            break; }
+          case "pc-evento": {
+            if (logiOn) { props.push({ c: [-30, 5, -20], s: [0.15, 10, 0.15], fill: "rgba(203,213,225,.9)", edge: "#CBD5E1" }, { c: [-30, 10.2, -20], s: [1.6, 0.5, 0.5], fill: "rgba(254,249,195,.98)", edge: "#FEF9C3" }); }
+            pcStat = `PUBBLICO CIRCA ${(3 + (seed % 9)) * 1000} PERSONE · TORRE FARO ${logiOn ? "ACCESA" : "SPENTA"} · ${pmaOn ? "PMA ATTIVO" : "PMA NON ARRIVATO"}`;
+            break; }
+          case "pc-costa": {
+            const ok = lost && found(dronesOn, 0.6, "Avvistato in mare dai droni!");
+            if (lost && ok) { const bob: V3 = [lost[0], Math.sin(t / 500) * 0.3 - 1, lost[2]]; people.push({ p: bob, pose: "wave", col: "#F1F5F9" }); if (Math.floor(t / 400) % 2 === 0) flashes.push([lost[0], 0.5, lost[2]]); tag([lost[0], 5, lost[2]], "🎯 AVVISTATO · ARRIVANO I SOCCORSI VIA MARE", "#4ADE80"); }
+            pcStat = ok ? "✅ PERSONA AVVISTATA IN MARE" : pcOn ? `RICERCA SULLA COSTA · ${dronesOn ? `SCOGLIERA CONTROLLATA ${Math.round(Math.min(0.99, pcProg / 0.6) * 100)}%` : "SERVONO I DRONI"}` : "IN ATTESA DELLE SQUADRE";
+            pcCol = ok ? "#4ADE80" : "#FDBA74";
+            break; }
+        }
+      }
       for (const pr2 of props) addBox({ c: pr2.c, s: pr2.s, yaw: pr2.yaw ?? 0, fill: pr2.fill, edge: pr2.edge });
       for (const fl of flashes) { const q = P(fl); if (q) draws.push({ z: q[2] - 1, fn: () => { ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.beginPath(); ctx.arc(q[0], q[1], 9, 0, Math.PI * 2); ctx.fill(); } }); }
       for (const st of stretchers) {
@@ -900,7 +1120,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       }
       firemen.forEach((fm, k) => figure(fm.p, fm.pose, "#F87171", t / 1000 + k * 0.9 + 3));
       // cordone: nastro della polizia, auto della polizia, curiosi che filmano
-      if (!FIRE) { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
+      if (!FIRE && !PC) { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
         const tp = tape.map(P); if (tp.every(Boolean)) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(250,204,21,.85)"; ctx.lineWidth = 1.4; ctx.beginPath(); tp.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1] + Math.sin(t / 400 + k) * 0.6) : ctx.moveTo(q![0], q![1]))); ctx.stroke(); ctx.setLineDash([]); }
         const bys = rng(seed + 99);
         for (let k = 0; k < 12; k++) { const a = Math.PI * 1.1 + bys() * Math.PI * 0.8; const r = 62 + bys() * 6;
@@ -949,12 +1169,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           : q.kind === "water" ? `rgba(125,211,252,${0.8 * (1 - u)})` : `rgba(200,190,170,${0.18 * (1 - u)})`;
         ctx.beginPath(); ctx.arc(s[0], s[1], rad, 0, Math.PI * 2); ctx.fill();
       }
+      if (X?.snow) { ctx.fillStyle = "rgba(241,245,249,.8)"; for (let k = 0; k < 160; k++) { const x = ((k * 97.3 + t * 0.012 * (1 + (k % 3))) % (W + 20)) - 10, y = ((k * 53.7 + t * 0.04 * (1 + (k % 4) * 0.4)) % (H + 20)) - 10; ctx.fillRect(x, y, 1.6, 1.6); } }
       if (scene.fog) { ctx.fillStyle = `rgba(180,195,215,${0.08 + 0.03 * Math.sin(t / 1500)})`; ctx.fillRect(0, H * 0.35, W, H * 0.4); }
 
       // HUD in alto a sinistra
       const dt = new Date(now);
       ctx.textAlign = "left"; ctx.font = "700 11px ui-monospace,monospace";
-      const head = FIRE ? "INCENDIO BOSCHIVO · " : "MAXI EMERGENZA · ";
+      const head = FIRE ? "INCENDIO BOSCHIVO · " : PC ? "PROTEZIONE CIVILE · " : "MAXI EMERGENZA · ";
       ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText(head, 14, 24);
       const tag = dt.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
       const w1 = ctx.measureText(head).width;
@@ -969,6 +1190,9 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const stato = inten === 0 ? "✅ DOMATO" : inten >= 70 ? "FUORI CONTROLLO" : fireOn >= need ? "IN SPEGNIMENTO" : "IN ESPANSIONE";
         ctx.fillStyle = inten === 0 ? "#22C55E" : inten >= 70 ? "#EF4444" : fireOn >= need ? "#FACC15" : "#F97316";
         ctx.fillText(`GRAVITÀ ${sev}/3 · INTENSITÀ ${inten}% · ${stato}`, 14, 75);
+      } else if (PC) {
+        ctx.fillText(`MEZZI MAXI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming}`, 14, 58);
+        ctx.fillStyle = pcCol; ctx.fillText(pcStat, 14, 75);
       } else {
       ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}${hasPma ? "" : ` · VERSO/IN OSPEDALE ${away}`} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
       const remaining = Math.max(0, injured - transported); const red = Math.round(remaining * 0.15), yel = Math.round(remaining * 0.35), grn = remaining - red - yel;
