@@ -4,6 +4,14 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-15a", date: "15 novembre 2026", title: "Nuova grafica e aiuto in ogni pagina",
+    items: [
+      "🎨 Tutto il gioco ha i colori del logo: blu notte, arancione e azzurro.",
+      "❓ In basso a destra c'è il tasto «?»: in ogni pagina spiega in poche righe cosa puoi fare lì (lampeggia la prima volta). Nel menu c'è anche «Come si gioca».",
+      "📱 Sul telefono c'è la barra in basso: Mappa, Garage, Squadra, Officina e «Altro» per il menu completo.",
+    ],
+  },
+  {
     id: "2026-11-14k", date: "14 novembre 2026", title: "Maxi emergenze e incendi da qualsiasi sede",
     items: ["📍 Alle maxi emergenze e agli incendi boschivi puoi mandare mezzi da qualunque sede, anche oltre i 25 km: più è lontana, più ci mettono ad arrivare."],
   },
