@@ -327,7 +327,7 @@ export default function Officina() {
                   <div key={b.id}>
                     <button onClick={() => setOpen((o) => ({ ...o, [b.id]: !o[b.id] }))}
                             style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
-                                     background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px" }}>
+                                     background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 12, padding: "10px 14px" }}>
                       <span style={{ fontSize: 18 }}>{b.is_headquarters ? "⭐" : "🏠"}</span>
                       <span style={{ flex: 1, fontWeight: 800 }}>{b.name}</span>
                       {nNeed > 0 && <span title={`${nNeed} mezzi hanno bisogno di interventi`} style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}

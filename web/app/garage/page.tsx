@@ -48,6 +48,16 @@ const CERT: Record<Cert, { label: string; color: string }> = {
   base: { label: "Emergenza", color: "#EAB308" },
   avanzata_rianimazione: { label: "Rianimazione", color: "#DC2626" },
 };
+// stato del mezzo come pastiglia colorata, facile da leggere a colpo d'occhio
+const PILL: Record<Vehicle["status"], [string, string, string]> = {
+  disponibile: ["🟢 Pronto in sede", "#DCFCE7", "#166534"], in_servizio: ["🚨 In servizio", "#FFE4D6", "#C2410C"],
+  manutenzione: ["🔧 In officina", "#EDE9FE", "#5B21B6"], fuori_servizio: ["🏷️ All'asta", "#E5E7EB", "#374151"],
+};
+function StatusPill({ v }: { v: { status: Vehicle["status"]; issue_open?: boolean; maintenance_until?: string | null } }) {
+  const [t, bg, fg] = v.issue_open && v.status === "disponibile" ? ["⚠️ Guasto: portalo in officina", "#FEE2E2", "#B91C1C"] : PILL[v.status];
+  const until = v.status === "manutenzione" && v.maintenance_until ? ` fino alle ${new Date(v.maintenance_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : "";
+  return <span style={{ display: "inline-block", background: bg, color: fg, fontWeight: 800, fontSize: 12.5, borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" }}>{t}{until}</span>;
+}
 const STATUS: Record<Vehicle["status"], string> = {
   disponibile: "Disponibile", in_servizio: "In servizio", manutenzione: "In manutenzione", fuori_servizio: "🏷️ All'asta (Ambulanze usate)",
 };
@@ -483,9 +493,35 @@ export default function Garage() {
                         color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>
         )}
 
+        {/* riepilogo: com'è messa la flotta in questo momento */}
+        {!shop && vehicles.length > 0 && (() => {
+          const ready = vehicles.filter((v) => v.status === "disponibile" && !v.issue_open).length;
+          const busyN = vehicles.filter((v) => v.status === "in_servizio").length;
+          const shopN = vehicles.filter((v) => v.status === "manutenzione").length;
+          const care = vehicles.filter((v) => v.status !== "fuori_servizio" && needsCare(v)).length;
+          const tiles: [string, string, number, string, string | null][] = [
+            ["🚑", "Mezzi", vehicles.filter((v) => v.status !== "fuori_servizio").length, "#13294B", null],
+            ["🟢", "Pronti in sede", ready, "#15803D", null],
+            ["🚨", "In servizio", busyN, "#C2410C", "/"],
+            ["🔧", "In officina", shopN, "#5B21B6", "/officina"],
+            ["⚠️", "Da sistemare", care, care ? "#B91C1C" : "#15803D", "/officina"],
+          ];
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8, marginBottom: 14 }}>
+              {tiles.map(([ico, label, n, col, href]) => (
+                <button key={label} onClick={() => href && router.push(href)}
+                        style={{ background: "#fff", border: "none", borderRadius: 14, padding: "10px 12px", textAlign: "left", cursor: href ? "pointer" : "default",
+                                 boxShadow: "0 2px 10px rgba(19,41,75,.08)", borderLeft: `5px solid ${col}`, opacity: 1 }}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: col, lineHeight: 1.1 }}>{ico} {n}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#475569" }}>{label}{href ? " ›" : ""}</div>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
         {!shop && (
           <button onClick={openShop} data-tut="buy-vehicle"
-                  style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "#F97316", marginBottom: 14,
+                  style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", marginBottom: 14,
                            boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
             🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}
           </button>
@@ -763,7 +799,7 @@ export default function Garage() {
         })()}
 
         {/* I miei mezzi */}
-        <h2>I tuoi mezzi</h2>
+        <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>🚑 I tuoi mezzi</h2>
         {vehicles.length > 0 && (
           <div style={{ ...box, marginBottom: 12, padding: 12 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -828,7 +864,7 @@ export default function Garage() {
               <div key={key}>
                 <button onClick={() => setExpanded((c) => ({ ...c, [key]: !c[key] }))}
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
-                                 background: "linear-gradient(135deg,#1E3A8A,#1E40AF)", color: "#fff", borderRadius: 12, padding: "10px 14px",
+                                 background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 12, padding: "10px 14px",
                                  boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
                   <span style={{ fontSize: 18 }}>{icon}</span>
                   {list.some(needsCare) && <span title="Ci sono mezzi da sistemare (Officina)" style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
@@ -861,7 +897,7 @@ export default function Garage() {
                               <td style={{ padding: "7px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>{needsCare(v) && <span style={{ color: v.issue_open ? "#DC2626" : "#CA8A04", fontWeight: 900 }}>! </span>}{v.call_sign}{v.km_retired && " ⛔"}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{k.icon} {k.label}</td>
                               <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{groupBy === "sede" ? byId.model[v.model_id]?.name : byId.base[v.base_id]?.name}</td>
-                              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{STATUS[v.status]}</td>
+                              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}><StatusPill v={v} /></td>
                               <td style={{ padding: "7px 6px", textAlign: "right", whiteSpace: "nowrap",
                                            color: !lim ? "#999" : km >= KM_LIMIT ? "#DC2626" : km >= KM_LIMIT * 0.8 ? "#B45309" : "#111" }}>
                                 {lim ? kmFmt(km) : "—"}
@@ -1028,11 +1064,7 @@ export default function Garage() {
                       </>
                     );
                   })()}
-                  <div style={{ fontSize: 13, marginTop: 8 }}>
-                    {STATUS[v.status]}
-                    {v.status === "manutenzione" && v.maintenance_until &&
-                      ` fino alle ${new Date(v.maintenance_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`}
-                  </div>
+                  <div style={{ marginTop: 8 }}><StatusPill v={v} /></div>
                   {v.status === "disponibile" && v.wear > 0 && (
                     <button onClick={() => maintain(v)} disabled={cost > org.funds}
                             style={{ ...btn, width: "100%", marginTop: 8, background: v.wear >= 80 ? "#DC2626" : "#111",
