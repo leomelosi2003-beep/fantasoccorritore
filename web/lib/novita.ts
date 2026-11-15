@@ -5,7 +5,7 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 export const NOVITA: Novita[] = [
   {
     id: "2026-11-15j", date: "15 novembre 2026", title: "Mappa più fluida da lontano",
-    items: ["🗺️ Quando allontani lo zoom, servizi e sedi degli altri diventano puntini colorati (toccali per avvicinarti) e ospedali, porti e mezzi degli altri si nascondono: lo zoom non va più a scatti.",
+    items: ["🗺️ Quando allontani lo zoom, servizi, sedi e ambulanze diventano puntini colorati (toccali per avvicinarti; le tue sedi sono arancioni, le tue ambulanze hanno il bordo bianco) e ospedali e porti si nascondono: lo zoom non va più a scatti.",
             "Da vicino la mappa disegna solo quello che hai sullo schermo."],
   },
   {

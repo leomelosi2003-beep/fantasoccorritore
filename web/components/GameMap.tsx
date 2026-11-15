@@ -301,17 +301,26 @@ function sirens(code: string, pos: { moving: boolean; text: string }) {
 // L'icona cambia solo quando cambia verso o lampeggianti.
 // passo del movimento: corto, così tra un punto e l'altro il mezzo resta sulla strada anche nelle curve
 const STEP_MS = 250;
-function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
-  route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode;
+// da lontano il mezzo è un puntino del colore del codice (i miei col bordo bianco, quelli degli altri più piccoli)
+const dotIcons: Record<string, L.DivIcon> = {};
+function dotIcon(code: string, mine: boolean) {
+  const k = code + mine;
+  if (!dotIcons[k]) { const d = mine ? 12 : 7;
+    dotIcons[k] = L.divIcon({ className: "", iconSize: [d, d], iconAnchor: [d / 2, d / 2],
+      html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:50%;background:${(CODE_COLOR as Record<string, string>)[code] ?? "#64748B"};border:${mine ? 2 : 1}px solid ${mine ? "#fff" : "rgba(255,255,255,.8)"};box-shadow:0 0 0 1px rgba(0,0,0,.45)${mine ? ",0 0 6px rgba(37,99,235,.8)" : ""}"></span>` }); }
+  return dotIcons[k];
+}
+function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mine }: {
+  route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode; small?: boolean; mine?: boolean;
   makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
 }) {
   const ref = useRef<L.Marker | null>(null);
   const routeRef = useRef(route); routeRef.current = route;
-  const makeRef = useRef(makeIcon); makeRef.current = makeIcon;
+  const makeRef = useRef(makeIcon); makeRef.current = (sc: boolean, fr: boolean) => (small ? dotIcon(code, !!mine) : makeIcon(sc, fr));
   const [start] = useState(() => {
     const t = serverNow(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
-    return { pos: [p.lat, p.lng] as [number, number], key: `${!sirens(code, p)}|${ah.lng > p.lng}`,
-             icon: makeIcon(!sirens(code, p), ah.lng > p.lng) };
+    return { pos: [p.lat, p.lng] as [number, number], key: `${!!small}|${!sirens(code, p)}|${ah.lng > p.lng}`,
+             icon: makeRef.current(!sirens(code, p), ah.lng > p.lng) };
   });
   const keyRef = useRef(start.key);
   useEffect(() => {
@@ -321,7 +330,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
       const p = alongRoute(routeRef.current, t);
       const ah = alongRoute(routeRef.current, t + 4000);
       const facing = Math.abs(ah.lng - p.lng) < 1e-7 ? keyRef.current.endsWith("true") : ah.lng > p.lng;
-      const key = `${!sirens(code, p)}|${facing}`;
+      const key = `${!!small}|${!sirens(code, p)}|${facing}`;
       if (key !== keyRef.current) { keyRef.current = key; m.setIcon(makeRef.current(!sirens(code, p), facing)); }
       m.getElement()?.classList.add("fs-mv");
       const next = alongRoute(routeRef.current, t + STEP_MS);
@@ -330,7 +339,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children }: {
     const first = requestAnimationFrame(tick); // dopo il primo disegno, così la transizione parte
     const iv = setInterval(tick, STEP_MS);
     return () => { cancelAnimationFrame(first); clearInterval(iv); };
-  }, [code]);
+  }, [code, small]);
   return <Marker ref={ref} position={start.pos} icon={start.icon} zIndexOffset={zIndexOffset}>{children}</Marker>;
 }
 
@@ -1509,11 +1518,14 @@ export default function GameMap() {
           </Marker>
         )), [flt.hospitals, hospitals, mv])}
 
-        {far && bases.filter((b) => showBase(b) && b.org_id !== org?.id).map((b) => (
+        {far && bases.filter((b) => showBase(b)).map((b) => b.org_id === org?.id ? (
+          <CircleMarker key={`bd-${b.id}`} center={[b.lat, b.lng]} radius={b.is_headquarters ? 7 : 5.5} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }}
+                        pathOptions={{ color: "#13294B", weight: 2, fillColor: "#F59E0B", fillOpacity: 1 }} />
+        ) : (
           <CircleMarker key={`bd-${b.id}`} center={[b.lat, b.lng]} radius={4} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }}
                         pathOptions={{ color: "#fff", weight: 1, fillColor: b.org_type === "rosso_bianco" ? "#DC2626" : b.org_type === "arancio_nero" ? "#EA580C" : "#1D4ED8", fillOpacity: 0.9 }} />
         ))}
-        {useMemo(() => bases.filter((b) => showBase(b) && (far ? b.org_id === org?.id : inView(b.lat, b.lng))).map((b) => (
+        {useMemo(() => !far && bases.filter((b) => showBase(b) && inView(b.lat, b.lng)).map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
@@ -1810,12 +1822,12 @@ export default function GameMap() {
         // l'orologio conta solo se ho un servizio aperto (classifica d'arrivo); altrimenti si aggiorna ogni 30 s
         )), [missions, flt, responders, org, goneKey, openMission ? now : Math.floor(now / 30_000), far, mv])}
 
-        {Array.from(sceneCount.entries()).map(([k, c]) => (
+        {!far && Array.from(sceneCount.entries()).map(([k, c]) => (
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
         {/* Maxi senza PMA: le ambulanze lasciano la scena, portano il ferito all'ospedale più vicino e tornano */}
-        {shuttles.filter((x) => x.mine || (flt.othersVehicles && !lite && !far)).map((x) => {
+        {shuttles.filter((x) => x.mine || (flt.othersVehicles && !lite)).map((x) => {
           const T = shuttleTravelS(distKm(x.lat, x.lng, x.h_lat, x.h_lng));
           const st = shuttleState(new Date(x.arrives_at).getTime(), T, now);
           if (!st || st.phase === "scena") return null;
@@ -1830,7 +1842,7 @@ export default function GameMap() {
           const mins = Math.max(1, Math.round(st.leftS / 60));
           const what = st.phase === "andata" ? `🚨 Porta un ferito a ${x.hospital}` : st.phase === "ospedale" ? `🏥 Consegna in pronto soccorso a ${x.hospital}` : "🆘 Torna alla maxi emergenza";
           return (
-            <MovingMarker key={`shut-${x.id}-${st.n}`} route={route} code="rosso" zIndexOffset={x.mine ? 900 : 0}
+            <MovingMarker key={`shut-${x.id}-${st.n}`} route={route} code="rosso" zIndexOffset={x.mine ? 900 : 0} small={far} mine={x.mine}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(x.vehicle_image, x.org_type), fr)}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
@@ -1850,7 +1862,7 @@ export default function GameMap() {
           );
         })}
 
-        {flt.othersVehicles && !lite && !far && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)
+        {flt.othersVehicles && !lite && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)
             && (inView(a.lat, a.lng) || inView(a.base_lat, a.base_lng))).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
@@ -1859,7 +1871,7 @@ export default function GameMap() {
           ];
           const pos = alongRoute(route, now);
           return (
-            <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
+            <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100} small={far}
                           makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
@@ -1953,7 +1965,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
+            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} small={far} mine
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
