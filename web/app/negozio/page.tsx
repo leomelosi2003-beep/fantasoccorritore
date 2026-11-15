@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
+import EquipBuySheet, { type SheetVehicle } from "@/components/EquipBuySheet";
 
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   description: string | null; image_url: string | null; sort: number };
-type Vehicle = { id: string; call_sign: string; status: string; equipment: string[]; model_id?: string; maxi?: boolean };
 
 const CATEGORIES: { slot: string; title: string }[] = [
   { slot: "monitor", title: "Defibrillatori e cardiomonitor" },
@@ -31,10 +31,9 @@ export default function Negozio() {
   const router = useRouter();
   const [org, setOrg] = useState<Organization | null>(null);
   const [equip, setEquip] = useState<Equip[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<SheetVehicle[]>([]);
+  const [stock, setStock] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<Equip | null>(null);
-  const [vehicleId, setVehicleId] = useState<string>("");
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -44,46 +43,20 @@ export default function Negozio() {
       .eq("owner_id", session.user.id).maybeSingle();
     if (!o) { router.replace("/onboarding"); return; }
     setOrg(o as Organization);
-    const [e, v, mx] = await Promise.all([
+    const [e, f, st] = await Promise.all([
       supabase.from("equipment").select("*").order("sort"),
-      supabase.from("vehicles").select("id,call_sign,status,equipment,model_id").eq("org_id", o.id).order("created_at"),
-      supabase.from("vehicle_models").select("id").eq("maxi", true),
+      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,maxi").order("call_sign"),
+      supabase.from("org_equipment_stock").select("code,qty"),
     ]);
-    const maxiIds = new Set(((mx.data as { id: string }[]) ?? []).map((m) => m.id));
     setEquip((e.data as Equip[]) ?? []);
-    setVehicles(((v.data as Vehicle[]) ?? []).map((x) => ({ ...x, maxi: !!x.model_id && maxiIds.has(x.model_id) })));
+    setVehicles(((f.data as (SheetVehicle & { mine: boolean; boat: boolean; aib: boolean })[]) ?? []).filter((v) => v.mine && !v.boat && !v.aib));
+    setStock(Object.fromEntries(((st.data as { code: string; qty: number }[]) ?? []).map((r) => [r.code, r.qty])));
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
-  const fits = (v: Vehicle, e: Equip) => !!v.maxi === isMaxiEq(e);
-  function open(e: Equip) {
-    setSelected(e); setMsg(null);
-    const cand = vehicles.filter((v) => fits(v, e));
-    const first = cand.find((v) => !v.equipment.includes(e.code) && v.status === "disponibile")
-      ?? cand.find((v) => !v.equipment.includes(e.code) && v.status !== "fuori_servizio");
-    setVehicleId(first?.id ?? "");
-  }
-
-  async function buy() {
-    if (!selected || !vehicleId) return;
-    setBusy(true); setMsg(null);
-    const { error } = isMaxiEq(selected)
-      ? await supabase.rpc("equip_mount", { p_vehicle: vehicleId, p_code: selected.code, p_buy: true })
-      : await supabase.rpc("install_equipment", { p_vehicle_id: vehicleId, p_code: selected.code });
-    setBusy(false);
-    const v = vehicles.find((x) => x.id === vehicleId);
-    if (error) { setMsg({ ok: false, text: shopError(error.message) }); return; }
-    setMsg({ ok: true, text: `${selected.name} montato su ${v?.call_sign}.` });
-    setSelected(null);
-    load();
-  }
-
   if (!org) return <main style={shell} />;
-
-  const replaced = selected && vehicleId
-    ? equip.find((e) => e.slot === selected.slot && e.code !== selected.code && vehicles.find((v) => v.id === vehicleId)?.equipment.includes(e.code))
-    : undefined;
+  const fitting = (e: Equip) => vehicles.filter((v) => !!v.maxi === isMaxiEq(e));
 
   return (
     <main style={shell}>
@@ -95,78 +68,51 @@ export default function Negozio() {
             <div style={{ fontWeight: 700 }}>Negozio presidi</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
           </div>
-          <button onClick={() => router.push("/garage")} style={{ ...btn, background: "#F97316", padding: "8px 12px" }}>🚑 Garage</button>
+          <button onClick={() => router.push("/officina?tab=presidi")} style={{ ...btn, background: "#F97316", padding: "8px 12px" }}>🧰 I miei presidi</button>
         </div>
       </div>
 
       <div style={wrap}>
         {msg && (
-          <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1",
-                        color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>
+          <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00", fontWeight: 600 }}>{msg.text}</div>
         )}
-        {vehicles.length === 0 && (
-          <div style={{ ...box, marginBottom: 12, color: "#666" }}>
-            Per montare un presidio ti serve prima un mezzo: passa dal garage.
-          </div>
-        )}
+        <div style={{ ...box, marginBottom: 14, fontSize: 14, color: "#334155" }}>
+          Tocca un presidio: scegli <b>su quali ambulanze montarlo</b> (anche tutta una sede insieme) e <b>quanti comprarne</b>. Quelli in più restano in magazzino per dopo.
+        </div>
 
         {CATEGORIES.map(({ slot, title }) => {
           const items = equip.filter((e) => e.category === slot);
           if (!items.length) return null;
           return (
-            <section key={slot} style={{ marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, margin: "8px 0 10px" }}>{title}</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-                {items.map((e) => (
-                  <button key={e.code} onClick={() => open(e)}
-                          style={{ ...box, textAlign: "center", cursor: "pointer",
-                                   border: selected?.code === e.code ? "3px solid #111" : "1px solid #e5e5e0" }}>
-                    <EquipmentIcon code={e.code} url={e.image_url} size={72} />
-                    <div style={{ fontWeight: 700, marginTop: 6 }}>{e.name}</div>
-                    <div style={{ fontSize: 13, color: "#666", margin: "4px 0 8px", minHeight: 34 }}>{e.description}</div>
-                    <div style={{ fontWeight: 800 }}>{euro(e.cost)}</div>
-                  </button>
-                ))}
+            <section key={slot} style={{ marginBottom: 22 }}>
+              <h2 style={{ fontSize: 17, margin: "8px 0 10px", color: "#13294B" }}>{title}</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12 }}>
+                {items.map((e) => {
+                  const fit = fitting(e); const on = fit.filter((v) => (v.equipment ?? []).includes(e.code)).length; const st = stock[e.code] ?? 0;
+                  return (
+                    <button key={e.code} onClick={() => { setMsg(null); setSelected(e); }}
+                            style={{ ...box, padding: 12, textAlign: "center", cursor: "pointer", border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, position: "relative" }}>
+                      {st > 0 && <span style={{ position: "absolute", top: 8, right: 8, background: "#13294B", color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 800 }}>📦 {st}</span>}
+                      <EquipmentIcon code={e.code} url={e.image_url} size={64} />
+                      <div style={{ fontWeight: 800, color: "#13294B", lineHeight: 1.2 }}>{e.name}</div>
+                      <div style={{ fontSize: 12, color: "#64748B", minHeight: 32, lineHeight: 1.3 }}>{e.description}</div>
+                      {fit.length > 0 && <div style={{ fontSize: 11.5, color: on ? "#15803D" : "#94A3B8", fontWeight: 700 }}>Montato su {on}/{fit.length} mezzi</div>}
+                      <div style={{ marginTop: 4, width: "100%", borderRadius: 10, padding: "8px 0", fontWeight: 800, color: "#fff", background: "linear-gradient(135deg,#F59E0B,#EA6A1F)" }}>
+                        {euro(e.cost)} · Compra
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
           );
         })}
       </div>
 
-      {/* Pannello acquisto */}
       {selected && (
-        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", zIndex: 10,
-                      boxShadow: "0 -6px 24px rgba(0,0,0,.15)", borderRadius: "16px 16px 0 0" }}>
-          <div style={{ ...wrap, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <EquipmentIcon code={selected.code} url={selected.image_url} size={48} />
-            <div style={{ flex: "1 1 160px" }}>
-              <div style={{ fontWeight: 700 }}>{selected.name}</div>
-              <div style={{ fontSize: 13, color: "#666" }}>{euro(selected.cost)}</div>
-            </div>
-            <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}
-                    style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, flex: "1 1 180px" }}>
-              <option value="">{vehicles.some((v) => fits(v, selected)) ? "Scegli il mezzo…" : isMaxiEq(selected) ? "Prima compra un camion o furgone maxi nel Garage" : "Nessun mezzo adatto"}</option>
-              {vehicles.filter((v) => fits(v, selected)).map((v) => {
-                const has = v.equipment.includes(selected.code);
-                return (
-                  <option key={v.id} value={v.id} disabled={has || v.status === "fuori_servizio"}>
-                    {v.call_sign}{has ? " (già montato)" : v.status === "in_servizio" ? " (in servizio)" : v.status === "manutenzione" ? " (in officina)" : ""}
-                  </option>
-                );
-              })}
-            </select>
-            <button onClick={() => setSelected(null)} style={{ ...btn, background: "#eee", color: "#111" }}>Annulla</button>
-            <button onClick={buy} disabled={!vehicleId || busy || selected.cost > org.funds}
-                    style={{ ...btn, background: "#F97316", opacity: !vehicleId || busy || selected.cost > org.funds ? 0.4 : 1 }}>
-              {busy ? "Acquisto…" : selected.cost > org.funds ? "Fondi insufficienti" : !vehicleId ? "Scegli il mezzo" : "Compra e monta"}
-            </button>
-            {replaced && (
-              <div style={{ flexBasis: "100%", fontSize: 13, color: "#a16207" }}>
-                Sostituisce {replaced.name}, che verrà ritirato.
-              </div>
-            )}
-          </div>
-        </div>
+        <EquipBuySheet item={selected} all={equip} vehicles={vehicles} stock={stock[selected.code] ?? 0} funds={org.funds}
+                       onClose={() => setSelected(null)}
+                       onDone={(text, ok) => { setSelected(null); setMsg({ ok, text: ok ? text : shopError(text) }); load(); }} />
       )}
     </main>
   );

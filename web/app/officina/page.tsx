@@ -74,6 +74,7 @@ export default function Officina() {
   const [reports, setReports] = useState<Report[]>([]);
   const [stock, setStock] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<"mezzi" | "presidi" | "gomme" | "segnalazioni">("mezzi");
+  useEffect(() => { const t = new URLSearchParams(window.location.search).get("tab"); if (t === "presidi" || t === "gomme" || t === "segnalazioni") setTab(t); }, []);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openV, setOpenV] = useState<string | null>(null);
   const [only, setOnly] = useState<"tutti" | "problemi">("problemi");

@@ -2,8 +2,10 @@
 // Presidi: magazzino dell'associazione + presidi montati su ogni mezzo (togli, monta, sposta, aggiorna).
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
+import EquipmentIcon from "@/components/EquipmentIcon";
+import EquipBuySheet from "@/components/EquipBuySheet";
 
-type Eq = { code: string; slot: string; name: string; cost: number; category: string; description: string | null; sort: number };
+type Eq = { code: string; slot: string; name: string; cost: number; category: string; description: string | null; sort: number; image_url: string | null };
 type V = { id: string; call_sign: string; status: string; equipment: string[] | null; base_id: string | null; base_name: string | null;
            mine: boolean; boat: boolean; aib: boolean; ordinaria: boolean; maxi?: boolean };
 
@@ -14,6 +16,8 @@ const SLOT_NAMES: Record<string, string> = {
   maxi_pma: "🆘 Modulo PMA", maxi_logistica: "🆘 Modulo logistica", maxi_cinofila: "🆘 Modulo ricerca/cinofila", maxi_droni: "🆘 Modulo droni",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
+const CATS: [string, string][] = [["monitor", "❤️ Monitor e DAE"], ["barella", "🛏️ Barelle"], ["massaggiatore", "💪 Massaggiatori"],
+  ["immobilizzazione", "🦴 Immobilizzazione"], ["borsoni", "🎒 Borsoni"], ["maxi", "🆘 Moduli maxi"]];
 const btn: CSSProperties = { border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, cursor: "pointer", fontSize: 13 };
 const ERR: Record<string, string> = {
   VEHICLE_BUSY: "Il mezzo è in servizio: aspetta che rientri.", NO_STOCK: "Non ce l'hai in magazzino: compralo prima.",
@@ -30,14 +34,15 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
   const [stock, setStock] = useState<Record<string, number>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openV, setOpenV] = useState<string | null>(null);
-  const [buyQty, setBuyQty] = useState<Record<string, number>>({});
+  const [sheet, setSheet] = useState<Eq | null>(null);
+  const [cat, setCat] = useState<string>("tutti");
   const [moveTo, setMoveTo] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const [e, f, s] = await Promise.all([
-      supabase.from("equipment").select("code,slot,name,cost,category,description,sort").order("slot").order("sort"),
+      supabase.from("equipment").select("code,slot,name,cost,category,description,sort,image_url").order("slot").order("sort"),
       supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,ordinaria,maxi").order("call_sign"),
       supabase.from("org_equipment_stock").select("code,qty"),
     ]);
@@ -72,28 +77,39 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
         I presidi tolti da un mezzo vanno in <strong>magazzino</strong> e puoi montarli su un altro. Montando un presidio nuovo al posto di un altro (es. un monitor migliore), quello vecchio torna in magazzino. Il mezzo deve essere in sede per togliere o spostare.
       </p>
 
-      <details style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 12, padding: 10, marginBottom: 12 }}>
-        <summary style={{ fontWeight: 800, cursor: "pointer" }}>📦 Magazzino presidi · {stockTotal} pezzi</summary>
-        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-          {eq.map((e) => (
-            <div key={e.code} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid #f1f1f1", paddingBottom: 6 }}>
-              <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontWeight: 700 }}>{e.name}</div>
-                <div style={{ fontSize: 12, color: "#666" }}>{SLOT_NAMES[e.slot] ?? e.slot} · {euro(e.cost)}{e.description ? ` · ${e.description}` : ""}</div>
-              </div>
-              <span style={{ fontWeight: 800, minWidth: 60 }}>in magazzino: {stock[e.code] ?? 0}</span>
-              <input type="number" min={1} max={200} value={buyQty[e.code] ?? 1}
-                     onChange={(ev) => setBuyQty((q) => ({ ...q, [e.code]: Math.max(1, Math.min(200, Number(ev.target.value) || 1)) }))}
-                     style={{ width: 56, padding: 4, borderRadius: 6, border: "1px solid #ccc" }} />
-              <button disabled={busy || e.cost * (buyQty[e.code] ?? 1) > funds}
-                      onClick={() => run("equip_buy", { p_code: e.code, p_qty: buyQty[e.code] ?? 1 }, `📦 Comprati ${buyQty[e.code] ?? 1} × ${e.name}.`)}
-                      style={{ ...btn, background: "#111", color: "#fff", opacity: e.cost * (buyQty[e.code] ?? 1) > funds ? 0.4 : 1 }}>
-                Compra · {euro(e.cost * (buyQty[e.code] ?? 1))}
-              </button>
-            </div>
+      {/* catalogo: tocca un presidio per comprarlo e montarlo su più mezzi insieme */}
+      <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: 12, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ fontWeight: 800, color: "#13294B", flex: 1 }}>🛒 Compra e monta · 📦 in magazzino: {stockTotal} pezzi</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 8 }}>
+          {[["tutti", "Tutti"], ...CATS].map(([k, l]) => (
+            <button key={k} onClick={() => setCat(k)}
+                    style={{ ...btn, whiteSpace: "nowrap", borderRadius: 999, border: cat === k ? "2px solid #EA6A1F" : "1px solid #CBD5E1", background: cat === k ? "#FFF7ED" : "#fff", color: "#13294B" }}>{l}</button>
           ))}
         </div>
-      </details>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+          {eq.filter((e) => cat === "tutti" || e.category === cat).map((e) => {
+            const fit = veh.filter((v) => !!v.maxi === e.slot.startsWith("maxi_")); const on = fit.filter((v) => (v.equipment ?? []).includes(e.code)).length; const st = stock[e.code] ?? 0;
+            return (
+              <button key={e.code} onClick={() => { setMsg(null); setSheet(e); }}
+                      style={{ position: "relative", border: "1px solid #E2E8F0", borderRadius: 12, background: "#fff", padding: 10, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, textAlign: "center" }}>
+                {st > 0 && <span style={{ position: "absolute", top: 6, right: 6, background: "#13294B", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>📦 {st}</span>}
+                <EquipmentIcon code={e.code} url={e.image_url} size={52} />
+                <div style={{ fontWeight: 800, fontSize: 13, color: "#13294B", lineHeight: 1.2 }}>{e.name}</div>
+                <div style={{ fontSize: 11, color: "#64748B" }}>{SLOT_NAMES[e.slot] ?? e.slot}</div>
+                {fit.length > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: on ? "#15803D" : "#94A3B8" }}>su {on}/{fit.length} mezzi</div>}
+                <div style={{ marginTop: 3, width: "100%", borderRadius: 8, padding: "6px 0", fontWeight: 800, fontSize: 12.5, color: "#fff", background: "linear-gradient(135deg,#F59E0B,#EA6A1F)" }}>{euro(e.cost)}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {sheet && (
+        <EquipBuySheet item={sheet} all={eq} vehicles={veh} stock={stock[sheet.code] ?? 0} funds={funds}
+                       onClose={() => setSheet(null)}
+                       onDone={async (text, ok) => { setSheet(null); setMsg({ ok, text: ok ? text : errText(text) }); await load(); onChange?.(); }} />
+      )}
 
       {groups.map(([bid, g]) => (
         <div key={bid} style={{ marginBottom: 8 }}>
