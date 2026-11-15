@@ -513,6 +513,15 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // la barra in basso del telefono ("Altro") apre il menu; da un'altra pagina arriva con ?menu=1
+  useEffect(() => {
+    const open = () => setMenuOpen(true);
+    window.addEventListener("fs-open-menu", open);
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("menu") === "1") {
+      setMenuOpen(true); window.history.replaceState(null, "", "/");
+    }
+    return () => window.removeEventListener("fs-open-menu", open);
+  }, []);
   const [legendOpen, setLegendOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [flt, setFlt] = useState<MapFilters>(DEFAULT_FILTERS);
@@ -1194,6 +1203,10 @@ export default function GameMap() {
               </div>
               <button className="fs-drawer-x" onClick={() => setMenuOpen(false)} aria-label="Chiudi">✕</button>
             </div>
+            <button className="fs-drawer-item" onClick={() => { setMenuOpen(false); setTimeout(() => (document.querySelector(".fs-help-fab") as HTMLButtonElement | null)?.click(), 250); }}
+                    style={{ background: "#FFF1E7", marginBottom: 4 }}>
+              <img src="/logo-192.jpg" alt="" style={{ width: 38, height: 38, borderRadius: "50%", flexShrink: 0 }} />Come si gioca
+            </button>
             {([
               ["Gioco", [
                 ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
@@ -1924,7 +1937,7 @@ export default function GameMap() {
         .fs-chips { display: flex; gap: 8px; font-size: 11px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
         .fs-stats-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 1300; background: #fff; color: #111; border-radius: 16px;
           box-shadow: 0 16px 40px rgba(0,0,0,.32); border: 1px solid rgba(0,0,0,.05); padding: 0; overflow: hidden; width: min(300px, 86vw); font-size: 13px; text-align: left; }
-        .fs-stats-head { background: linear-gradient(135deg,#16A34A,#15803D); color: #fff; font-weight: 800; font-size: 14px; padding: 11px 14px; }
+        .fs-stats-head { background: linear-gradient(135deg,#1D3D6B,#13294B); border-bottom: 3px solid #EA6A1F; color: #fff; font-weight: 800; font-size: 14px; padding: 11px 14px; }
         .fs-stats-body { padding: 12px 14px; }
         .fs-stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; }
         .fs-stat-btn { border: none; background: #f1f5f9; border-radius: 9px; padding: 7px 9px; font-weight: 700; font-size: 12px; cursor: pointer; }
@@ -1960,13 +1973,13 @@ export default function GameMap() {
         @media (max-width: 760px) { .fs-first { bottom: calc(80px + env(safe-area-inset-bottom)); } }
         .fs-auto { font-size: 10px; font-weight: 800; color: #fff; background: #0F766E; border-radius: 6px; padding: 1px 6px; width: fit-content; }
         .fs-burger { position: absolute; top: 10px; left: 10px; z-index: 1000; width: 44px; height: 44px; border-radius: 13px; border: none;
-          background: linear-gradient(135deg,#F97316,#C2410C); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+          background: linear-gradient(135deg,#F59E0B,#EA6A1F); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
           box-shadow: 0 4px 14px rgba(194,65,12,.45); transition: transform .18s, box-shadow .18s; }
         .fs-burger:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(194,65,12,.55); }
         .fs-burger span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #fff; }
         .fs-map .leaflet-top.leaflet-left { top: 116px; }
         .fs-fire-pin { box-shadow: 0 0 0 4px rgba(194,65,12,.4), 0 3px 10px rgba(0,0,0,.5); animation: maxi-pulse 1.3s infinite; }
-        .fs-drawer-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #888; padding: 12px 14px 4px; }
+        .fs-drawer-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #EA6A1F; padding: 14px 14px 4px; }
         .fs-legend { position: absolute; left: 10px; bottom: 96px; z-index: 1000; font-family: system-ui, sans-serif; }
         .fs-legend-btn { border: none; border-radius: 999px; padding: 7px 12px; background: #fff; color: #111; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
         .fs-legend-box { margin-bottom: 8px; position: absolute; bottom: 38px; left: 0; width: 250px; max-height: 60vh; overflow: auto; background: #fff; color: #111; border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.3); font-size: 12.5px; }
@@ -2018,7 +2031,7 @@ export default function GameMap() {
           display: flex; flex-direction: column; padding: 12px 10px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; }
         .fs-drawer.open { transform: translateX(0); }
         .fs-drawer-head { display: flex; align-items: center; gap: 10px; margin: -12px -10px 10px; padding: 16px 12px;
-          background: linear-gradient(135deg,#F97316,#C2410C); border-radius: 0 0 18px 18px; box-shadow: 0 4px 14px rgba(194,65,12,.3); }
+          background: linear-gradient(135deg,#1D3D6B,#13294B); border-radius: 0 0 18px 18px; box-shadow: inset 0 -4px 0 #EA6A1F, 0 4px 14px rgba(19,41,75,.3); }
         .fs-drawer-name { font-weight: 800; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fs-drawer-sub { font-size: 12px; color: rgba(255,255,255,.92); font-weight: 700; }
         .fs-drawer-x { border: none; background: rgba(255,255,255,.22); color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 15px; }
@@ -2039,7 +2052,7 @@ export default function GameMap() {
           box-shadow: 0 4px 16px rgba(0,0,0,.18); transition: transform .18s, box-shadow .18s; }
         .fs-theme-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.24); }
         .fs-chat-btn { position: absolute; z-index: 1000; left: 10px; bottom: 24px; width: 52px; height: 52px; border-radius: 50%;
-          border: none; background: #111; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+          border: 3px solid #fff; background: linear-gradient(135deg,#1D3D6B,#13294B); color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 3px 12px rgba(19,41,75,.45); }
         .fs-chat-dot { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #DC2626;
           border: 2px solid #fff; animation: note-pulse 1.4s infinite; }
         .fs-chat { position: absolute; z-index: 1060; left: 10px; bottom: 86px; width: min(360px, calc(100% - 20px)); height: min(460px, 65vh);
@@ -2067,7 +2080,7 @@ export default function GameMap() {
         .fs-fleet-ico.open { box-shadow: 0 0 0 3px rgba(249,115,22,.35), 0 4px 14px rgba(194,65,12,.5); }
         .fs-fleet-badge { position: absolute; top: -5px; right: -5px; background: #111; color: #fff; font-size: 11px; font-weight: 800;
           min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid #fff; }
-        .fs-fleet-head { background: linear-gradient(135deg,#F97316,#C2410C); color: #fff; padding: 11px 14px; }
+        .fs-fleet-head { background: linear-gradient(135deg,#1D3D6B,#13294B); border-bottom: 3px solid #EA6A1F; color: #fff; padding: 11px 14px; }
         .fs-fleet-head-t { font-weight: 800; font-size: 15px; display: block; }
         .fs-fleet-head-sub { font-size: 12px; opacity: .95; display: block; margin-top: 1px; }
         .fs-fleet-head-sub strong { font-weight: 800; }
