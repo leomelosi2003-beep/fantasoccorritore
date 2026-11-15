@@ -173,6 +173,29 @@ export default function Sedi() {
       </div>
 
       <div style={wrap}>
+        {/* riepilogo delle sedi */}
+        {bases.length > 0 && (() => {
+          const mine = bases.filter((b) => !b.owner_name);
+          const cap = bases.reduce((t, b) => t + b.vehicle_capacity, 0);
+          const used = bases.reduce((t, b) => t + (parked[b.id] ?? 0), 0);
+          const full = bases.filter((b) => (parked[b.id] ?? 0) >= b.vehicle_capacity).length;
+          const tiles: [string, string, string, string][] = [
+            ["🏠", "Sedi tue", String(mine.length), "#13294B"],
+            ["🅿️", "Posti occupati", `${used}/${cap}`, used >= cap ? "#B91C1C" : "#15803D"],
+            ["🚫", "Sedi piene", String(full), full ? "#B45309" : "#15803D"],
+            ["🤝", "Condivise", String(bases.filter((b) => b.collab_org || b.owner_name).length), "#0E7490"],
+          ];
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8, marginBottom: 12 }}>
+              {tiles.map(([ico, label, n, col]) => (
+                <div key={label} style={{ background: "#fff", borderRadius: 14, padding: "10px 12px", boxShadow: "0 2px 10px rgba(19,41,75,.08)", borderLeft: `5px solid ${col}` }}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: col, lineHeight: 1.1 }}>{ico} {n}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#475569" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         <div style={box}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>Le tue sedi</div>
           <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Con ⚙️ Personalizza amplia il garage e aggiungi pannelli solari, caldaia, area volontari, officina, centrale radio, bar sociale e colore: rendono ogni ora o migliorano mezzi e volontari.</div>
@@ -186,6 +209,10 @@ export default function Sedi() {
                 {b.owner_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Sede di {b.owner_name}, condivisa con te: puoi ampliarla, migliorarla e metterci i tuoi mezzi</div>}
                 {b.twin_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Condivisa con {b.twin_name}: anche lui può ampliarla e metterci i suoi mezzi</div>}
                 <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>
+                <div style={{ height: 6, background: "#E6ECF3", borderRadius: 999, overflow: "hidden", marginTop: 4, maxWidth: 220 }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, ((parked[b.id] ?? 0) / Math.max(1, b.vehicle_capacity)) * 100)}%`,
+                                background: (parked[b.id] ?? 0) >= b.vehicle_capacity ? "#EA6A1F" : "#3BA3DB", borderRadius: 999 }} />
+                </div>
                 {b.rented && !b.owner_name && (
                   <div style={{ fontSize: 12, marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ background: "#EDE9FE", color: "#5B21B6", borderRadius: 999, padding: "1px 8px", fontWeight: 800 }}>🔑 In affitto · {euro(b.rent_daily ?? 0)}/giorno</span>

@@ -211,7 +211,7 @@ export default function Squadra() {
       <div style={wrap}>
         {tab === "pacchetti" && (<>
         {/* Pacchetto settimanale */}
-        <div style={{ background: "linear-gradient(135deg,#1E3A8A,#111827)", color: "#fff", borderRadius: 16, padding: 18,
+        <div style={{ background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 16, padding: 18,
                       display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
           <div style={{ fontSize: 44, animation: pack && !pack.opened ? "packPulse 1.6s infinite" : undefined }}>🎴</div>
           <div style={{ flex: "1 1 220px" }}>
@@ -351,6 +351,42 @@ export default function Squadra() {
                   </button>
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* Riepilogo: chi è pronto a partire adesso (aiuta a capire perché un'ambulanza non parte) */}
+        {tab === "squadra" && active.length > 0 && (() => {
+          const now = new Date();
+          const isRest = (c: typeof active[number]) => c.state === "riposo" && !!c.rest_until && new Date(c.rest_until) > now;
+          const isTrain = (c: typeof active[number]) => !!c.training_until && new Date(c.training_until) > now;
+          const ready = active.filter((c) => c.state !== "in_servizio" && !isRest(c) && !isTrain(c) && !c.lent_to);
+          const tiles: [string, string, number, string][] = [
+            ["🟢", "Pronti a partire", ready.length, "#15803D"],
+            ["🚑", "In servizio", active.filter((c) => c.state === "in_servizio").length, "#C2410C"],
+            ["😴", "A riposo", active.filter(isRest).length, "#A16207"],
+            ["🤝", "Prestati", active.filter((c) => !!c.lent_to).length, "#0E7490"],
+          ];
+          const byRole = (r: string) => ready.filter((c) => c.role === r).length;
+          const drivers = byRole("autista");
+          const crew = ready.filter((c) => ["soccorritore_base", "soccorritore_avanzato", "caposervizio", "infermiere", "medico"].includes(c.role)).length;
+          return (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8 }}>
+                {tiles.map(([ico, label, n, col]) => (
+                  <div key={label} style={{ background: "#fff", borderRadius: 14, padding: "10px 12px", boxShadow: "0 2px 10px rgba(19,41,75,.08)", borderLeft: `5px solid ${col}` }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: col, lineHeight: 1.1 }}>{ico} {n}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "#475569" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 13.5, background: drivers === 0 || crew === 0 ? "#FEE2E2" : "#E8F1FA", color: drivers === 0 || crew === 0 ? "#991B1B" : "#13294B",
+                            borderRadius: 12, padding: "8px 12px", fontWeight: 600 }}>
+                {drivers === 0 ? "⚠️ Nessun autista pronto: le ambulanze non possono partire. Aspetta che finiscano il riposo, ricarica l'energia o "
+                  : crew === 0 ? "⚠️ Hai autisti ma nessun soccorritore pronto. Aspetta il riposo, ricarica l'energia o "
+                  : `✅ Puoi far partire circa ${Math.min(drivers, crew)} ${Math.min(drivers, crew) === 1 ? "ambulanza" : "ambulanze"} adesso (servono almeno un autista e un soccorritore ciascuna). `}
+                {(drivers === 0 || crew === 0) && <a href="/personale" style={{ color: "inherit", fontWeight: 800 }}>chiedi personale alle altre associazioni</a>}
+              </div>
             </div>
           );
         })()}
