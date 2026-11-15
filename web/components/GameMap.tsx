@@ -344,7 +344,13 @@ function lightsHtml(w: number) {
   return dot(0.31, "a") + dot(0.47, "b") + dot(0.52, "a") + dot(0.92, "b");
 }
 
-function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null) {
+// due stemmi affiancati sopra il mezzo che parte da una sede in gemellaggio
+type LogoPair = [{ type: BasePin["org_type"]; logo: string | null }, { type: BasePin["org_type"]; logo: string | null }];
+function twinBadgeHtml(p: LogoPair) {
+  const one = (x: LogoPair[number]) => `<span style="width:18px;height:18px;border-radius:50%;background:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 2px rgba(0,0,0,.5)">${emblemSvg(x.type, 14, x.logo)}</span>`;
+  return `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1px;white-space:nowrap">${one(p[0])}<span style="font-size:9px">🤝</span>${one(p[1])}</div>`;
+}
+function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, type: BasePin["org_type"], logo: string | null, pair?: LogoPair | null) {
   if (img && img.includes("h-pegaso")) {
     return L.divIcon({ className: "", html: heliIconHtml(img, facingRight, 78), iconSize: [78, 30], iconAnchor: [39, 15] });
   }
@@ -357,8 +363,8 @@ function otherAmbulanceIcon(onScene: boolean, img: string | null, facingRight: b
     className: "",
     html: `<div style="position:relative;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">
              ${pic}
-             <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;
-                         background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 2px rgba(0,0,0,.5)">${emblemSvg(type, 14, logo)}</div>
+             ${pair ? twinBadgeHtml(pair) : `<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;
+                         background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 2px rgba(0,0,0,.5)">${emblemSvg(type, 14, logo)}</div>`}
            </div>`,
     iconSize: [48, 26], iconAnchor: [24, 13],
   });
@@ -388,7 +394,7 @@ function heliMarkerIcon(facingRight: boolean, w: number) {
 }
 
 // Ambulanza vista di profilo (immagine del modello), girata verso dove sta andando
-function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolean) {
+function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolean, pair?: LogoPair | null) {
   if (img && img.includes("h-pegaso")) {
     return L.divIcon({ className: "", html: heliIconHtml(img, facingRight, 92), iconSize: [92, 34], iconAnchor: [46, 17] });
   }
@@ -406,7 +412,7 @@ function ambulanceIcon(onScene: boolean, img: string | null, facingRight: boolea
     html: `<div style="position:relative;width:60px;transform:scaleX(${facingRight ? -1 : 1})">
              <img src="${small}" style="width:60px;height:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))" alt=""/>
              ${onScene ? "" : lightsHtml(60)}
-           </div>`,
+           </div>${pair ? `<div style="position:absolute;inset:0">${twinBadgeHtml(pair)}</div>` : ""}`,
     iconSize: [60, 30], iconAnchor: [30, 15],
   });
 }
@@ -877,6 +883,12 @@ export default function GameMap() {
   }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [baseColors, setBaseColors] = useState<Record<string, string>>({});
   const [baseTwins, setBaseTwins] = useState<Record<string, TwinOrg>>({});
+  const twinPairs = useMemo(() => {
+    const m: Record<string, LogoPair> = {};
+    for (const b of bases) { const t = baseTwins[b.id]; if (t) m[`${b.lat.toFixed(4)},${b.lng.toFixed(4)}`] = [{ type: b.org_type, logo: b.logo_url }, { type: t.type, logo: t.logo }]; }
+    return m;
+  }, [bases, baseTwins]);
+  const pairAt = (lat?: number | null, lng?: number | null) => (lat == null || lng == null ? null : twinPairs[`${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`] ?? null);
   useEffect(() => {
     const v = novitaUnseen(); setNovUnseen(v);
     if (v) setTimeout(() => showToast(`🆕 Novità: ${NOVITA[0].title}. Apri il menu → Novità del gioco`), 2500);
@@ -1819,7 +1831,7 @@ export default function GameMap() {
           const pos = alongRoute(route, now);
           return (
             <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100}
-                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url)}>
+                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
                   <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
@@ -1913,7 +1925,7 @@ export default function GameMap() {
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
             {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code}
-                          makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr)}>
+                          makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
                   <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
