@@ -358,6 +358,25 @@ export default function Garage() {
     load();
   }
 
+  // Potenziamento di tutta la sede con un click (fino al livello scelto)
+  function baseUpgradeCost(list: Vehicle[], to: number) {
+    let cost = 0, n = 0;
+    for (const v of list) for (let l = v.speed_level ?? 0; l < to; l++) { cost += SPEED_COST[l]; n++; }
+    return { cost, n };
+  }
+  async function upgradeBase(baseId: string, name: string, list: Vehicle[], to: number) {
+    const { cost, n } = baseUpgradeCost(list, to);
+    if (!n) return;
+    if (!(await gameConfirm(`Potenziare i mezzi di ${name}?\n\n${to === 3 ? "Tutti al livello massimo" : `Tutti almeno al livello ${to}`}: ${n} potenziamenti per ${cost.toLocaleString("it-IT")} €.\nOgni livello: +12% di velocità in strada e −12% di tempo sul posto.`))) return;
+    setMsg(null); setBusy(true);
+    const { data, error } = await supabase.rpc("upgrade_base_speed", { p_base: baseId, p_to: to });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
+    const r = data as { upgrades: number; cost: number; skipped: number };
+    setMsg({ ok: true, text: `⚡ ${name}: ${r.upgrades} potenziamenti per ${euro(r.cost)}.${r.skipped ? ` Soldi finiti: ne mancano ${r.skipped}.` : ""}` });
+    load();
+  }
+
   // Benzinaio: compra gasolio per la cisterna dell'associazione
   async function buyFuel() {
     if (!liters || liters < 1) return;
@@ -877,6 +896,26 @@ export default function Garage() {
                   <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>
                   <span style={{ opacity: 0.9, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
                 </button>
+                {groupBy === "sede" && key !== "__altri__" && (() => {
+                  const own = list;
+                  const next = Math.min(3, Math.min(...own.map((v) => v.speed_level ?? 0)) + 1);
+                  const one = baseUpgradeCost(own, next), max = baseUpgradeCost(own, 3);
+                  if (!max.n) return own.length ? <div style={{ fontSize: 12, color: "#15803D", fontWeight: 700, margin: "6px 4px 0" }}>⚡ Tutti i mezzi di questa sede sono al massimo 🏁</div> : null;
+                  const b2 = { border: "none", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", color: "#fff", opacity: busy ? 0.5 : 1 } as const;
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "8px 4px 0" }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: "#13294B" }}>⚡ Potenzia la sede:</span>
+                      {next < 3 && one.n > 0 && (
+                        <button disabled={busy} onClick={() => upgradeBase(key, name, own, next)} style={{ ...b2, background: "#F59E0B" }}>
+                          Tutti al livello {next} · {one.cost.toLocaleString("it-IT")} €
+                        </button>
+                      )}
+                      <button disabled={busy} onClick={() => upgradeBase(key, name, own, 3)} style={{ ...b2, background: "linear-gradient(135deg,#F59E0B,#EA6A1F)" }}>
+                        Tutti al massimo · {max.cost.toLocaleString("it-IT")} €
+                      </button>
+                    </div>
+                  );
+                })()}
                 {open && layout === "elenco" && (
                   <div style={{ ...box, marginTop: 10, padding: 0, overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
