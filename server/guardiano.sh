@@ -30,7 +30,9 @@ for f in $(ls $SQLDIR/*.sql 2>/dev/null | sort); do
   n=$(basename $f); grep -qx "$n" $DONE && continue
   echo "$n" >> $DONE
   case "$n" in *.admin.*) U=supabase_admin ;; *) U=postgres ;; esac
-  out=$(docker exec -i supabase-db psql -U $U -d postgres -v ON_ERROR_STOP=1 -1 -X -A < $f 2>&1); rc=$?
+  # mai bloccare il guardiano: attesa di un lock al massimo 20 s, ogni comando al massimo 3 minuti, tutto al massimo 5 minuti
+  out=$(timeout 300 docker exec -i -e PGOPTIONS="-c lock_timeout=20s -c statement_timeout=180s" supabase-db \
+        psql -U $U -d postgres -v ON_ERROR_STOP=1 -1 -X -A < $f 2>&1); rc=$?
   log "SQL $n ($U) rc=$rc"
   jq -n --arg n "$n" --argjson rc $rc --arg out "$(printf '%s' "$out" | tail -c 60000)" --arg at "$(date -Is)" \
      '{file:$n, rc:$rc, out:$out, at:$at}' > $BASE/sql-status/$n.json
