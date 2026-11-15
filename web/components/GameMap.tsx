@@ -885,7 +885,7 @@ export default function GameMap() {
   const [baseTwins, setBaseTwins] = useState<Record<string, TwinOrg>>({});
   const twinPairs = useMemo(() => {
     const m: Record<string, LogoPair> = {};
-    for (const b of bases) { const t = baseTwins[b.id]; if (t) m[`${b.lat.toFixed(4)},${b.lng.toFixed(4)}`] = [{ type: b.org_type, logo: b.logo_url }, { type: t.type, logo: t.logo }]; }
+    for (const b of bases) { const t = baseTwins[b.id]; if (t) m[`${b.lat.toFixed(4)},${b.lng.toFixed(4)}`] = [{ type: b.org_type, logo: b.logo_url ?? null }, { type: t.type, logo: t.logo }]; }
     return m;
   }, [bases, baseTwins]);
   const pairAt = (lat?: number | null, lng?: number | null) => (lat == null || lng == null ? null : twinPairs[`${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`] ?? null);
