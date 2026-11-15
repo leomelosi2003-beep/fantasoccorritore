@@ -38,6 +38,9 @@ const REQ: Record<string, string> = {
   ecg: "cardiomonitor", defib: "defibrillatore", spinale: "tavola spinale adulti", spinale_ped: "spinale pediatrica",
   collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
 };
+// moduli dei mezzi maxi (protezione civile e maxi emergenze)
+const MODULE: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ Logistica", unita_cinofila: "🐕 Cinofila", unita_droni: "🛸 Droni", pompa_idrovora: "💧 Pompa idrovora" };
+const NEED: Record<string, string> = { pma: "⛺ PMA", logistica: "⚡ logistica", cinofila: "🐕 cinofila", droni: "🛸 droni", pompa: "💧 pompa idrovora" };
 const CODE: Record<string, { label: string; color: string }> = {
   nessuno: { label: "Ordinario", color: "#3B82F6" }, verde: { label: "Codice verde", color: "#16A34A" },
   giallo: { label: "Codice giallo", color: "#CA8A04" }, rosso: { label: "Codice rosso", color: "#DC2626" },
@@ -171,6 +174,24 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     return () => { clearInterval(t); clearInterval(r); };
   }, []);
 
+  const pcMission = mission.category === "grande_evento" && !mission.event_id && mission.venue === "PC";
+  const eqProvides = (code: string) => equip.find((e) => e.code === code)?.provides ?? [];
+  // moduli montati su un mezzo maxi: verdi quelli che servono a questa missione
+  const moduleChips = (v: Vehicle, dark = false) => {
+    const mods = (v.equipment ?? []).filter((c) => MODULE[c]);
+    if (!v.maxi) return null;
+    return (
+      <span style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+        {mods.length === 0 && <span style={{ fontSize: 11, color: dark ? "#FCA5A5" : "#B91C1C", fontWeight: 700 }}>Nessun modulo montato</span>}
+        {mods.map((c) => {
+          const good = pcMission && eqProvides(c).some((p) => mission.requires.includes(p));
+          return <span key={c} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 7px",
+                                         background: good ? "#DCFCE7" : dark ? "rgba(255,255,255,.15)" : "#F1F5F9", color: good ? "#166534" : dark ? "#fff" : "#475569",
+                                         border: good ? "1px solid #86EFAC" : "1px solid transparent" }}>{good ? "✓ " : ""}{MODULE[c]}</span>;
+        })}
+      </span>
+    );
+  };
   const provides = (eq: string[]) => new Set(equip.filter((e) => eq.includes(e.code)).flatMap((e) => e.provides));
   function vehicleProblem(v: Vehicle): string | null {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
@@ -217,6 +238,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const need = km(v.base_lat, v.base_lng, mission.lat, mission.lng) * 2 * 1.3;
       const have = (Number(v.battery_pct ?? 0) / 100) * (v.range_km ?? 0);
       if (need > have) return `batteria scarica: ${Math.round(have)} km, ne servono ${Math.round(need)}`;
+    }
+    if (v.maxi && pcMission && mission.requires.length) {
+      const p = provides(v.equipment);
+      if (!mission.requires.some((r) => p.has(r))) return "manca il modulo: " + mission.requires.map((r) => NEED[r] ?? r).join(" o ");
     }
     if (v.automedica || v.maxi) return null; // ECG e defibrillatore già a bordo; i mezzi maxi portano moduli, non presidi
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
@@ -557,6 +582,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800 }}>{v.call_sign}</div>
                   <div style={{ fontSize: 12, color: "#555" }}>{eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>
+                  {moduleChips(v)}
                 </div>
                 <button onClick={() => setShowVehicles((o) => !o)}
                         style={{ ...btn, background: "#eee", color: "#111", fontSize: 12, padding: "6px 10px" }}>{showVehicles ? "Chiudi" : "Cambia"}</button>
@@ -591,6 +617,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           const need = mission.transport === "trasferimento" ? "un'ambulanza a passo lungo (Garage → categoria passi lunghi). Fa solo trasferimenti e paga +25%."
             : mission.category === "ordinario" ? "una macchina ordinaria (Garage → 🚗 Ordinarie), oppure converti un'ambulanza in «solo ordinari» per 8.000 €."
             : mission.category === "mare" ? "una barca ormeggiata entro 40 km, con a bordo 1 bagnino e 1 o 2 soccorritori (base o avanzati)."
+            : pcMission ? `un camion o furgone maxi (Garage → maxi) con il modulo giusto: ${mission.requires.map((r) => NEED[r] ?? r).join(" o ")}. I moduli si comprano nel Negozio presidi.`
             : fire ? "un mezzo antincendio (Garage → 🔥 Antincendio) con almeno 2 persone, di cui 1 volontario AIB."
             : "un'ambulanza libera entro 20 km dalla sua sede, con gasolio, revisionata e con i presidi richiesti.";
           const busy = sortedVehicles.filter((v) => ["in servizio", "in officina", "da revisionare"].includes(vehicleProblem(v) ?? "")).length;
@@ -611,7 +638,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
                                background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
-                <strong>{v.boat ? "⛵ " : v.moto ? "🛵 " : v.automedica ? "🩺 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
+                <span style={{ minWidth: 0 }}>
+                  <strong>{v.boat ? "⛵ " : v.moto ? "🛵 " : v.automedica ? "🩺 " : v.maxi ? "🚛 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>
+                  {moduleChips(v, sel)}
+                </span>
                 <span style={{ fontSize: 12 }}>{prob ?? (sel && eta ? `${eta.km} km · ${eta.minutes} min` : `${distOf(v) < 999 ? `${distOf(v).toFixed(1).replace(".", ",")} km` : "idoneo"}${i === 0 ? " · più vicina" : ""}`)}</span>
               </button>
             );
