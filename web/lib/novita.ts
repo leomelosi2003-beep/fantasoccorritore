@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-15l", date: "15 novembre 2026", title: "Nuovo modulo: pompa idrovora",
+    items: ["💧 Nel negozio dei presidi, tra i moduli maxi, c'è la pompa idrovora (65.000 €) per camion e furgoni maxi. Toglie l'acqua da strade e scantinati: negli allagamenti della Protezione Civile si vedono le pompe al lavoro e l'acqua cala molto più in fretta. +25% sulle maxi."],
+  },
+  {
     id: "2026-11-15k", date: "15 novembre 2026", title: "Presidi: compra quanti ne vuoi e montali dove vuoi",
     items: ["🛒 Negozio e Officina → Presidi hanno un catalogo nuovo a schede: per ogni presidio vedi quanti ne hai in magazzino e su quanti mezzi è montato.",
             "Toccandolo si apre una finestra dove spunti le ambulanze (una per una o tutta una sede), scegli quanti pezzi comprare e vedi subito il totale. Prima usa quelli in magazzino; i pezzi in più restano lì per dopo."],

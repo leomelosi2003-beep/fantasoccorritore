@@ -23,7 +23,7 @@ const PC_DEMO_TITLE: Record<string, string> = {
 // prova protezione civile: 4 mezzi maxi con moduli diversi, il lavoro avanza in 3 minuti
 function demoPC(s: string): SceneData {
   const t0 = Date.now() - (Date.now() % 180000);
-  const kit: [string, "camion" | "furgone", string[]][] = [["LOG 1", "camion", ["unita_logistica", "unita_cinofila"]], ["COM 1", "furgone", ["unita_droni"]],
+  const kit: [string, "camion" | "furgone", string[]][] = [["LOG 1", "camion", ["unita_logistica", "unita_cinofila"]], ["COM 1", "furgone", ["unita_droni", "pompa_idrovora"]],
     ["PMA PC", "camion", ["pma_tenda", "unita_logistica"]], ["CINO 2", "furgone", ["unita_cinofila", "unita_droni"]]];
   const vehicles: SceneVehicle[] = kit.map(([c, mx, mods], i) => ({
     id: "pc" + i, call_sign: c, org_name: "x", mine: i % 2 === 0, status: "in_viaggio", assigned_at: new Date(t0 + i * 6000).toISOString(),

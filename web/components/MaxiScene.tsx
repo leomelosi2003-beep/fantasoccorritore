@@ -334,7 +334,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const pcT0 = Date.parse(d.created_at), pcT1 = d.ends_at ? Date.parse(d.ends_at) : pcT0 + 3 * 3600000;
       const pcEl = Math.max(0, Math.min(1, (now - pcT0) / Math.max(1, pcT1 - pcT0)));
       const pcProg = pcOn ? Math.min(1, pcEl * 1.6 + pcOn * 0.04) : 0;
-      const logiOn = pcMods.has("unita_logistica"), dogsOn = pcMods.has("unita_cinofila"), dronesOn = pcMods.has("unita_droni");
+      const pumpOn = pcMods.has("pompa_idrovora"), logiOn = pcMods.has("unita_logistica"), dogsOn = pcMods.has("unita_cinofila"), dronesOn = pcMods.has("unita_droni");
 
       // camera che gira piano attorno alla scena
       if (cam.auto) cam.tYaw += 0.0012;
@@ -680,7 +680,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         if (p >= 1 && isMaxiV) {
           // mezzi maxi: ogni modulo caricato ha la sua attività
           const mods = veh.modules ?? []; const r0 = rear(end, park, 4.5); const ph = (hash(veh.id) % 100) / 10;
-          label = mods.length ? mods.map((md) => ({ unita_logistica: "LOGISTICA", unita_cinofila: "CINOFILA", unita_droni: "DRONI", pma_tenda: "PMA" } as Record<string, string>)[md] ?? "").filter(Boolean).join(" · ") : "SUL POSTO";
+          label = mods.length ? mods.map((md) => ({ unita_logistica: "LOGISTICA", unita_cinofila: "CINOFILA", unita_droni: "DRONI", pma_tenda: "PMA", pompa_idrovora: "POMPA" } as Record<string, string>)[md] ?? "").filter(Boolean).join(" · ") : "SUL POSTO";
           doorsOpen = true;
           if (!mods.length) people.push({ p: [r0[0], 0, r0[2] + 1], pose: "stand", col: crewCol });
           if (mods.includes("unita_logistica")) {
@@ -1025,14 +1025,15 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             pcStat = pcOn ? `PERSONE LOCALIZZATE ${n}/3 · ${logiOn ? "CANTIERE ILLUMINATO" : "SERVE LA LOGISTICA PER LA LUCE"}` : "IN ATTESA DELLE SQUADRE";
             break; }
           case "pc-allagamento": {
-            const water = Math.round(100 - pcProg * 75);
-            if (logiOn) for (const pu of X.pumps ?? []) {
+            const pumps = (X.pumps ?? []).slice(0, pumpOn ? 3 : logiOn ? 1 : 0);
+            const water = Math.round(100 - pcProg * (pumpOn ? 85 : logiOn ? 35 : 0));
+            for (const pu of pumps) {
               props.push({ c: [pu[0], 0.6, pu[2]], s: [2, 1.2, 1.2], fill: "rgba(249,115,22,.9)", edge: "#F97316" });
               { const ha = P([pu[0], 0.15, pu[2] - 22]), hb = P([pu[0], 0.15, pu[2]]); if (ha && hb) draws.push({ z: Math.max(ha[2], hb[2]), fn: () => { ctx.strokeStyle = "rgba(239,68,68,.9)"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(ha[0], ha[1]); ctx.lineTo(hb[0], hb[1]); ctx.stroke(); } }); }
               sprays.push({ from: [pu[0] + 1, 1.2, pu[2]], to: [pu[0] + 6, 0.2, pu[2] + 14] });
               people.push({ p: [pu[0] - 2, 0, pu[2] + 1.5], pose: "stand", col: "#FDBA74" });
             }
-            pcStat = pcOn ? `POMPE ATTIVE ${logiOn ? (X.pumps ?? []).length : 0} · ACQUA NELLE STRADE ${water}%${dronesOn ? " · DRONI SUGLI ARGINI" : ""}` : "IN ATTESA DELLE SQUADRE";
+            pcStat = pcOn ? `POMPE ATTIVE ${pumps.length} · ACQUA NELLE STRADE ${water}%${pumpOn ? "" : " · SERVE LA POMPA IDROVORA"}${dronesOn ? " · DRONI SUGLI ARGINI" : ""}` : "IN ATTESA DELLE SQUADRE";
             break; }
           case "pc-argine": {
             const lvl = 4.15 + 0.25 * Math.sin(now / 900000 + seed) - pcProg * 0.4;
@@ -1209,7 +1210,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         ctx.fillText(`FINE INTERVENTO TRA ${Math.floor(rem / 3600)}h ${String(Math.floor((rem % 3600) / 60)).padStart(2, "0")}m`, 14, 92);
       }
       if (modsOn.size) {
-        const nm: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ LOGISTICA", unita_cinofila: "🐕 CINOFILA", unita_droni: "🛸 DRONI" };
+        const nm: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ LOGISTICA", unita_cinofila: "🐕 CINOFILA", unita_droni: "🛸 DRONI", pompa_idrovora: "💧 POMPA" };
         ctx.fillStyle = "#FDE68A"; ctx.font = "700 11px ui-monospace,monospace";
         ctx.fillText("MODULI: " + [...modsOn].map((x) => nm[x] ?? x).join(" · "), 14, 109);
       }
