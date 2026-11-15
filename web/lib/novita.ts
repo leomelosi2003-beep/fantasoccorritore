@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-15j", date: "15 novembre 2026", title: "Mappa più fluida da lontano",
+    items: ["🗺️ Quando allontani lo zoom, servizi e sedi degli altri diventano puntini colorati (toccali per avvicinarti) e ospedali, porti e mezzi degli altri si nascondono: lo zoom non va più a scatti.",
+            "Da vicino la mappa disegna solo quello che hai sullo schermo."],
+  },
+  {
     id: "2026-11-15i", date: "15 novembre 2026", title: "Potenzia tutta la sede con un click",
     items: ["⚡ Nel Garage, sotto il nome di ogni sede, ci sono due pulsanti: «Tutti al livello…» alza di un livello i mezzi più lenti, «Tutti al massimo» porta tutta la sede al livello 3. Il prezzo totale è scritto sul pulsante; se i soldi non bastano si potenziano prima i mezzi più indietro."],
   },

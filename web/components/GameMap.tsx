@@ -514,6 +514,18 @@ function ZoomGuard() {
   return null;
 }
 
+// Zoom e area visibile: aggiornati solo a fine movimento, così la mappa disegna solo quello che si vede
+// e da lontano usa puntini leggeri invece di centinaia di simboli.
+const FAR_ZOOM = 9.6;
+function ViewWatcher({ onView }: { onView: (v: { z: number; b: L.LatLngBounds }) => void }) {
+  const tm = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const map = useMapEvents({
+    moveend: () => { if (tm.current) clearTimeout(tm.current); tm.current = setTimeout(() => onView({ z: map.getZoom(), b: map.getBounds().pad(0.3) }), 120); },
+  });
+  useEffect(() => { onView({ z: map.getZoom(), b: map.getBounds().pad(0.3) }); }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export default function GameMap() {
   const router = useRouter();
   const [missions, setMissions] = useState<MissionPin[]>([]);
@@ -646,6 +658,10 @@ export default function GameMap() {
 
   // "Localizza": centra la mappa sul mezzo e lo evidenzia per qualche secondo
   const mapRef = useRef<L.Map | null>(null);
+  const [mv, setMv] = useState<{ z: number; b: L.LatLngBounds } | null>(null);
+  const far = !!mv && mv.z < FAR_ZOOM;
+  const inView = (lat: number, lng: number) => !mv || mv.b.contains([lat, lng]);
+  const zoomTo = (lat: number, lng: number) => mapRef.current?.flyTo([lat, lng], 12, { duration: 0.6 });
   const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
   // percorso blu: solo del mezzo selezionato (tocco sul mezzo o "Localizza")
   const [routeFor, setRouteFor] = useState<string | null>(null);
@@ -1419,9 +1435,10 @@ export default function GameMap() {
           </div>
         )}
       </div>
-      <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} zoomSnap={0} zoomDelta={0.5} wheelPxPerZoomLevel={90} className="fs-map" style={{ width: "100%" }}>
+      <MapContainer ref={mapRef} center={[43.60, 10.42]} zoom={11} zoomSnap={0} zoomDelta={0.5} wheelPxPerZoomLevel={90} className="fs-map" style={{ width: "100%" }} preferCanvas>
         <OneFingerZoom enabled={oneFinger} />
         <ZoomGuard />
+        <ViewWatcher onView={setMv} />
         <TileLayer attribution="&copy; OpenStreetMap contributors"
                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -1433,16 +1450,16 @@ export default function GameMap() {
           return <CircleMarker center={[p.lat, p.lng]} radius={26 + ((now / 1000) % 2) * 6}
                                pathOptions={{ color: "#2563EB", weight: 4, fillColor: "#60A5FA", fillOpacity: 0.15 }} />;
         })()}
-        {useMemo(() => flt.hospitals && heliBases.map((p) => (
+        {useMemo(() => flt.hospitals && !far && heliBases.filter((p) => inView(p.lat, p.lng)).map((p) => (
           <Marker key={`heli-${p.id}`} position={[p.lat, p.lng]} icon={heliIcon}>
             <Popup><strong>🚁 {p.name}</strong><br />Base dell&apos;elisoccorso: da qui decolla e qui torna dopo il servizio.</Popup>
           </Marker>
-        )), [flt.hospitals, heliBases])}
-        {useMemo(() => flt.ports && ports.filter((p) => !handoffs.some((h) => h.port_id === p.id)).map((p) => (
+        )), [flt.hospitals, heliBases, mv])}
+        {useMemo(() => flt.ports && !far && ports.filter((p) => inView(p.lat, p.lng) && !handoffs.some((h) => h.port_id === p.id)).map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
             <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
           </Marker>
-        )), [flt.ports, ports, handoffs])}
+        )), [flt.ports, ports, handoffs, mv])}
         {[...new Set(handoffs.map((h) => h.port_id))].map((pid) => {
           const list = handoffs.filter((h) => h.port_id === pid);
           const hm = (s: string) => new Date(s).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -1482,7 +1499,7 @@ export default function GameMap() {
             </Popup>
           </Marker>
         ))}
-        {useMemo(() => flt.hospitals && hospitals.map((h) => (
+        {useMemo(() => flt.hospitals && !far && hospitals.filter((h) => inView(h.lat, h.lng)).map((h) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={hospitalIcon}>
             <Popup>
               <strong>🏥 {h.name}</strong><br />
@@ -1490,9 +1507,13 @@ export default function GameMap() {
                 pediatria: "Pediatria", dialisi: "Dialisi" } as Record<string, string>)[c] ?? c).join(" · ")}
             </Popup>
           </Marker>
-        )), [flt.hospitals, hospitals])}
+        )), [flt.hospitals, hospitals, mv])}
 
-        {useMemo(() => bases.filter(showBase).map((b) => (
+        {far && bases.filter((b) => showBase(b) && b.org_id !== org?.id).map((b) => (
+          <CircleMarker key={`bd-${b.id}`} center={[b.lat, b.lng]} radius={4} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }}
+                        pathOptions={{ color: "#fff", weight: 1, fillColor: b.org_type === "rosso_bianco" ? "#DC2626" : b.org_type === "arancio_nero" ? "#EA580C" : "#1D4ED8", fillOpacity: 0.9 }} />
+        ))}
+        {useMemo(() => bases.filter((b) => showBase(b) && (far ? b.org_id === org?.id : inView(b.lat, b.lng))).map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
@@ -1558,7 +1579,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins])}
+        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins, far, mv])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);
@@ -1683,7 +1704,11 @@ export default function GameMap() {
           );
         })}
 
-        {useMemo(() => missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
+        {far && missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
+          <CircleMarker key={`md-${m.id}`} center={[m.lat, m.lng]} radius={(m.my_vehicles ?? 0) > 0 ? 6 : 4.5} eventHandlers={{ click: () => zoomTo(m.lat, m.lng) }}
+                        pathOptions={{ color: (m.my_vehicles ?? 0) > 0 ? "#111" : "#fff", weight: (m.my_vehicles ?? 0) > 0 ? 2 : 1, fillColor: CODE_COLOR[m.code], fillOpacity: 0.95 }} />
+        ))}
+        {useMemo(() => !far && missions.filter((m) => m.category !== "grande_evento" && showMission(m) && inView(m.lat, m.lng)).map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={missionIcon(m, (m.my_vehicles ?? 0) > 0)}
                         eventHandlers={{ popupopen: () => { setOpenMission(m.id); loadResponders(m.id); },
                                          popupclose: () => setOpenMission((o) => (o === m.id ? null : o)) }}>
@@ -1783,14 +1808,14 @@ export default function GameMap() {
             </Popup>
           </Marker>
         // l'orologio conta solo se ho un servizio aperto (classifica d'arrivo); altrimenti si aggiorna ogni 30 s
-        )), [missions, flt, responders, org, goneKey, openMission ? now : Math.floor(now / 30_000)])}
+        )), [missions, flt, responders, org, goneKey, openMission ? now : Math.floor(now / 30_000), far, mv])}
 
         {Array.from(sceneCount.entries()).map(([k, c]) => (
           <Marker key={`scene-${k}`} position={[c.lat, c.lng]} icon={sceneBadge(Array.from(c.orgs.values()))} interactive={false} zIndexOffset={500} />
         ))}
 
         {/* Maxi senza PMA: le ambulanze lasciano la scena, portano il ferito all'ospedale più vicino e tornano */}
-        {shuttles.filter((x) => x.mine || (flt.othersVehicles && !lite)).map((x) => {
+        {shuttles.filter((x) => x.mine || (flt.othersVehicles && !lite && !far)).map((x) => {
           const T = shuttleTravelS(distKm(x.lat, x.lng, x.h_lat, x.h_lng));
           const st = shuttleState(new Date(x.arrives_at).getTime(), T, now);
           if (!st || st.phase === "scena") return null;
@@ -1825,7 +1850,8 @@ export default function GameMap() {
           );
         })}
 
-        {flt.othersVehicles && !lite && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)).map((a) => {
+        {flt.othersVehicles && !lite && !far && onTheRoad(others, now).filter((a) => !onScene(a, now) && !isHeli(a) && !isBoat(a)
+            && (inView(a.lat, a.lng) || inView(a.base_lat, a.base_lng))).map((a) => {
           const route: RoutePoint[] = a.route?.length ? a.route : [
             { lat: a.base_lat, lng: a.base_lng, t: a.assigned_at, label: "Sede" },
             { lat: a.lat, lng: a.lng, t: a.arrives_at, label: "Sul posto" },
