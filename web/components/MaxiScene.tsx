@@ -17,7 +17,10 @@ export type SceneData = {
   hospital?: { name: string; lat: number; lng: number } | null;
   shuttle?: { scene: number; hosp: number; travel: number };   // solo per la scena di prova
   venue?: string | null; fire?: { severity: number; intensity: number; base_radius?: number } | null;   // incendi boschivi
+  event_id?: string | null; event_kind?: string | null; slots?: number | null; show_at?: string | null; inc_every?: number;    // grandi eventi veri
 };
+export function evKindOf(k?: string | null): string { return k === "calcio" ? "ev-stadio" : k === "basket" || k === "teatro" ? "ev-arena" : "ev-concerto"; }
+type EvExtra = { spots: V3[]; lights: V3[]; victims: V3[]; led?: [number, number, number, number, number]; pitch?: boolean; people: number };
 
 type V3 = [number, number, number];
 const ORANGE = "#FF5A36", BLUE = "#6CB4FF", WHITE = "#F1F5F9";
@@ -76,7 +79,7 @@ function buildScene(kind: string, seed: number) {
   const r = rng(seed);
   const boxes: Box[] = []; const fx: Fx[] = []; const lines: [V3, V3][] = [];
   let water = false, fog = false; const crowd: V3[] = [];
-  let pc: PcExtra | null = null;
+  let pc: PcExtra | null = null; let ev: EvExtra | null = null;
   const house = (x: number, z: number, w: number, h: number, d: number, yaw = 0, roll = 0) => boxes.push({ c: [x, h / 2, z], s: [w, h, d], yaw, roll });
   const rubble = (x: number, z: number, n: number, spread: number) => {
     for (let i = 0; i < n; i++) { const s = 1 + r() * 3; boxes.push({ c: [x + (r() - 0.5) * spread, s / 2 + r() * 2, z + (r() - 0.5) * spread], s: [s, s * 0.6, s], yaw: r() * 3, roll: (r() - 0.5) }); }
@@ -201,10 +204,46 @@ function buildScene(kind: string, seed: number) {
       lines.push([[-110, 0.05, -20], [110, 0.05, -20]]);
       pc = { sea: true, search: [10, 0, -75], sr: 2.6, trees: 40, clear: [-130, -160, 130, -14], lost: [30 + r() * 30, 0, -90 - r() * 25] };
       break;
+    // ===== grandi eventi veri =====
+    case "ev-concerto": {
+      boxes.push({ c: [0, 1.6, -52], s: [52, 3.2, 16], yaw: 0, fill: "rgba(30,41,59,.85)", edge: "rgba(148,163,184,.8)" });          // palco
+      for (const x of [-26, 26]) { lines.push([[x, 3.2, -44], [x, 20, -44]], [[x, 3.2, -60], [x, 20, -60]], [[x, 20, -44], [x, 20, -60]]);
+        boxes.push({ c: [x * 1.18, 4.5, -46], s: [4, 9, 4], yaw: 0, fill: "rgba(15,23,42,.95)", edge: "rgba(100,116,139,.9)" }); }       // casse
+      lines.push([[-26, 20, -44], [26, 20, -44]], [[-26, 20, -60], [26, 20, -60]]);                                                     // americana
+      boxes.push({ c: [0, 1.2, -36], s: [60, 1.2, 0.4], yaw: 0, fill: "rgba(148,163,184,.4)", edge: "rgba(203,213,225,.8)" });            // transenne
+      boxes.push({ c: [0, 2.5, 4], s: [7, 5, 6], yaw: 0, fill: "rgba(30,41,59,.9)", edge: "rgba(148,163,184,.8)" });                      // regia
+      for (let i = 0; i < 4; i++) boxes.push({ c: [-74, 1.6, -20 + i * 11], s: [6, 3.2, 3], yaw: Math.PI / 2, fill: "rgba(250,204,21,.5)", edge: "#FACC15" });   // food truck
+      for (let i = 0; i < 6; i++) boxes.push({ c: [70, 1.2, -24 + i * 3.2], s: [2.4, 2.4, 2.4], yaw: 0, fill: "rgba(59,130,246,.4)", edge: "#60A5FA" });   // bagni
+      for (let i = 0; i < 480; i++) { const x = (r() - 0.5) * 104, z = -33 + r() * 52; if (Math.abs(x) < 6 && z > 0 && z < 8) continue; crowd.push([x, 0, z]); }
+      ev = { spots: [[-40, 0, 27], [40, 0, 27], [0, 0, 27], [-64, 0, -40], [64, 0, -40], [-20, 0, 27], [20, 0, 27], [-64, 0, 6], [64, 0, 6], [-58, 0, 27]],
+             lights: [[-24, 20, -44], [-12, 20, -44], [0, 20, -44], [12, 20, -44], [24, 20, -44]], victims: crowd.slice(0, 60),
+             led: [-20, 20, 5, 17, -59], people: (8 + Math.floor(r() * 30)) * 1000 };
+      break; }
+    case "ev-stadio": {
+      for (const [x, z, w, dd] of [[0, -76, 100, 12], [0, 6, 100, 10], [-56, -35, 12, 72], [56, -35, 12, 72]] as [number, number, number, number][])
+        for (let k = 0; k < 3; k++) boxes.push({ c: [x + (Math.abs(x) > 1 ? Math.sign(x) * k * 3 : 0), 1.5 + k * 3, z + (Math.abs(x) < 1 ? Math.sign(z + 35) * k * 3 : 0)], s: [Math.abs(x) > 1 ? w / 3 : w, 3, Math.abs(x) < 1 ? dd / 3 : dd], yaw: 0, fill: "rgba(51,65,85,.55)", edge: "rgba(148,163,184,.7)" });
+      for (const [x, z] of [[-60, -78], [60, -78], [-60, 8], [60, 8]]) lines.push([[x, 0, z], [x, 26, z]]);
+      for (let i = 0; i < 520; i++) {                                     // tifosi sugli spalti
+        const side = i % 4, k = Math.floor(r() * 3);
+        const p: V3 = side === 0 ? [(r() - 0.5) * 96, 3 + k * 3, -71 - k * 3] : side === 1 ? [(r() - 0.5) * 96, 3 + k * 3, 3 + k * 3]
+          : side === 2 ? [-51 - k * 3, 3 + k * 3, -70 + r() * 68] : [51 + k * 3, 3 + k * 3, -70 + r() * 68];
+        crowd.push(p);
+      }
+      ev = { spots: [[-30, 0, 26], [30, 0, 26], [0, 0, 26], [-74, 0, -10], [74, 0, -10], [-74, 0, -55], [74, 0, -55], [-55, 0, 26], [55, 0, 26]],
+             lights: [[-60, 26, -78], [60, 26, -78], [-60, 26, 8], [60, 26, 8]], victims: [[-30, 0, -3], [-10, 0, -3], [15, 0, -3], [35, 0, -3], [-46, 0, -20], [46, 0, -50]],
+             pitch: true, people: (6 + Math.floor(r() * 9)) * 1000 };
+      break; }
+    case "ev-arena":
+      house(0, -38, 80, 16, 44);
+      lines.push([[-12, 0.05, -15], [-12, 0.05, 18]], [[12, 0.05, -15], [12, 0.05, 18]]);
+      for (let i = 0; i < 160; i++) crowd.push([(r() - 0.5) * 22, 0, -14 + r() * 28]);
+      ev = { spots: [[-30, 0, 24], [30, 0, 24], [0, 0, 27], [-50, 0, -5], [50, 0, -5], [-55, 0, 24], [55, 0, 24]],
+             lights: [], victims: crowd.slice(0, 30), people: (2 + Math.floor(r() * 5)) * 1000 };
+      break;
     default:
       rubble(0, 0, 30, 20); fx.push({ kind: "smoke", at: [0, 5, 0], r: 10 });
   }
-  return { boxes, fx, lines, water, fog, crowd, pc: pc as PcExtra | null };
+  return { boxes, fx, lines, water, fog, crowd, pc: pc as PcExtra | null, ev: ev as EvExtra | null };
 }
 const FIRE_C: V3 = [0, 0, -28];                                               // centro dell'incendio
 // incendio: dove si trova il mezzo AIB nella sua spola fuoco ↔ sede per l'acqua (dalla rotta vera)
@@ -285,13 +324,16 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const FIRE = data.venue === "AIB";
     const sev = Math.max(1, Math.min(3, Math.round(data.fire?.severity ?? 2)));
     const PC = data.venue === "PC";                                          // protezione civile
-    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : scenarioOf(data.title);
+    const EV = !!data.event_id;                                              // grande evento vero (concerto, partita...)
+    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : EV ? evKindOf(data.event_kind) : scenarioOf(data.title);
     let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
     const X = PC ? scene.pc : null;
+    const E = EV ? scene.ev : null;
+    const evSaid = new Set<number>();
     let pcFound = false;
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
-    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + (PC_TITLES[kind] ?? "Protezione civile") : data.title, hi: "", at: performance.now() }];
+    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + (PC_TITLES[kind] ?? "Protezione civile") : EV ? "🎤 " + data.title : data.title, hi: "", at: performance.now() }];
     const seen = new Map<string, string>();
     const injured = 24 + (seed % 46);
 
@@ -405,6 +447,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         poly([[-160, 0.3, -52], [160, 0.3, -52], [160, 0.3, -28], [-160, 0.3, -28]], "rgba(108,180,255,.6)", `rgba(120,90,40,${0.35 + 0.05 * Math.sin(t / 600)})`);
         for (let k = 0; k < 6; k++) { const z = -49 + k * 4, o = ((t / 25 + k * 37) % 320) - 160; const a = P([o, 0.4, z]), b = P([o + 12, 0.4, z]); if (a && b) { ctx.strokeStyle = "rgba(214,211,209,.45)"; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); } }
       }
+      if (E?.pitch) {                                                         // campo da calcio
+        poly([[-44, 0.15, -66], [44, 0.15, -66], [44, 0.15, -4], [-44, 0.15, -4]], "rgba(240,253,244,.8)", "rgba(22,163,74,.35)", 1.4);
+        for (let k = 0; k < 6; k++) poly([[-44 + k * 14.66, 0.16, -66], [-44 + k * 14.66 + 7.33, 0.16, -66], [-44 + k * 14.66 + 7.33, 0.16, -4], [-44 + k * 14.66, 0.16, -4]], undefined, "rgba(21,128,61,.18)");
+        poly([[-44, 0.17, -35], [44, 0.17, -35]], "rgba(240,253,244,.7)", undefined, 1);
+        poly([[-14, 0.17, -66], [14, 0.17, -66], [14, 0.17, -56], [-14, 0.17, -56]], "rgba(240,253,244,.7)", undefined, 1);
+        poly([[-14, 0.17, -4], [14, 0.17, -4], [14, 0.17, -14], [-14, 0.17, -14]], "rgba(240,253,244,.7)", undefined, 1);
+      }
       // settori di ricerca: battuti (verde), in corso (arancione), da fare
       if (X?.sectors) {
         const nDone = Math.floor((pcProg / 0.75) * X.sectors.length);
@@ -471,6 +520,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (let k = 0; k < 420 && trees.length < nTrees; k++) {
         const x = (er() - 0.5) * 300, z = (er() - 0.5) * 300;
         if (!FIRE && !PC && Math.abs(x) < 70 && z > -45 && z < 60) continue;   // zona dell'intervento
+        if (EV && Math.abs(x) < 95 && z > -95 && z < 60) continue;
         if (X?.clear && x > X.clear[0] && z > X.clear[1] && x < X.clear[2] && z < X.clear[3]) continue;
         if (PC && z > 20 && z < 95 && x > -40 && x < 75) continue;            // area dei mezzi e posto di comando
         if (FIRE && z > 12 && z < 60 && Math.abs(x) < 110) continue;          // fascia dei mezzi AIB e della strada
@@ -504,7 +554,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const lerp3c = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const inside = scene.boxes.filter((bx) => bx.s[0] * bx.s[2] > 20);
       type Pose = "walk" | "kneel" | "stand" | "lie" | "sit" | "wave" | "carry" | "cut" | "film" | "spray" | "limp";
-      const patients = Array.from({ length: FIRE || PC ? 0 : 10 + (seed % 8) }, (_, k) => {
+      const patients = Array.from({ length: FIRE || PC || EV ? 0 : 10 + (seed % 8) }, (_, k) => {
         const tri = k % 5 === 0 ? "#EF4444" : k % 3 === 0 ? "#FACC15" : "#22C55E";
         const trapped = k % 4 === 0 && inside.length > 0;
         let p3: V3;
@@ -527,7 +577,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const firemen: { p: V3; pose: Pose }[] = [];
       const sparks: V3[] = []; const sprays: { from: V3; to: V3 }[] = [];
       // ===== Vigili del Fuoco: mezzi fissi vicino alla scena, estricazione dei feriti intrappolati =====
-      const vvf: { p: V3; h: number; ladder: boolean }[] = FIRE || PC ? [] : [
+      const vvf: { p: V3; h: number; ladder: boolean }[] = FIRE || PC || EV ? [] : [
         { p: [-40, 0, -16], h: 0.3, ladder: false }, { p: [40, 0, -18], h: Math.PI - 0.3, ladder: true }, { p: [-8, 0, -34], h: 0, ladder: false }];
       for (const pt of patients) if (pt.trapped) {
         const cyc = ((now / 1000 + pt.ph * 6) % 36) / 36;
@@ -601,6 +651,21 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       const hospName = hosp ? hosp.name.replace(/^Ospedale (di |del |della )?/i, "").toUpperCase() : "OSPEDALE";
       const lerp3 = (x: V3, y: V3, u: number): V3 => [x[0] + (y[0] - x[0]) * u, x[1] + (y[1] - x[1]) * u, x[2] + (y[2] - x[2]) * u];
       const dirTo = (x: V3, y: V3) => Math.atan2(y[2] - x[2], y[0] - x[0]);   // angolo di marcia (asse lungo del mezzo = x locale)
+      const evShow = d.show_at ? Date.parse(d.show_at) : Date.parse(d.created_at);
+      let evInc: { vid: string; tt: number; vic: V3; k: number } | null = null; let evCount = 0;
+      if (E) {
+        const posted = vs.filter((v) => !v.pma && !v.maxi && v.status !== "conclusa" && v.status !== "rientro" && Date.parse(v.arrives_at) <= now - 20000);
+        const P0 = d.inc_every ?? 480, nowS = now / 1000, kNow = Math.floor(nowS / P0), k0 = Math.floor(Date.parse(d.created_at) / 1000 / P0);
+        for (let k = Math.max(k0, kNow - 60); k <= kNow; k++) {
+          const rr = (hash(d.id + "i" + k) % 1000) / 1000;
+          if (rr >= (d.inc_every ? 1 : 0.35)) continue;                                          // raro: circa uno ogni 20 minuti
+          const ts = k * P0 + 40 + (hash(d.id + "t" + k) % 300);
+          if (ts > nowS || ts * 1000 < evShow) continue;
+          evCount++;
+          const tt = nowS - ts;
+          if (tt < 110 && posted.length) evInc = { vid: posted[hash(d.id + "v" + k) % posted.length].id, tt, vic: E.victims[hash(d.id + "p" + k) % E.victims.length], k };
+        }
+      }
       vs.forEach((veh) => {
         const a0 = Date.parse(veh.assigned_at), a1 = Date.parse(veh.arrives_at);
         if (veh.status === "conclusa" || veh.status === "rientro") return;
@@ -619,7 +684,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const start: V3 = [Math.sin(ang) * 150, 0, -Math.cos(ang) * 150];
         const isMaxiV = !!veh.maxi && !veh.pma;
         const myIdx = veh.pma ? pmaIdx++ : isMaxiV ? mxIdx++ : amb++;
-        const end: V3 = FIRE ? [0, 0, 0] : veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
+        const end: V3 = FIRE ? [0, 0, 0] : veh.pma ? pmaSlot(myIdx % 6) : isMaxiV ? maxiSlot(myIdx % 9) : E ? (myIdx < E.spots.length ? [...E.spots[myIdx]] as V3 : slot(myIdx - E.spots.length)) : myIdx < 20 ? sceneSpot(myIdx) : slot(myIdx - 20);
         // entra dalla strada più vicina alla direzione della sua sede
         const sd: [number, number] = [Math.sin(ang), -Math.cos(ang)];
         const entry = ENTRIES.reduce((b, e) => { const l = Math.hypot(...e.dir); const v = (e.dir[0] * sd[0] + e.dir[1] * sd[1]) / l; return v > b.v ? { e, v } : b; }, { e: ENTRIES[0], v: -9 }).e;
@@ -726,7 +791,50 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
           }
         }
-        if (p >= 1 && !veh.pma && !isMaxiV && !FIRE) {
+        if (p >= 1 && EV && !veh.pma && !isMaxiV) {
+          const rr0 = rear(end, park); label = "IN POSTAZIONE";
+          const crew2 = (c: V3, h: number, loaded: boolean, pose: Pose) => {
+            const f = fwd(h); const a: V3 = [c[0] + f[0] * 1.3, 0, c[2] + f[2] * 1.3], b: V3 = [c[0] - f[0] * 1.3, 0, c[2] - f[2] * 1.3];
+            people.push({ p: a, pose, col: crewCol }, { p: b, pose, col: crewCol });
+            stretchers.push({ a: [a[0] - f[0] * 0.5, 0, a[2] - f[2] * 0.5], b: [b[0] + f[0] * 0.5, 0, b[2] + f[2] * 0.5], loaded });
+          };
+          if (evInc && evInc.vid === veh.id) {
+            const tt = evInc.tt, vic = evInc.vic, vg: V3 = [vic[0], 0, vic[2]];
+            const stop: V3 = [Math.max(-55, Math.min(55, vic[0])), 0, 24];
+            const dest: V3 = [56, 0, 80];
+            const go = makePath([end, [end[0], 0, ROAD_Z], [stop[0], 0, ROAD_Z], stop]);
+            const toPma = makePath([stop, [stop[0], 0, ROAD_Z], [ROAD_X, 0, ROAD_Z], [ROAD_X, 0, PMA_Z], [dest[0], 0, PMA_Z], dest]);
+            const back = makePath([dest, [dest[0], 0, PMA_Z], [ROAD_X, 0, PMA_Z], [ROAD_X, 0, ROAD_Z], [end[0], 0, ROAD_Z], end]);
+            if (!evSaid.has(evInc.k * 10)) { evSaid.add(evInc.k * 10); captions.push({ text: `Malore tra il pubblico: interviene ${veh.call_sign}`, hi: veh.call_sign, at: t }); }
+            if (tt >= 80 && !evSaid.has(evInc.k * 10 + 1)) { evSaid.add(evInc.k * 10 + 1); captions.push({ text: "Paziente consegnato al PMA", hi: "PMA", at: t }); }
+            if (tt < 46) {                                                     // la persona a terra e chi chiama aiuto
+              people.push({ p: vg, pose: "lie", col: "#F1F5F9" });
+              if (tt < 30) people.push({ p: [vg[0] + 1.6, 0, vg[2] + 1], pose: "wave", col: "#F472B6" }, { p: [vg[0] - 1.5, 0, vg[2] + 1.2], pose: "kneel", col: "#A78BFA" });
+              if (Math.floor(t / 400) % 2 === 0) flashes.push([vg[0], 0.6, vg[2]]);
+            }
+            const rs = rear(stop, go.at(go.len).h);
+            if (tt < 8) { label = "⚠️ ALLERTATI"; people.push({ p: [rr0[0] + 1, 0, rr0[2]], pose: "walk", col: crewCol }); }
+            else if (tt < 24) { const q = go.at(((tt - 8) / 16) * go.len); pos = q.p; heading = q.h; moving = true; label = "➜ MALORE TRA IL PUBBLICO"; }
+            else {
+              const parkH = go.at(go.len).h;
+              if (tt < 62) { pos = stop; heading = parkH; doorsOpen = true; }
+              if (tt < 36) { crew2(lerp3(rs, vg, (tt - 24) / 12), dirTo(rs, vg), false, "carry"); label = "SOCCORSO"; }
+              else if (tt < 46) {
+                label = "SOCCORSO";
+                people.push({ p: [vg[0] - 1.1, 0, vg[2] + 0.8], pose: "kneel", col: crewCol }, { p: [vg[0] + 1.2, 0, vg[2] + 0.8], pose: "kneel", col: crewCol });
+                props.push({ c: [vg[0] + 2.1, 0.3, vg[2] + 0.3], s: [0.9, 0.6, 0.5], fill: "rgba(250,204,21,.95)", edge: "#FACC15" });
+              }
+              else if (tt < 58) { crew2(lerp3(vg, rs, (tt - 46) / 12), dirTo(vg, rs), true, "carry"); label = "BARELLA IN ARRIVO"; }
+              else if (tt < 62) { people.push({ p: [rs[0] + 1, 0, rs[2]], pose: "stand", col: crewCol }); label = "CARICO IN AMBULANZA"; }
+              else if (tt < 80) { const q = toPma.at(((tt - 62) / 18) * toPma.len); pos = q.p; heading = q.h; moving = true; label = "➜ PMA CON PAZIENTE"; }
+              else if (tt < 88) { pos = dest; heading = toPma.at(toPma.len).h; doorsOpen = true; const r2 = rear(dest, heading); crew2(lerp3(r2, [64, 0, 76], (tt - 80) / 8), dirTo(r2, [64, 0, 76]), true, "carry"); label = "CONSEGNA AL PMA"; }
+              else if (tt < 106) { const q = back.at(((tt - 88) / 18) * back.len); pos = q.p; heading = q.h; moving = true; label = "RIENTRO IN POSTAZIONE"; }
+            }
+          } else {
+            people.push({ p: [rr0[0] + 0.9, 0, rr0[2] + 0.6], pose: "stand", col: crewCol }, { p: [rr0[0] - 0.9, 0, rr0[2] + 0.8], pose: "stand", col: crewCol });
+          }
+        }
+        if (p >= 1 && !veh.pma && !isMaxiV && !FIRE && !EV) {
           const off = hash(veh.id) % 40;
           const sinceArr = Math.max(0, (now - a1) / 1000);
           if (veh.moto || veh.automedica) {
@@ -1121,7 +1229,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       }
       firemen.forEach((fm, k) => figure(fm.p, fm.pose, "#F87171", t / 1000 + k * 0.9 + 3));
       // cordone: nastro della polizia, auto della polizia, curiosi che filmano
-      if (!FIRE && !PC) { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
+      if (!FIRE && !PC && !EV) { const tape: V3[] = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * 1.05 + (k / 40) * Math.PI * 0.9; tape.push([Math.cos(a) * 58, 1, Math.sin(a) * 50]); }
         const tp = tape.map(P); if (tp.every(Boolean)) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(250,204,21,.85)"; ctx.lineWidth = 1.4; ctx.beginPath(); tp.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1] + Math.sin(t / 400 + k) * 0.6) : ctx.moveTo(q![0], q![1]))); ctx.stroke(); ctx.setLineDash([]); }
         const bys = rng(seed + 99);
         for (let k = 0; k < 12; k++) { const a = Math.PI * 1.1 + bys() * Math.PI * 0.8; const r = 62 + bys() * 6;
@@ -1143,9 +1251,67 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       }
       draws.sort((a, b) => b.z - a.z).forEach((x) => x.fn());
 
+      if (E) {
+        const live = now >= evShow;
+        const pal = ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#F87171", "#E2E8F0"];
+        if (E.led && live) {                                                  // maxischermo dietro il palco
+          const [x0, x1, y0, y1, z] = E.led; const n = 10;
+          for (let k = 0; k < n; k++) {
+            const xa = x0 + ((x1 - x0) * k) / n, xb = x0 + ((x1 - x0) * (k + 1)) / n;
+            poly([[xa, y0, z], [xb, y0, z], [xb, y1, z], [xa, y1, z]], undefined, `hsla(${(t / 8 + k * 36) % 360},90%,60%,.55)`);
+          }
+        }
+        if (E.pitch) for (let i = 0; i < 22; i++) {                           // giocatori
+          const q = P([Math.sin(t / 2600 + i * 1.7) * 36, 0.8, -35 + Math.cos(t / 3100 + i * 1.3) * 26]);
+          if (q) { ctx.fillStyle = i < 11 ? "#B91C1C" : "#F1F5F9"; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, Math.PI * 2); ctx.fill(); }
+        }
+        scene.crowd.forEach((c, i) => {
+          if (evInc && evInc.tt < 58 && c === evInc.vic) return;             // è a terra
+          const ph = t / (E.pitch ? 240 : 320) + i * 0.37;
+          const jump = live ? Math.max(0, Math.sin(ph)) * (E.pitch ? 0.35 : 0.55) : 0;
+          const f = P([c[0], c[1] + jump, c[2]]), h = P([c[0], c[1] + 1.7 + jump, c[2]]);
+          if (!f || !h) return;
+          const hh = f[1] - h[1]; if (hh < 0.6) { ctx.fillStyle = pal[i % 7]; ctx.fillRect(h[0], h[1], 1.5, 1.5); return; }
+          ctx.strokeStyle = pal[i % 7]; ctx.lineWidth = Math.max(0.8, hh * 0.12);
+          ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(h[0], h[1] + hh * 0.15);
+          const sy = h[1] + hh * 0.32, up = live && (i % 3 !== 0 || Math.sin(ph * 0.5) > 0);
+          if (up) { ctx.moveTo(h[0] - hh * 0.3, h[1] - hh * 0.25 + Math.sin(ph) * hh * 0.08); ctx.lineTo(h[0], sy); ctx.lineTo(h[0] + hh * 0.3, h[1] - hh * 0.25 - Math.sin(ph) * hh * 0.08); }
+          else { ctx.moveTo(h[0] - hh * 0.2, sy + hh * 0.35); ctx.lineTo(h[0], sy); ctx.lineTo(h[0] + hh * 0.2, sy + hh * 0.35); }
+          ctx.stroke();
+          ctx.fillStyle = pal[i % 7]; ctx.beginPath(); ctx.arc(h[0], h[1], Math.max(0.9, hh * 0.13), 0, Math.PI * 2); ctx.fill();
+        });
+        if (live && E.lights.length) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          E.lights.forEach((L0, i) => {
+            const src = P(L0); if (!src) return;
+            const beams = E.pitch ? 1 : 2;
+            for (let b = 0; b < beams; b++) {
+              const tx = E.pitch ? L0[0] * 0.25 : Math.sin(t / 1400 + i * 1.7 + b * 2.1) * 48;
+              const tz = E.pitch ? -35 : -10 + Math.cos(t / 1900 + i + b * 1.4) * 26;
+              const wd = E.pitch ? 26 : 3.5;
+              const a = P([tx - wd, 0, tz]), c2 = P([tx + wd, 0, tz]); if (!a || !c2) continue;
+              const hue = (t / 25 + i * 70 + b * 140) % 360;
+              const g = ctx.createLinearGradient(src[0], src[1], (a[0] + c2[0]) / 2, (a[1] + c2[1]) / 2);
+              if (E.pitch) { g.addColorStop(0, "rgba(255,255,240,.28)"); g.addColorStop(1, "rgba(255,255,240,.02)"); }
+              else { g.addColorStop(0, `hsla(${hue},100%,65%,.5)`); g.addColorStop(1, `hsla(${hue},100%,60%,.04)`); }
+              ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(src[0], src[1]); ctx.lineTo(a[0], a[1]); ctx.lineTo(c2[0], c2[1]); ctx.closePath(); ctx.fill();
+              if (!E.pitch) { const m = P([tx, 0.2, tz]); if (m) { ctx.fillStyle = `hsla(${hue},100%,60%,.22)`; ctx.beginPath(); ctx.ellipse(m[0], m[1], Math.abs(c2[0] - a[0]) / 2 + 2, 3, 0, 0, Math.PI * 2); ctx.fill(); } }
+            }
+            ctx.fillStyle = E.pitch ? "rgba(255,255,240,.95)" : `hsla(${(t / 25 + i * 70) % 360},100%,70%,.95)`; ctx.beginPath(); ctx.arc(src[0], src[1], 2.4, 0, Math.PI * 2); ctx.fill();
+          });
+          if (!E.pitch) {
+            for (let k = 0; k < 6; k++) {                                     // laser
+              const s0 = P([(k - 2.5) * 6, 19, -46]), e0 = P([Math.sin(t / 700 + k * 1.1) * 75, 10 + Math.cos(t / 900 + k) * 6, 30]);
+              if (s0 && e0) { ctx.strokeStyle = `hsla(${(k * 60 + t / 10) % 360},100%,60%,.75)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s0[0], s0[1]); ctx.lineTo(e0[0], e0[1]); ctx.stroke(); }
+            }
+            if (Math.floor(t / 110) % 37 === 0) { ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fillRect(0, 0, W, H); }   // stroboscopica
+          }
+          ctx.restore();
+        }
+      }
       // folla
       ctx.fillStyle = "rgba(241,245,249,.7)";
-      for (const c of scene.crowd) { const q = P([c[0] + Math.sin(t / 900 + c[0]) * 0.4, 0.5, c[2]]); if (q) ctx.fillRect(q[0], q[1], 1.6, 1.6); }
+      if (!E) for (const c of scene.crowd) { const q = P([c[0] + Math.sin(t / 900 + c[0]) * 0.4, 0.5, c[2]]); if (q) ctx.fillRect(q[0], q[1], 1.6, 1.6); }
 
       // fuoco, fumo, polvere
       if (FIRE && (d.fire?.intensity ?? 50) > 0) {
@@ -1176,7 +1342,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // HUD in alto a sinistra
       const dt = new Date(now);
       ctx.textAlign = "left"; ctx.font = "700 11px ui-monospace,monospace";
-      const head = FIRE ? "INCENDIO BOSCHIVO · " : PC ? "PROTEZIONE CIVILE · " : "MAXI EMERGENZA · ";
+      const head = FIRE ? "INCENDIO BOSCHIVO · " : PC ? "PROTEZIONE CIVILE · " : EV ? "GRANDE EVENTO · " : "MAXI EMERGENZA · ";
       ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText(head, 14, 24);
       const tag = dt.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
       const w1 = ctx.measureText(head).width;
@@ -1191,6 +1357,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         const stato = inten === 0 ? "✅ DOMATO" : inten >= 70 ? "FUORI CONTROLLO" : fireOn >= need ? "IN SPEGNIMENTO" : "IN ESPANSIONE";
         ctx.fillStyle = inten === 0 ? "#22C55E" : inten >= 70 ? "#EF4444" : fireOn >= need ? "#FACC15" : "#F97316";
         ctx.fillText(`GRAVITÀ ${sev}/3 · INTENSITÀ ${inten}% · ${stato}`, 14, 75);
+      } else if (E) {
+        const need = d.slots ?? 1; const posted = onSite - pmaOn;
+        ctx.fillStyle = posted >= need ? "#4ADE80" : "#FDBA74";
+        ctx.fillText(`AMBULANZE IN POSTAZIONE ${posted}/${need} RICHIESTE${coming ? ` · IN ARRIVO ${coming}` : ""}${posted < need ? ` · NE MANCANO ${need - posted}` : " · ✓ COPERTO"}`, 14, 58);
+        const mins = Math.max(0, Math.ceil((evShow - now) / 60000));
+        ctx.fillStyle = evInc ? "#FCA5A5" : "#FDE68A";
+        ctx.fillText(`PUBBLICO CIRCA ${E.people.toLocaleString("it-IT")} · INTERVENTI ${evCount}${evInc ? " · 🚑 INTERVENTO IN CORSO" : ""} · ${now < evShow ? `INIZIO TRA ${mins} MIN` : E.pitch ? "PARTITA IN CORSO" : "SPETTACOLO IN CORSO"}`, 14, 75);
       } else if (PC) {
         ctx.fillText(`MEZZI MAXI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming}`, 14, 58);
         ctx.fillStyle = pcCol; ctx.fillText(pcStat, 14, 75);

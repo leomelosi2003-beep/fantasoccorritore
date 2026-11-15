@@ -12,6 +12,7 @@ const DEMO: Record<string, string> = {
   autobus: "Scontro tra due autobus", terremoto: "Scossa di terremoto",
   incendio1: "🔥 Sterpaglie", incendio2: "🔥 Bosco", incendio3: "🔥 Interfaccia",
   ...Object.fromEntries(Object.keys(PC_TITLES).map((k) => [k, "🦺 " + PC_TITLES[k]])),
+  "ev-concerto": "🎤 Concerto all'aperto", "ev-stadio": "⚽ Partita allo stadio", "ev-arena": "🏟️ Palazzetto",
 };
 // titolo vero di una missione di protezione civile per ogni scenario di prova
 const PC_DEMO_TITLE: Record<string, string> = {
@@ -20,6 +21,18 @@ const PC_DEMO_TITLE: Record<string, string> = {
   "pc-accoglienza": "Campo di accoglienza per gli sfollati", "pc-gelo": "Ondata di gelo e black-out", "pc-evento": "Supporto a una manifestazione pubblica",
   "pc-costa": "Ricerca lungo la costa",
 };
+// prova grande evento: 4 ambulanze su 5 richieste, un malore ogni 2 minuti
+function demoEv(s: string): SceneData {
+  const t0 = Date.now() - (Date.now() % 240000);
+  const vehicles: SceneVehicle[] = ["CVL 1", "CVL 2", "PA 7", "MIS 3"].map((c, i) => ({
+    id: "ev" + i, call_sign: c, org_name: "x", mine: i < 2, status: "in_viaggio", assigned_at: new Date(t0 + i * 5000).toISOString(),
+    arrives_at: new Date(t0 + i * 5000 + 20000).toISOString(), base_lat: 43.55 + Math.sin(i * 2) * 0.2, base_lng: 10.32 + Math.cos(i * 2) * 0.2,
+  })).filter((v) => Date.parse(v.assigned_at) <= Date.now());
+  const kind = s === "ev-stadio" ? "calcio" : s === "ev-arena" ? "basket" : "concerto";
+  return { id: "demo-" + s, title: s === "ev-stadio" ? "Livorno – Prova (partita)" : s === "ev-arena" ? "Partita di basket – Prova" : "Festival in piazza – Prova",
+           venue: "Prova", lat: 43.55, lng: 10.32, created_at: new Date(t0).toISOString(), ends_at: new Date(t0 + 4 * 3600000).toISOString(),
+           event_id: "demo", event_kind: kind, slots: 5, show_at: new Date(t0 + 30000).toISOString(), inc_every: 120, vehicles };
+}
 // prova protezione civile: 4 mezzi maxi con moduli diversi, il lavoro avanza in 3 minuti
 function demoPC(s: string): SceneData {
   const t0 = Date.now() - (Date.now() % 180000);
@@ -57,6 +70,7 @@ function demoFire(s: string): SceneData {
 function demoData(s: string, noPma = false): SceneData {
   if (s.startsWith("incendio")) return demoFire(s);
   if (s.startsWith("pc-")) return demoPC(s);
+  if (s.startsWith("ev-")) return demoEv(s);
   const t0 = Date.now() - (Date.now() % 120000);
   const sigle = ["CVL 12", "PA 7", "PMA CVL", "MISE 21", "CRI 4", "LOG 1", "CVL 31", "SVS 9", "COM 1", "PA 15", "CRI 22", "CVL 5", "MISE 3", "AUTOMED 1", "MOTO 2"];
   const vehicles: SceneVehicle[] = sigle.map((c, i) => ({

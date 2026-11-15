@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16a", date: "16 novembre 2026", title: "Grandi eventi dal vivo: concerti, partite e palazzetti",
+    items: ["🎤 Anche i grandi eventi (concerti, festival, partite, palazzetti) hanno la scena dal vivo: «🎬 Guarda l'evento dal vivo» nel popup. Palco con maxischermo, luci da discoteca, laser e pubblico che balla; allo stadio spalti pieni, fari e giocatori in campo.",
+            "🚑 In alto vedi quante ambulanze sono in postazione rispetto a quelle richieste dall'evento, e quante ne mancano.",
+            "Ogni tanto (raramente) qualcuno si sente male tra il pubblico: un'ambulanza in postazione parte, lo carica in barella e lo porta al PMA, poi torna al suo posto."],
+  },
+  {
     id: "2026-11-15m", date: "15 novembre 2026", title: "Protezione Civile: vedi i moduli di ogni mezzo",
     items: ["🚛 Quando scegli il mezzo da mandare a una missione di Protezione Civile, sotto ogni camion e furgone maxi vedi i moduli montati: in verde con ✓ quelli che servono a quella missione. Se non ne ha nessuno adatto, a destra c'è scritto quale manca."],
   },
