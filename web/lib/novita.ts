@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16d", date: "16 novembre 2026", title: "Grandi eventi senza limite di km",
+    items: ["🏟️ Ai grandi eventi (concerti, partite, palazzetti) puoi mandare qualsiasi ambulanza, da qualunque sede: non c'è più il limite dei 25 km, come già per maxi emergenze, incendi e Protezione Civile. Resta solo il mare: dalle isole non si va sul continente e viceversa."],
+  },
+  {
     id: "2026-11-16c", date: "16 novembre 2026", title: "Telefono: il pulsante «Parti» sempre visibile",
     items: ["📱 Quando apri un servizio per mandare un mezzo (anche un trasferimento), la barra del menu in basso si nasconde, così il pulsante per partire non resta più coperto."],
   },

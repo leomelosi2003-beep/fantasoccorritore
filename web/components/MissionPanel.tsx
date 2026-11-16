@@ -232,7 +232,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (!v.boat && v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)
         && islandOf(v.base_lat, v.base_lng) !== islandOf(mission.lat, mission.lng))
       return "è su un'altra isola o sul continente: le ambulanze non attraversano il mare";
-    if (v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)) {   // maxi e incendi: nessun limite
+    if (v.base_lat != null && v.base_lng != null && mission.category !== "grande_evento") {   // grandi eventi, maxi, incendi, protezione civile: nessun limite
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
     }
