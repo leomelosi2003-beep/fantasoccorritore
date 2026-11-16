@@ -25,7 +25,7 @@ jobs:
           PREV=$(cat stato.txt 2>/dev/null || echo su)
           NOW=giu
           for i in 1 2 3; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 https://web-kappa-ten-1vwv7qwb59.vercel.app/api/version || true)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 30 https://fantaserver.tail9a3baf.ts.net/api/version || true)
             if [ "$CODE" = "200" ]; then NOW=su; break; fi
             sleep 60
           done

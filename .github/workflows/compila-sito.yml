@@ -1,0 +1,35 @@
+# Controllo della compilazione (prende il posto di Vercel): a ogni modifica del sito GitHub prova a compilarlo.
+# Se c'è un errore il controllo fallisce e GitHub manda una email. Il sito vero gira sul server Oracle.
+name: Compila sito
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/compila-sito.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: compila-sito
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Installa
+        run: npm install --no-audit --no-fund
+      - name: Compila
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: same-origin
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: solo-per-compilare
+          BUILD_SHA: ${{ github.sha }}
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
