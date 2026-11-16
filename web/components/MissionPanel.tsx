@@ -153,6 +153,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   const [heli, setHeli] = useState<{ price: number; active_until: string | null; funds: number } | null>(null);
   const loadHeli = () => supabase.rpc("heli_status").then(({ data }) => setHeli(((data as { price: number; active_until: string | null; funds: number }[]) ?? [])[0] ?? null));
   useEffect(() => { loadHeli(); }, []);
+  // sul telefono la barra in basso copriva il pulsante «Parti»: mentre il pannello è aperto la nascondo
+  useEffect(() => { document.body.classList.add("fs-panel-open"); return () => document.body.classList.remove("fs-panel-open"); }, []);
   // la mia automedica è sul servizio e aspetta un'ambulanza: posso mandarla anche a servizio pieno
   const waiting = !!mission.my_automedica_waiting;
   useEffect(() => {
@@ -443,7 +445,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     : isEvent ? { label: "Grande evento · postazione", color: "#7C3AED" } : CODE[mission.code];
 
   return (
-    <div data-tut-hide="1" style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
+    <div data-tut-hide="1" className="fs-mpanel" style={{ position: "absolute", zIndex: 1100, right: 0, top: 0, bottom: 0, width: "min(420px, 100%)",
                   background: "#fff", boxShadow: "-6px 0 24px rgba(0,0,0,.25)", display: "flex", flexDirection: "column",
                   fontFamily: "system-ui, sans-serif" }}>
       {/* Testata */}

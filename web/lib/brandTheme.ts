@@ -65,6 +65,11 @@ html:not(.dark) main [style*="border-radius: 16px"][style*="rgb(255, 255, 255)"]
   body.fs-has-nav .fs-coach, body.fs-has-nav .fs-coach-mini { bottom: calc(14px + var(--fs-nav-h) + env(safe-area-inset-bottom)) !important; }
 }
 
+/* pannello di invio aperto: a tutto schermo sopra la barra in basso, con il pulsante «Parti» sempre visibile */
+@media (max-width: 760px) {
+  body.fs-panel-open .fs-nav, body.fs-panel-open .fs-help-fab { display: none !important; }
+  .fs-mpanel { position: fixed !important; top: 0 !important; bottom: 0 !important; height: 100dvh; padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
+}
 /* barra in basso (solo telefono) */
 .fs-nav { display: none; }
 @media (max-width: 760px) {
