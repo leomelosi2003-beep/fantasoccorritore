@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16i", date: "16 novembre 2026", title: "Protezione Civile solo sulla terraferma",
+    items: ["🗺️ Le missioni di Protezione Civile nascono sempre su un punto di terraferma (paesi e strade): niente più missioni in mezzo al mare. Quella finita in mare è stata spostata a terra."],
+  },
+  {
     id: "2026-11-16h", date: "16 novembre 2026", title: "Pacchetti epici e leggendari molto più cari",
     items: ["💜 Il pacchetto epico ora costa 250.000 € e 👑 quello leggendario 1.000.000 €: sono un traguardo da raggiungere facendo crescere l'associazione. Il pacchetto comune e gli specialisti restano com'erano."],
   },
