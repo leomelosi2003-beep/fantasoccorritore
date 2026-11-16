@@ -17,9 +17,9 @@ const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "no
 const PACKS = [
   { kind: "comune", price: 4500, icon: "📦", leg: "2%", epi: "13%", note: "",
     bg: "linear-gradient(135deg,#4B5563,#1F2937)", glow: "0 2px 8px rgba(0,0,0,.15)" },
-  { kind: "epico", price: 17000, icon: "💜", leg: "8%", epi: "42%", note: "almeno 1 epica garantita",
+  { kind: "epico", price: 250000, icon: "💜", leg: "8%", epi: "42%", note: "almeno 1 epica garantita",
     bg: "linear-gradient(135deg,#7C3AED,#4C1D95)", glow: "0 0 16px rgba(139,92,246,.5)" },
-  { kind: "leggendario", price: 52000, icon: "👑", leg: "25%", epi: "50%", note: "almeno 1 leggendaria garantita",
+  { kind: "leggendario", price: 1000000, icon: "👑", leg: "25%", epi: "50%", note: "almeno 1 leggendaria garantita",
     bg: "linear-gradient(135deg,#F59E0B,#B45309)", glow: "0 0 20px rgba(245,158,11,.6)" },
 ];
 const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 };

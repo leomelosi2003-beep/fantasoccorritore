@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16h", date: "16 novembre 2026", title: "Pacchetti epici e leggendari molto più cari",
+    items: ["💜 Il pacchetto epico ora costa 250.000 € e 👑 quello leggendario 1.000.000 €: sono un traguardo da raggiungere facendo crescere l'associazione. Il pacchetto comune e gli specialisti restano com'erano."],
+  },
+  {
     id: "2026-11-16g", date: "16 novembre 2026", title: "Pacchetti autisti e 130 carte nuove",
     items: ["🚑 Nei Pacchetti specialisti ci sono due pacchetti nuovi: «Autista» (35.000 €) e «Autista avanzato» (55.000 €), 5 volontari tutti di quel tipo.",
             "🃏 130 volontari nuovi da trovare: 30 autisti, 30 autisti avanzati, 15 soccorritori base, 15 avanzati, 15 infermieri, 15 medici e 10 capiservizio, con epiche e leggendarie.",
