@@ -94,7 +94,7 @@ function claimError(m: string) {
   if (m.includes("VEHICLE_NEEDS_MAINTENANCE")) return "Il mezzo è troppo usurato: portalo in manutenzione.";
   if (m.includes("VEHICLE_BUSY")) return "Il mezzo è già impegnato.";
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
-  if (m.includes("PC_NEEDS_MAXI")) return "Alle missioni di protezione civile vanno solo i camion e i furgoni maxi.";
+  if (m.includes("PC_NEEDS_MAXI")) return "A questa missione di protezione civile vanno solo i camion e i furgoni maxi (alle manifestazioni vanno anche le ambulanze).";
   if (m.includes("PC_NEEDS_MODULE")) return "Su questo mezzo manca il modulo che serve (leggi la descrizione): montalo dal Negozio presidi.";
   if (m.includes("ISLAND")) return "Le ambulanze non attraversano il mare: per le isole servono mezzi con sede sull'isola (o una barca).";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
@@ -175,6 +175,8 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
   }, []);
 
   const pcMission = mission.category === "grande_evento" && !mission.event_id && mission.venue === "PC";
+  const pcFest = pcMission && /manifestazione/i.test(mission.title);                 // manifestazione: servono anche ambulanze in postazione
+  const pcAmbNeed = pcFest ? Number((mission.description ?? "").match(/Servono (\d+) ambulanze/)?.[1] ?? 4) : 0;
   const eqProvides = (code: string) => equip.find((e) => e.code === code)?.provides ?? [];
   // moduli montati su un mezzo maxi: verdi quelli che servono a questa missione
   const moduleChips = (v: Vehicle, dark = false) => {
@@ -204,7 +206,10 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (fire && !v.aib) return "all'incendio va solo un mezzo antincendio (AIB)";
     if (v.aib && !fire) return "il mezzo antincendio va solo sugli incendi boschivi";
     if (v.maxi && !(mission.category === "grande_evento" && !mission.event_id && !fire)) return "il mezzo maxi va solo sulle maxi emergenze e sulle missioni di protezione civile";
-    if (mission.category === "grande_evento" && !mission.event_id && mission.venue === "PC" && !v.maxi) return "qui vanno solo camion e furgoni maxi con i moduli";
+    if (mission.category === "grande_evento" && !mission.event_id && mission.venue === "PC" && !v.maxi) {
+      if (!pcFest) return "qui vanno solo camion e furgoni maxi con i moduli";
+      if (v.moto || v.automedica || v.ordinaria) return "alla manifestazione serve un'ambulanza";
+    }
     const sea = mission.category === "mare";
     if (v.boat && !sea) return "solo servizi in mare";
     if (sea && !v.boat && !waiting) return "in mare va solo la barca";
@@ -243,6 +248,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       const p = provides(v.equipment);
       if (!mission.requires.some((r) => p.has(r))) return "manca il modulo: " + mission.requires.map((r) => NEED[r] ?? r).join(" o ");
     }
+    if (pcMission && !v.maxi) return null;   // ambulanza alla manifestazione: niente moduli né presidi particolari
     if (v.automedica || v.maxi) return null; // ECG e defibrillatore già a bordo; i mezzi maxi portano moduli, non presidi
     if (CERT_RANK[v.certification] < CERT_RANK[mission.min_certification ?? "trasporto"])
       return "solo trasporti";
@@ -617,6 +623,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           const need = mission.transport === "trasferimento" ? "un'ambulanza a passo lungo (Garage → categoria passi lunghi). Fa solo trasferimenti e paga +25%."
             : mission.category === "ordinario" ? "una macchina ordinaria (Garage → 🚗 Ordinarie), oppure converti un'ambulanza in «solo ordinari» per 8.000 €."
             : mission.category === "mare" ? "una barca ormeggiata entro 40 km, con a bordo 1 bagnino e 1 o 2 soccorritori (base o avanzati)."
+            : pcFest ? `un'ambulanza libera (ne servono ${pcAmbNeed} in postazione), oppure un camion o furgone maxi con ⚡ logistica o ⛺ PMA.`
             : pcMission ? `un camion o furgone maxi (Garage → maxi) con il modulo giusto: ${mission.requires.map((r) => NEED[r] ?? r).join(" o ")}. I moduli si comprano nel Negozio presidi.`
             : fire ? "un mezzo antincendio (Garage → 🔥 Antincendio) con almeno 2 persone, di cui 1 volontario AIB."
             : "un'ambulanza libera entro 20 km dalla sua sede, con gasolio, revisionata e con i presidi richiesti.";

@@ -192,19 +192,13 @@ function buildScene(kind: string, seed: number) {
       boxes.push({ c: [10, 3, 2], s: [0.4, 7, 0.4], yaw: 0, roll: 1.1 });
       pc = { snow: true, search: [0, 0, -30], sr: 1.6, trees: 70, clear: [-85, -75, 85, 30], homes };
       break; }
-    case "pc-evento":
-      for (const x of [-18, 18]) lines.push([[x, 0, -30], [x, 16, -30]], [[x, 0, -42], [x, 16, -42]]);
-      lines.push([[-18, 16, -30], [18, 16, -30]], [[-18, 16, -42], [18, 16, -42]], [[18, 16, -30], [18, 16, -42]], [[-18, 16, -30], [-18, 16, -42]]);
-      boxes.push({ c: [0, 1.2, -36], s: [40, 2.4, 14], yaw: 0 });
-      for (let i = 0; i < 260; i++) crowd.push([(r() - 0.5) * 90, 0, -24 + r() * 40]);
-      pc = { search: [0, 0, -10], sr: 2.2, trees: 40, clear: [-90, -60, 90, 32], pma: true };
-      break;
     case "pc-costa":
       for (let i = 0; i < 12; i++) { const h = 4 + r() * 10; boxes.push({ c: [-90 + i * 16 + r() * 4, h / 2, -28 - r() * 8], s: [12 + r() * 6, h, 8 + r() * 6], yaw: r(), fill: "rgba(120,113,108,.25)", edge: "rgba(168,162,158,.65)" }); }   // scogliera
       lines.push([[-110, 0.05, -20], [110, 0.05, -20]]);
       pc = { sea: true, search: [10, 0, -75], sr: 2.6, trees: 40, clear: [-130, -160, 130, -14], lost: [30 + r() * 30, 0, -90 - r() * 25] };
       break;
     // ===== grandi eventi veri =====
+    case "pc-evento":
     case "ev-concerto": {
       boxes.push({ c: [0, 1.6, -52], s: [52, 3.2, 16], yaw: 0, fill: "rgba(30,41,59,.85)", edge: "rgba(148,163,184,.8)" });          // palco
       for (const x of [-26, 26]) { lines.push([[x, 3.2, -44], [x, 20, -44]], [[x, 3.2, -60], [x, 20, -60]], [[x, 20, -44], [x, 20, -60]]);
@@ -218,6 +212,7 @@ function buildScene(kind: string, seed: number) {
       ev = { spots: [[-40, 0, 27], [40, 0, 27], [0, 0, 27], [-64, 0, -40], [64, 0, -40], [-20, 0, 27], [20, 0, 27], [-64, 0, 6], [64, 0, 6], [-58, 0, 27]],
              lights: [[-24, 20, -44], [-12, 20, -44], [0, 20, -44], [12, 20, -44], [24, 20, -44]], victims: crowd.slice(0, 60),
              led: [-20, 20, 5, 17, -59], people: (8 + Math.floor(r() * 30)) * 1000 };
+      if (kind === "pc-evento") pc = { search: [0, 0, -10], sr: 2.2, trees: 40, clear: [-95, -95, 95, 40], pma: true };
       break; }
     case "ev-stadio": {
       for (const [x, z, w, dd] of [[0, -76, 100, 12], [0, 6, 100, 10], [-56, -35, 12, 72], [56, -35, 12, 72]] as [number, number, number, number][])
@@ -329,7 +324,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
     const X = PC ? scene.pc : null;
-    const E = EV ? scene.ev : null;
+    const E = EV || kind === "pc-evento" ? scene.ev : null;
+    const evNeed = EV ? (data.slots ?? 1) : Number((data.description ?? "").match(/Servono (\d+) ambulanze/)?.[1] ?? 4);
     const evSaid = new Set<number>();
     let pcFound = false;
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
@@ -520,7 +516,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       for (let k = 0; k < 420 && trees.length < nTrees; k++) {
         const x = (er() - 0.5) * 300, z = (er() - 0.5) * 300;
         if (!FIRE && !PC && Math.abs(x) < 70 && z > -45 && z < 60) continue;   // zona dell'intervento
-        if (EV && Math.abs(x) < 95 && z > -95 && z < 60) continue;
+        if (E && Math.abs(x) < 95 && z > -95 && z < 60) continue;
         if (X?.clear && x > X.clear[0] && z > X.clear[1] && x < X.clear[2] && z < X.clear[3]) continue;
         if (PC && z > 20 && z < 95 && x > -40 && x < 75) continue;            // area dei mezzi e posto di comando
         if (FIRE && z > 12 && z < 60 && Math.abs(x) < 110) continue;          // fascia dei mezzi AIB e della strada
@@ -791,7 +787,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             }
           }
         }
-        if (p >= 1 && EV && !veh.pma && !isMaxiV) {
+        if (p >= 1 && E && !veh.pma && !isMaxiV) {
           const rr0 = rear(end, park); label = "IN POSTAZIONE";
           const crew2 = (c: V3, h: number, loaded: boolean, pose: Pose) => {
             const f = fwd(h); const a: V3 = [c[0] + f[0] * 1.3, 0, c[2] + f[2] * 1.3], b: V3 = [c[0] - f[0] * 1.3, 0, c[2] - f[2] * 1.3];
@@ -834,7 +830,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             people.push({ p: [rr0[0] + 0.9, 0, rr0[2] + 0.6], pose: "stand", col: crewCol }, { p: [rr0[0] - 0.9, 0, rr0[2] + 0.8], pose: "stand", col: crewCol });
           }
         }
-        if (p >= 1 && !veh.pma && !isMaxiV && !FIRE && !EV) {
+        if (p >= 1 && !veh.pma && !isMaxiV && !FIRE && !E) {
           const off = hash(veh.id) % 40;
           const sinceArr = Math.max(0, (now - a1) / 1000);
           if (veh.moto || veh.automedica) {
@@ -1342,7 +1338,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
       // HUD in alto a sinistra
       const dt = new Date(now);
       ctx.textAlign = "left"; ctx.font = "700 11px ui-monospace,monospace";
-      const head = FIRE ? "INCENDIO BOSCHIVO · " : PC ? "PROTEZIONE CIVILE · " : EV ? "GRANDE EVENTO · " : "MAXI EMERGENZA · ";
+      const head = FIRE ? "INCENDIO BOSCHIVO · " : PC ? (E ? "PROTEZIONE CIVILE · MANIFESTAZIONE · " : "PROTEZIONE CIVILE · ") : EV ? "GRANDE EVENTO · " : "MAXI EMERGENZA · ";
       ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText(head, 14, 24);
       const tag = dt.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
       const w1 = ctx.measureText(head).width;
@@ -1358,7 +1354,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         ctx.fillStyle = inten === 0 ? "#22C55E" : inten >= 70 ? "#EF4444" : fireOn >= need ? "#FACC15" : "#F97316";
         ctx.fillText(`GRAVITÀ ${sev}/3 · INTENSITÀ ${inten}% · ${stato}`, 14, 75);
       } else if (E) {
-        const need = d.slots ?? 1; const posted = onSite - pmaOn;
+        const need = evNeed; const posted = vs.filter((v) => !v.pma && !v.maxi && v.status !== "conclusa" && v.status !== "rientro" && Date.parse(v.arrives_at) <= now).length;
         ctx.fillStyle = posted >= need ? "#4ADE80" : "#FDBA74";
         ctx.fillText(`AMBULANZE IN POSTAZIONE ${posted}/${need} RICHIESTE${coming ? ` · IN ARRIVO ${coming}` : ""}${posted < need ? ` · NE MANCANO ${need - posted}` : " · ✓ COPERTO"}`, 14, 58);
         const mins = Math.max(0, Math.ceil((evShow - now) / 60000));

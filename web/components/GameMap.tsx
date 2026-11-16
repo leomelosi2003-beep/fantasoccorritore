@@ -1671,7 +1671,7 @@ export default function GameMap() {
                     {org && m.status === "aperta" && m.slots_taken < m.slots_total && (
                       <button onClick={() => setSelected(m)}
                               style={{ marginTop: 9, width: "100%", border: "none", borderRadius: 10, padding: "9px 10px", cursor: "pointer",
-                                       background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", fontWeight: 800 }}>🦺 Manda un mezzo maxi</button>
+                                       background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", fontWeight: 800 }}>{/manifestazione/i.test(m.title) ? "🚑 Manda un'ambulanza o un mezzo maxi" : "🦺 Manda un mezzo maxi"}</button>
                     )}
                     <button onClick={() => router.push(`/maxi/${m.id}`)}
                             style={{ marginTop: 6, width: "100%", border: "1px solid #13294B", borderRadius: 10, padding: "8px 10px", cursor: "pointer",
