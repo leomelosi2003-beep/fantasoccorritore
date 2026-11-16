@@ -51,7 +51,12 @@ function alongRoute(route: RoutePoint[], now: number) {
       // i punti "Rotta" della barca sono solo curve della rotta: il testo guarda la tappa vera
       const la = a.label === "Rotta" ? ([...pts.slice(0, i + 1)].reverse().find((x) => x.label !== "Rotta")?.label ?? a.label) : a.label;
       const lb = b.label === "Rotta" ? (pts.slice(i + 1).find((x) => x.label !== "Rotta")?.label ?? b.label) : b.label;
-      const text = still
+      const hhmm = (ms: number) => new Date(ms).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+      const text = still && la.startsWith("⛴ Imbarco") ? `⛴ Al porto: aspetta il traghetto delle ${hhmm(b.ms)}`
+        : still && la.startsWith("⛴ Sbarco") ? "⛴ Sbarca dal traghetto"
+        : !still && lb.startsWith("⛴ Sbarco") ? `⛴ In traghetto verso ${lb.replace("⛴ Sbarco: ", "")}`
+        : !still && lb.startsWith("⛴ Imbarco") ? `Verso il porto per l'imbarco (${lb.replace("⛴ Imbarco: ", "")})`
+        : still
         ? (la === "Elisoccorso sul posto" ? "🚁 Elisoccorso: soccorso sul posto" : la.startsWith("Eliporto") ? `🚁 Consegna il paziente · ${la.replace("Eliporto: ", "")}`
           : la === "In mare" ? "Soccorso in mare" : la.startsWith("Approdo") ? "In porto: consegna il paziente all'ambulanza"
           : la.startsWith("Al porto") ? "Al porto: aspetta la barca e carica il paziente" : la === "Sul posto" ? "Soccorso in corso" : la === "A casa del paziente" ? "Accompagna il paziente in casa" : `In ospedale · ${la}`)
@@ -104,6 +109,8 @@ function boatMoveIcon(img: string, facingRight: boolean, w: number, moving: bool
 const shortEuro = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString("it-IT", { maximumFractionDigits: 1 })} mln` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : `${Math.round(n)} €`;
 
 // tratti della barca: niente strade
+// tratto in traghetto: dal porto d'imbarco (alla partenza) alla rotta della nave e allo sbarco
+const ferrySeg = (p: RoutePoint, q: RoutePoint) => p.label.startsWith("⛴ Imbarco") && (q.label === "Rotta" || q.label.startsWith("⛴ Sbarco"));
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
   || p.label.startsWith("Eli"); // anche l'elisoccorso vola in linea retta
 const heliIcon = L.divIcon({
@@ -163,7 +170,7 @@ function remainingPath(route: RoutePoint[], leg: number, f: number): LatLng[][] 
     const a = route[i], b = route[i + 1];
     if (a.lat === b.lat && a.lng === b.lng) continue;
     const from = i === leg ? f : 0;
-    if (isSea(a) || isSea(b)) { out.push([[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]); continue; }
+    if (isSea(a) || isSea(b) || ferrySeg(a, b)) { out.push([[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]); continue; }
     const road = getLeg(legKey(a, b));
     out.push(road ? slice(road, from) : [[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]);
   }
@@ -521,6 +528,28 @@ function ZoomGuard() {
     zoomend: (e) => { const c = e.target.getContainer(); requestAnimationFrame(() => requestAnimationFrame(() => c.classList.remove("fs-zooming"))); },
   });
   return null;
+}
+
+// Orari dei traghetti nel popup del porto (si caricano quando apri il popup)
+function FerryTimes({ portId }: { portId: number }) {
+  const [rows, setRows] = useState<{ to_name: string; company: string; departs_at: string; arrives_at: string; minutes: number }[] | null>(null);
+  useEffect(() => { supabase.rpc("port_ferries", { p_port: portId }).then(({ data }) => setRows((data as never[]) ?? [])); }, [portId]);
+  if (!rows || rows.length === 0) return null;
+  const hm = (s: string) => new Date(s).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60}′` : ""}` : `${m}′`);
+  const tomorrow = (s: string) => new Date(s).getDate() !== new Date().getDate();
+  return (
+    <div style={{ marginTop: 8, borderTop: "1px solid #E2E8F0", paddingTop: 6, minWidth: 220 }}>
+      <div style={{ fontWeight: 800, color: "#13294B", marginBottom: 4 }}>⛴ Prossimi traghetti</div>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "2px 0", borderBottom: i < rows.length - 1 ? "1px dashed #E2E8F0" : "none" }}>
+          <b style={{ width: 42, color: "#EA6A1F" }}>{hm(r.departs_at)}</b>
+          <span style={{ flex: 1 }}>→ {r.to_name.replace(/^Porto di /, "")}<br /><span style={{ color: "#64748B", fontSize: 11 }}>{r.company} · {dur(r.minutes)} · arriva {hm(r.arrives_at)}{tomorrow(r.departs_at) ? " (domani)" : ""}</span></span>
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>Le ambulanze s&apos;imbarcano da sole quando una missione di Protezione Civile, un grande evento o un trasferimento è oltre il mare.</div>
+    </div>
+  );
 }
 
 // Zoom e area visibile: aggiornati solo a fine movimento, così la mappa disegna solo quello che si vede
@@ -965,7 +994,7 @@ export default function GameMap() {
         const p = a.route[i], q = a.route[i + 1];
         if (new Date(q.t).getTime() < tNow) continue; // tratto già percorso: non serve
         if (p.lat === q.lat && p.lng === q.lng) continue;
-        if (isSea(p) || isSea(q)) continue; // la barca va in linea dritta sul mare
+        if (isSea(p) || isSea(q) || ferrySeg(p, q)) continue; // barche e traghetti vanno in linea dritta sul mare
         fetchLeg(p, q, Math.min(2, ahead++));
       }
     }
@@ -1466,7 +1495,7 @@ export default function GameMap() {
         )), [flt.hospitals, heliBases, mv])}
         {useMemo(() => flt.ports && !far && ports.filter((p) => inView(p.lat, p.lng) && !handoffs.some((h) => h.port_id === p.id)).map((p) => (
           <Marker key={`port-${p.id}`} position={[p.lat, p.lng]} icon={portIcon}>
-            <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.</Popup>
+            <Popup><strong>⚓ {p.name}</strong><br />Qui la barca porta il paziente e aspetta l&apos;ambulanza.<FerryTimes portId={p.id} /></Popup>
           </Marker>
         )), [flt.ports, ports, handoffs, mv])}
         {[...new Set(handoffs.map((h) => h.port_id))].map((pid) => {

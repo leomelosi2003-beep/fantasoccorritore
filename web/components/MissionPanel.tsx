@@ -96,7 +96,7 @@ function claimError(m: string) {
   if (m.includes("TOO_FAR")) return "Servizio troppo lontano: serve una sede entro 25 km.";
   if (m.includes("PC_NEEDS_MAXI")) return "A questa missione di protezione civile vanno solo i camion e i furgoni maxi (alle manifestazioni vanno anche le ambulanze).";
   if (m.includes("PC_NEEDS_MODULE")) return "Su questo mezzo manca il modulo che serve (leggi la descrizione): montalo dal Negozio presidi.";
-  if (m.includes("ISLAND")) return "Le ambulanze non attraversano il mare: per le isole servono mezzi con sede sull'isola (o una barca).";
+  if (m.includes("ISLAND")) return "Oltre il mare le ambulanze vanno solo col traghetto, e solo per Protezione Civile, maxi, incendi, grandi eventi e trasferimenti (e dove c'è una linea di traghetti). Per i servizi 118 servono mezzi con sede sull'isola o una barca.";
   if (m.includes("TOO_FEW_CREW")) return "Servono almeno 2 persone a bordo.";
   if (m.includes("TOO_MANY_CREW")) return "Al massimo 4 persone a bordo.";
   if (m.includes("MISSION_WON_BY_AUTOMEDICA")) return "🩺 Troppo tardi: l'automedica di un'altra associazione è già sul posto e ha vinto il servizio.";
@@ -229,9 +229,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (v.automedica && (mission.category !== "emergenza_118" || !["giallo", "rosso"].includes(mission.code) || mission.transport === "trasferimento"))
       return "automedica: solo gialli e rossi";
     if (v.automedica && waiting) return "la tua automedica è già qui: manda un'ambulanza";
-    if (!v.boat && v.base_lat != null && v.base_lng != null && !(mission.category === "grande_evento" && !mission.event_id)
+    if (!v.boat && v.base_lat != null && v.base_lng != null && mission.category !== "grande_evento" && mission.transport !== "trasferimento"
         && islandOf(v.base_lat, v.base_lng) !== islandOf(mission.lat, mission.lng))
-      return "è su un'altra isola o sul continente: le ambulanze non attraversano il mare";
+      return "è su un'altra isola o sul continente: per i servizi 118 le ambulanze non prendono il traghetto";
     if (v.base_lat != null && v.base_lng != null && mission.category !== "grande_evento" && mission.transport !== "trasferimento") {   // grandi eventi, maxi, incendi, protezione civile, trasferimenti: nessun limite
       const d = km(v.base_lat, v.base_lng, mission.lat, mission.lng);
       if (d > MAX_KM) return `troppo lontana (${Math.round(d)} km dalla sede)`;
@@ -589,7 +589,9 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                 <span style={{ fontSize: 22 }}>{v.boat ? "⛵" : v.moto ? "🛵" : v.automedica ? "🩺" : v.aib ? "🚒" : v.maxi ? "🚛" : "🚑"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800 }}>{v.call_sign}</div>
-                  <div style={{ fontSize: 12, color: "#555" }}>{eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{v.base_lat != null && v.base_lng != null && !v.boat && islandOf(v.base_lat, v.base_lng) !== islandOf(mission.lat, mission.lng)
+                    ? "⛴ Attraversa il mare col traghetto: aspetta la prossima nave in porto (tempi lunghi)"
+                    : eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>
                   {moduleChips(v)}
                 </div>
                 <button onClick={() => setShowVehicles((o) => !o)}
