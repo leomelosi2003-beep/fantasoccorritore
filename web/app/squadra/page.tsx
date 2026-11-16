@@ -5,7 +5,7 @@ import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
-import VolunteerCard, { ROLE, RARITY, RoleBadge, cardLevel, type Card } from "@/components/VolunteerCard";
+import VolunteerCard, { AUTISTA_AV, ROLE, RARITY, RoleBadge, cardLevel, type Card } from "@/components/VolunteerCard";
 import { avatarSvg } from "@/components/avatar";
 import TutorialCoach from "@/components/TutorialCoach";
 
@@ -266,8 +266,8 @@ export default function Squadra() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
               {catalog.filter((c) => c.role).map((c) => {
-                const r = ROLE[c.role as Card["role"]];
-                const left = roleAvail[c.role!] ?? 0;
+                const r = c.kind === "ruolo_autista_avanzato" ? AUTISTA_AV : ROLE[c.role as Card["role"]];
+                const left = roleAvail[c.kind.replace(/^ruolo_/, "")] ?? roleAvail[c.role!] ?? 0;
                 const none = left === 0;
                 return (
                   <div key={c.kind} style={{ background: "#fff", border: `2px solid ${r.color}`, borderRadius: 14, padding: 12,
@@ -506,8 +506,8 @@ export default function Squadra() {
       {/* Rivelazione del pacchetto */}
       {reveal && (
         <div onClick={() => setReveal(null)}
-             style={{ position: "fixed", inset: 0, background: "rgba(5,7,15,.88)", zIndex: 50, overflowY: "auto",
-                      display: "flex", flexDirection: "column", alignItems: "center", padding: 16 }}>
+             style={{ position: "fixed", inset: 0, background: "rgba(5,7,15,.88)", zIndex: 3000, overflowY: "auto",
+                      display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 16px 0" }}>
           <h2 style={{ color: "#fff", margin: "16px 0" }}>Nuovi volontari!</h2>
           <div style={{ ...grid, width: "100%", maxWidth: 1080 }}>
             {reveal.map((c, i) => (
@@ -516,7 +516,11 @@ export default function Squadra() {
               </div>
             ))}
           </div>
-          <button onClick={() => setReveal(null)} style={{ ...btn, background: "#F97316", marginTop: 20 }}>Benvenuti in squadra</button>
+          {/* pulsante sempre visibile in fondo allo schermo, anche con tante carte e sul telefono */}
+          <div style={{ position: "sticky", bottom: 0, width: "100%", display: "flex", justifyContent: "center", marginTop: 20,
+                        padding: "14px 0 calc(14px + env(safe-area-inset-bottom))", background: "linear-gradient(180deg, rgba(5,7,15,0), rgba(5,7,15,.95) 40%)" }}>
+            <button onClick={() => setReveal(null)} style={{ ...btn, background: "#F97316", fontSize: 17, padding: "14px 28px", boxShadow: "0 6px 20px rgba(249,115,22,.5)" }}>✅ Benvenuti in squadra</button>
+          </div>
         </div>
       )}
     </main>

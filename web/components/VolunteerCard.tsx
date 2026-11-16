@@ -21,7 +21,7 @@ export const ROLE: Record<Card["role"], { label: string; icon: string; color: st
   bagnino: { label: "Bagnino", icon: "🛟", color: "#0E7490", bg: "#CFFAFE" },
   aib: { label: "AIB", icon: "🔥", color: "#B45309", bg: "#FEF3C7" },
 };
-const AUTISTA_AV = { label: "Autista avanzato", icon: "🚑", color: "#1E40AF", bg: "#DBEAFE" };
+export const AUTISTA_AV = { label: "Autista avanzato", icon: "🚑", color: "#1E40AF", bg: "#DBEAFE" };
 
 // Etichetta colorata del ruolo: verde = base, blu = avanzato, oro = caposervizio
 export function RoleBadge({ c, small }: { c: Pick<Card, "role" | "avanzato">; small?: boolean }) {

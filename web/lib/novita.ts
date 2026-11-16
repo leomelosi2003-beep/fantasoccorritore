@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16g", date: "16 novembre 2026", title: "Pacchetti autisti e 130 carte nuove",
+    items: ["🚑 Nei Pacchetti specialisti ci sono due pacchetti nuovi: «Autista» (35.000 €) e «Autista avanzato» (55.000 €), 5 volontari tutti di quel tipo.",
+            "🃏 130 volontari nuovi da trovare: 30 autisti, 30 autisti avanzati, 15 soccorritori base, 15 avanzati, 15 infermieri, 15 medici e 10 capiservizio, con epiche e leggendarie.",
+            "✅ Dopo aver aperto un pacchetto il pulsante «Benvenuti in squadra» resta sempre visibile in fondo allo schermo."],
+  },
+  {
     id: "2026-11-16f", date: "16 novembre 2026", title: "Vendi all'asta da ogni mezzo",
     items: ["🏷️ Nel Garage ogni mezzo ha il pulsante «Vendi all'asta», sia nelle schede sia nella vista Elenco. Se il mezzo è in servizio o in officina, il gioco ti avvisa che potrai metterlo all'asta appena torna libero in sede."],
   },
