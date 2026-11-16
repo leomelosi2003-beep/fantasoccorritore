@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16k", date: "16 novembre 2026", title: "⚓ Porto di Genova",
+    items: ["Sulla mappa c'è il porto di Genova con i traghetti per Olbia, Porto Torres (nuovo porto in Sardegna) e Palermo: tocca il porto per vedere gli orari."],
+  },
+  {
     id: "2026-11-16j", date: "16 novembre 2026", title: "⛴ Traghetti con orari veri",
     items: ["Tocca un porto sulla mappa: vedi i prossimi traghetti con orario di partenza, arrivo e durata. Linee: Piombino ⇄ Portoferraio (ogni ora), Livorno ⇄ Capraia, Livorno ⇄ Olbia, Livorno ⇄ Cagliari, Porto Santo Stefano ⇄ Giglio, Villa San Giovanni ⇄ Messina, Napoli ⇄ Ischia/Procida/Capri e Napoli ⇄ Palermo.",
             "🚑 Per le missioni di Protezione Civile, maxi, incendi, grandi eventi e per i trasferimenti oltre il mare, l'ambulanza s'imbarca da sola: va al porto, aspetta la nave, attraversa (sulla mappa la vedi sul mare) e prosegue. Anche il ritorno è col traghetto.",
