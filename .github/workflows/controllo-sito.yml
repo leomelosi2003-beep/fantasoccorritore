@@ -43,5 +43,5 @@ jobs:
       - name: Avviso
         if: steps.prova.outputs.prev == 'su' && steps.prova.outputs.now == 'giu'
         run: |
-          echo "::error::Il gioco non risponde: https://web-kappa-ten-1vwv7qwb59.vercel.app"
+          echo "::error::Il gioco non risponde: https://fantaserver.tail9a3baf.ts.net"
           exit 1
