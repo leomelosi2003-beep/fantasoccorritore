@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16e", date: "16 novembre 2026", title: "Trasferimenti senza limite di km",
+    items: ["🏥 Anche i trasferimenti tra ospedali si possono fare con qualsiasi ambulanza da trasferimenti, da qualunque sede e verso qualunque ospedale: niente più limite dei 25 km (resta solo il mare tra isole e continente)."],
+  },
+  {
     id: "2026-11-16d", date: "16 novembre 2026", title: "Grandi eventi senza limite di km",
     items: ["🏟️ Ai grandi eventi (concerti, partite, palazzetti) puoi mandare qualsiasi ambulanza, da qualunque sede: non c'è più il limite dei 25 km, come già per maxi emergenze, incendi e Protezione Civile. Resta solo il mare: dalle isole non si va sul continente e viceversa."],
   },
