@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-16f", date: "16 novembre 2026", title: "Vendi all'asta da ogni mezzo",
+    items: ["🏷️ Nel Garage ogni mezzo ha il pulsante «Vendi all'asta», sia nelle schede sia nella vista Elenco. Se il mezzo è in servizio o in officina, il gioco ti avvisa che potrai metterlo all'asta appena torna libero in sede."],
+  },
+  {
     id: "2026-11-16e", date: "16 novembre 2026", title: "Trasferimenti senza limite di km",
     items: ["🏥 Anche i trasferimenti tra ospedali si possono fare con qualsiasi ambulanza da trasferimenti, da qualunque sede e verso qualunque ospedale: niente più limite dei 25 km (resta solo il mare tra isole e continente)."],
   },

@@ -400,6 +400,10 @@ export default function Garage() {
   // Mette il mezzo all'asta nella sezione "Ambulanze usate"
   async function sell(v: Vehicle) {
     setMsg(null);
+    if (v.status !== "disponibile") {
+      setMsg({ ok: false, text: `${v.call_sign} è ${v.status === "in_servizio" ? "in servizio" : "in officina"}: lo puoi mettere all'asta appena torna libero in sede.` });
+      return;
+    }
     const { data: mv } = await supabase.rpc("vehicle_market_value", { p_vehicle: v.id });
     const market = Number(mv ?? 0);
     const txt = window.prompt(
@@ -923,7 +927,7 @@ export default function Garage() {
                         <tr style={{ background: "#f4f4f1", textAlign: "left" }}>
                           <th style={{ padding: "8px 10px" }}>Mezzo</th><th style={{ padding: "8px 6px" }}>Tipo</th>
                           <th style={{ padding: "8px 6px" }}>{groupBy === "sede" ? "Modello" : "Sede"}</th><th style={{ padding: "8px 6px" }}>Stato</th>
-                          <th style={{ padding: "8px 6px", textAlign: "right" }}>Km emergenza</th><th style={{ padding: "8px 6px", textAlign: "right" }}>Revisione tra</th><th style={{ padding: "8px 10px", textAlign: "right" }}>Usura</th>
+                          <th style={{ padding: "8px 6px", textAlign: "right" }}>Km emergenza</th><th style={{ padding: "8px 6px", textAlign: "right" }}>Revisione tra</th><th style={{ padding: "8px 10px", textAlign: "right" }}>Usura</th><th style={{ padding: "8px 10px" }}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -946,6 +950,11 @@ export default function Garage() {
                                 {isBoat(v) ? "—" : kmServ(v) >= SERVICE_KM ? "SCADUTA" : kmFmt(SERVICE_KM - kmServ(v))}
                               </td>
                               <td style={{ padding: "7px 10px", textAlign: "right", color: v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#B45309" : "#111" }}>{Math.round(v.wear)}%</td>
+                              <td style={{ padding: "5px 10px", whiteSpace: "nowrap" }}>
+                                {v.status === "fuori_servizio"
+                                  ? <button onClick={() => router.push("/usate")} style={{ ...btn, padding: "4px 10px", fontSize: 12, background: "#B45309" }}>🏷️ Vedi l&apos;asta</button>
+                                  : <button onClick={() => sell(v)} style={{ ...btn, padding: "4px 10px", fontSize: 12, background: "#fff", color: "#B45309", border: "1px solid #B45309", opacity: v.status === "disponibile" ? 1 : 0.6 }}>🏷️ Vendi all&apos;asta</button>}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1134,10 +1143,10 @@ export default function Garage() {
                       </div>
                     );
                   })()}
-                  {v.status === "disponibile" && (
+                  {v.status !== "fuori_servizio" && (
                     <button onClick={() => sell(v)}
-                            style={{ ...btn, width: "100%", marginTop: 8, background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>
-                      🏷️ Vendi all&apos;asta
+                            style={{ ...btn, width: "100%", marginTop: 8, background: "#fff", color: "#B45309", border: "1px solid #B45309", opacity: v.status === "disponibile" ? 1 : 0.6 }}>
+                      🏷️ Vendi all&apos;asta{v.status !== "disponibile" && <span style={{ fontWeight: 600, fontSize: 11 }}> (appena torna in sede)</span>}
                     </button>
                   )}
                   {v.status === "fuori_servizio" && (
