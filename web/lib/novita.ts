@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-17a", date: "17 novembre 2026", title: "🔥 Antincendio: ricarica alla sede più vicina",
+    items: ["I mezzi antincendio ricaricano l'acqua alla sede più vicina al fuoco, di qualsiasi associazione, senza tornare alla propria.",
+            "Chi arriva da lontano lavora sempre almeno 30 minuti sull'incendio, anche se l'orario di fine previsto è già passato. Vale anche per i mezzi già in servizio."],
+  },
+  {
     id: "2026-11-16k", date: "16 novembre 2026", title: "⚓ Porto di Genova",
     items: ["Sulla mappa c'è il porto di Genova con i traghetti per Olbia, Porto Torres (nuovo porto in Sardegna) e Palermo: tocca il porto per vedere gli orari."],
   },
