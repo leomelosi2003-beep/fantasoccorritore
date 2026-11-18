@@ -127,6 +127,7 @@ export const HELP: Record<string, Help> = {
   "/finanze": { title: "Entrate e uscite", sub: "Dove vanno i tuoi soldi", steps: [["📊", "Qui vedi ogni entrata (servizi, donazioni, migliorie) e ogni spesa (mezzi, carburante, riparazioni, affitti)."]] },
   "/fatturato": { title: "Fatturato sedi", sub: "Quanto rende ogni sede", steps: [["🏢", "Confronta le sedi: tieni quelle che rendono e migliora quelle ferme."]] },
   "/statistiche": { title: "Statistiche", sub: "I tuoi numeri giorno per giorno", steps: [["📈", "Servizi fatti, incassi e tempi di arrivo degli ultimi giorni."]] },
+  "/password": { title: "Cambia password", sub: "Scegli una nuova password per il tuo account", steps: [["🔑", "Scrivi due volte la nuova password e salva: dal prossimo accesso usi quella."]] },
   "/notizie": { title: "Notizie", sub: "Cosa succede nel mondo del gioco", steps: [["📰", "Maxi emergenze, incendi, record e novità delle altre associazioni."]] },
   "/novita": { title: "Novità del gioco", sub: "Gli ultimi aggiornamenti", steps: [["🆕", "Ogni volta che il gioco cambia trovi qui un riassunto semplice."]] },
   "/trasferimenti": { title: "Trasferimenti", sub: "Viaggi da un ospedale all'altro", steps: [["🔁", "Li fanno solo i mezzi a passo lungo: pagano 4.000 € più 130 € al km."], ["🩺", "I trasferimenti urgenti vogliono un medico a bordo."]] },

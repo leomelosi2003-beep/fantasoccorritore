@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18i", date: "18 novembre 2026", title: "🔑 Cambia password dal gioco",
+    items: ["Nel menu, in Impostazioni, c'è «🔑 Cambia password»: puoi sceglierne una nuova senza uscire dal gioco."],
+  },
+  {
     id: "2026-11-18h", date: "18 novembre 2026", title: "🤖 Automatico: perché i mezzi restano in sede",
     items: ["Nella pagina Automatico c'è un riquadro che spiega quanti mezzi sono fermi e perché: niente autisti liberi, riserva, ordinari spenti, mezzi bloccati in officina o speciali.",
             "🎓 Corso autisti: con 5.000 € a volontario puoi far diventare autisti i tuoi soccorritori base (guidano subito, anche in automatico; puoi farli tornare soccorritori quando vuoi)."],

@@ -1323,6 +1323,7 @@ export default function GameMap() {
               ]],
               ["Impostazioni", [
                 ["📖", "Tutorial", "#2563EB", "__tutorial__"],
+                ["🔑", "Cambia password", "#475569", "/password"],
                 [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
                 ["⚡", perfMode === "on" ? "Modalità leggera: sempre" : perfMode === "off" ? "Modalità leggera: mai"
                        : lite ? "Modalità leggera: automatica (attiva)" : "Modalità leggera: automatica", "#CA8A04", "__perf__"],
