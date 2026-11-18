@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
+import { AllyChip, useMyAllianceBadge } from "@/components/AllianceExtras";
 import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, livery, type Organization } from "@/lib/supabase";
@@ -134,6 +135,7 @@ function Pill({ cert }: { cert: Cert }) {
 export default function Garage() {
   const router = useRouter();
   const [org, setOrg] = useState<Organization | null>(null);
+  const ally = useMyAllianceBadge(org?.id);
   const [models, setModels] = useState<Model[]>([]);
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [bases, setBases] = useState<Base[]>([]);
@@ -892,6 +894,7 @@ export default function Garage() {
                   <span style={{ fontSize: 18 }}>{icon}</span>
                   {list.some(needsCare) && <span title="Ci sono mezzi da sistemare (Officina)" style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
                   <span style={{ flex: 1, fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                  {groupBy === "sede" && ally && <AllyChip a={ally} size={20} dark />}
                   {groupBy === "sede" && (
                     <span style={{ fontSize: 12, opacity: 0.9, whiteSpace: "nowrap" }}>
                       {KINDS.map((k) => { const n = list.filter((v) => kindOf(v) === k.k).length; return n ? `${k.icon}${n} ` : ""; }).join("")}

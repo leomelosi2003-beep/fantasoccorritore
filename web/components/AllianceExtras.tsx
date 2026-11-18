@@ -299,3 +299,31 @@ export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
     </div>
   );
 }
+
+// ---------- logo dell'alleanza sulle sedi delle associazioni aderenti ----------
+export type AllyBadge = { name: string; logo_url: string | null };
+// la mia alleanza (per le pagine con le mie sedi)
+export function useMyAllianceBadge(orgId: string | null | undefined) {
+  const [b, setB] = useState<AllyBadge | null>(null);
+  useEffect(() => {
+    if (!orgId) return;
+    supabase.from("alliance_members").select("alliances(name,logo_url)").eq("org_id", orgId).maybeSingle()
+      .then(({ data }) => { const a = (data as unknown as { alliances: AllyBadge | null } | null)?.alliances; setB(a ?? null); });
+  }, [orgId]);
+  return b;
+}
+// tutte le associazioni → la loro alleanza (per la mappa)
+export async function loadOrgAlliances(): Promise<Record<string, AllyBadge>> {
+  const { data } = await supabase.from("alliance_members").select("org_id, alliances(name,logo_url)");
+  const out: Record<string, AllyBadge> = {};
+  for (const r of (data as unknown as { org_id: string; alliances: AllyBadge | null }[]) ?? []) if (r.alliances) out[r.org_id] = r.alliances;
+  return out;
+}
+export function AllyChip({ a, size = 22, dark = false }: { a: AllyBadge; size?: number; dark?: boolean }) {
+  return (
+    <span title={`Alleanza ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "2px 8px 2px 2px",
+                 background: dark ? "rgba(255,255,255,.18)" : "#EEF3F8", color: dark ? "#fff" : "#13294B", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>
+      <AllianceLogo a={a} size={size} />{a.name}
+    </span>
+  );
+}

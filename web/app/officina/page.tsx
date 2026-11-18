@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { AllyChip, useMyAllianceBadge } from "@/components/AllianceExtras";
 import PresidiPanel from "@/components/PresidiPanel";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
@@ -64,6 +65,7 @@ function shopError(m: string) {
 export default function Officina() {
   const router = useRouter();
   const [org, setOrg] = useState<Org | null>(null);
+  const ally = useMyAllianceBadge(org?.id);
   const [bases, setBases] = useState<Base[]>([]);
   const [models, setModels] = useState<Record<string, Model>>({});
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -331,6 +333,7 @@ export default function Officina() {
                                      background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 12, padding: "10px 14px" }}>
                       <span style={{ fontSize: 18 }}>{b.is_headquarters ? "⭐" : "🏠"}</span>
                       <span style={{ flex: 1, fontWeight: 800 }}>{b.name}</span>
+                      {ally && <AllyChip a={ally} size={20} dark />}
                       {nNeed > 0 && <span title={`${nNeed} mezzi hanno bisogno di interventi`} style={{ background: "#FACC15", color: "#111", borderRadius: 999, width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
                       {nProb > 0 && <span style={{ background: "#DC2626", borderRadius: 999, padding: "1px 8px", fontSize: 12, fontWeight: 800 }}>⚠️ {nProb}</span>}
                       <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { AllyChip, useMyAllianceBadge } from "@/components/AllianceExtras";
 import { gameConfirm } from "@/lib/confirm";
 import BasePerksPanel from "@/components/BasePerksPanel";
 import dynamic from "next/dynamic";
@@ -36,6 +37,7 @@ const MAX_LEVEL = 10;
 export default function Sedi() {
   const router = useRouter();
   const [org, setOrg] = useState<Organization | null>(null);
+  const ally = useMyAllianceBadge(org?.id);
   const [bases, setBases] = useState<Base[]>([]);
   const [parked, setParked] = useState<Record<string, number>>({});
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
@@ -205,7 +207,7 @@ export default function Sedi() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 22, background: b.color ?? "transparent", borderRadius: 8, padding: b.color ? "0 4px" : 0 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700 }}>{b.name}</div>
+                <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{b.name}{ally && !b.owner_name && <AllyChip a={ally} size={18} />}</div>
                 {b.owner_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Sede di {b.owner_name}, condivisa con te: puoi ampliarla, migliorarla e metterci i tuoi mezzi</div>}
                 {b.twin_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Condivisa con {b.twin_name}: anche lui può ampliarla e metterci i suoi mezzi</div>}
                 <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>

@@ -37,7 +37,8 @@ export default function ChatPanel({ orgId }: { orgId: string }) {
       });
   }, [orgId, open]);
 
-  const channels = ["generale", ...(alliance ? [`alleanza:${alliance.id}`] : [])];
+  // la chat dell'alleanza ora sta solo nella pagina Alleanza (visibile solo agli aderenti)
+  const channels = ["generale"];
 
   // ultimo messaggio di ogni canale, per il pallino dei non letti
   const checkLatest = useCallback(async () => {

@@ -9,6 +9,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase, livery, type MissionPin, type BasePin, type Organization } from "@/lib/supabase";
 import FactionEmblem, { emblemSvg } from "@/components/FactionEmblem";
+import { AllyChip, loadOrgAlliances, type AllyBadge } from "@/components/AllianceExtras";
 import MissionPanel from "@/components/MissionPanel";
 import FleetPanel from "@/components/FleetPanel";
 import ChatPanel from "@/components/ChatPanel";
@@ -456,14 +457,18 @@ function lastSeen(t: string) {
 // Icona della sede: stemma in un quadrato arrotondato con la casetta (i servizi invece sono "gocce"),
 // stella sulla sede principale, pallino verde se il proprietario è online
 type TwinOrg = { name: string; type: BasePin["org_type"]; logo: string | null };
-function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false, color?: string | null, twin?: TwinOrg | null) {
+function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null, online = false, hq = false, color?: string | null, twin?: TwinOrg | null, ally?: AllyBadge | null) {
   const em = mine ? (logo ? 36 : 28) : (logo ? 28 : 20);
   const svg = emblemSvg(type, em, logo);
   const s = mine ? 44 : 34;
   // sede condivisa in gemellaggio: i due loghi affiancati con la stretta di mano in mezzo
   const tw = twin ? emblemSvg(twin.type, mine ? (twin.logo ? 36 : 28) : (twin.logo ? 28 : 20), twin.logo) : "";
   const w = twin ? Math.round(s * 1.9) : s;
-  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}|${twin ? twin.type + twin.logo : ""}`, () => L.divIcon({
+  // logo dell'alleanza nell'angolo in basso a destra della sede
+  const al = ally ? (ally.logo_url
+    ? `<img src="${ally.logo_url}" style="position:absolute;right:-8px;bottom:-8px;width:18px;height:18px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);background:#fff" />`
+    : `<span style="position:absolute;right:-8px;bottom:-8px;width:18px;height:18px;border-radius:50%;background:#EA6A1F;color:#fff;font:900 8px/18px system-ui;text-align:center;border:2px solid #fff">${ally.name.slice(0, 2).toUpperCase()}</span>`) : "";
+  return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}|${twin ? twin.type + twin.logo : ""}|${ally ? ally.name + ally.logo_url : ""}`, () => L.divIcon({
     className: "",
     html: `<div style="position:relative;width:${w}px;height:${s}px;border-radius:10px;background:${color ?? "#fff"};display:flex;gap:1px;
            align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
@@ -471,7 +476,7 @@ function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null
            <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "#111" : "#6B7280"};color:#fff;border-radius:6px;
            font-size:10px;line-height:15px;padding:0 3px;border:1.5px solid #fff">${hq ? "⭐" : "🏠"}</span>${online
            ? `<span title="Online" style="position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;
-              background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}</div>`,
+              background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}${al}</div>`,
     iconSize: [w, s], iconAnchor: [w / 2, s / 2],
   }));
 }
@@ -937,6 +942,7 @@ export default function GameMap() {
   }, [org?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [baseColors, setBaseColors] = useState<Record<string, string>>({});
   const [baseTwins, setBaseTwins] = useState<Record<string, TwinOrg>>({});
+  const [orgAlly, setOrgAlly] = useState<Record<string, AllyBadge>>({});
   const twinPairs = useMemo(() => {
     const m: Record<string, LogoPair> = {};
     for (const b of bases) { const t = baseTwins[b.id]; if (t) m[`${b.lat.toFixed(4)},${b.lng.toFixed(4)}`] = [{ type: b.org_type, logo: b.logo_url ?? null }, { type: t.type, logo: t.logo }]; }
@@ -1051,6 +1057,7 @@ export default function GameMap() {
         supabase.rpc("base_colors").then(({ data, error }) => {
           if (!error) setBaseColors(Object.fromEntries(((data as { id: string; color: string }[]) ?? []).map((r) => [r.id, r.color])));
         });
+        loadOrgAlliances().then(setOrgAlly);
         supabase.rpc("base_twins").then(({ data, error }) => {
           if (!error) setBaseTwins(Object.fromEntries(((data as { base_id: string; twin_name: string; twin_type: BasePin["org_type"]; twin_logo: string | null }[]) ?? [])
             .map((r) => [r.base_id, { name: r.twin_name, type: r.twin_type, logo: r.twin_logo }])));
@@ -1555,7 +1562,7 @@ export default function GameMap() {
                         pathOptions={{ color: "#fff", weight: 1, fillColor: b.org_type === "rosso_bianco" ? "#DC2626" : b.org_type === "arancio_nero" ? "#EA580C" : "#1D4ED8", fillOpacity: 0.9 }} />
         ))}
         {useMemo(() => !far && bases.filter((b) => showBase(b) && inView(b.lat, b.lng)).map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id])}
+          <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id], orgAlly[b.org_id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
               <div style={{ minWidth: 210 }}>
@@ -1564,6 +1571,7 @@ export default function GameMap() {
                   {baseTwins[b.id] && <><span style={{ fontSize: 16 }}>🤝</span><FactionEmblem type={baseTwins[b.id].type} size={34} logo={baseTwins[b.id].logo} /></>}
                   <div style={{ lineHeight: 1.2 }}>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>{b.org_name}{baseTwins[b.id] && <span style={{ fontWeight: 700, color: "#0E7490" }}> × {baseTwins[b.id].name}</span>}</div>
+                    {orgAlly[b.org_id] && <div style={{ margin: "3px 0" }}><AllyChip a={orgAlly[b.org_id]} size={20} /></div>}
                     <div style={{ fontSize: 12, color: "#666" }}>⭐ {b.reputation ?? 0} reputazione</div>
                     <div style={{ fontSize: 12, color: b.online ? "#15803D" : "#888", fontWeight: 700 }}>
                       {b.online ? "🟢 Online" : b.last_seen_at ? `⚪ Visto ${lastSeen(b.last_seen_at)}` : "⚪ Offline"}
@@ -1620,7 +1628,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins, far, mv])}
+        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins, orgAlly, far, mv])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);

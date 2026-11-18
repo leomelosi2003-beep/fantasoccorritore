@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18b", date: "18 novembre 2026", title: "Il logo dell'alleanza su ogni sede",
+    items: ["🛡️ Le sedi delle associazioni che fanno parte di un'alleanza mostrano il logo dell'alleanza: sulla mappa (nell'angolo del simbolo e nel popup), nella pagina Sedi, in Officina e nel Garage.",
+            "💬 La chat dell'alleanza non è più nella chat generale: si trova solo nella pagina Alleanza e la vedono solo le associazioni che sono entrate."],
+  },
+  {
     id: "2026-11-18a", date: "18 novembre 2026", title: "🤝 Alleanze nuove, come una federazione",
     items: ["In alto nella pagina Alleanza ci sono il logo e un banner con qualsiasi foto: li sceglie solo l'amministratore (chi l'ha fondata), insieme al motto.",
             "💰 Fondo comune: la tassa dell'alleanza e i versamenti volontari finiscono in un fondo che ogni domenica alle 23 si divide in parti uguali tra tutte le associazioni.",
