@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18g", date: "18 novembre 2026", title: "🔥 Antincendio riattivabili mentre rientrano",
+    items: ["Come le ambulanze, i mezzi antincendio tornano disponibili appena lasciano l'incendio per rientrare: puoi mandarli subito su un altro incendio e partono da dove si trovano."],
+  },
+  {
     id: "2026-11-18f", date: "18 novembre 2026", title: "Alleanza su due pagine",
     items: ["Toccando «Alleanza» nel menu vedi subito tutte le alleanze. Se sei dentro un'alleanza, in cima c'è il riquadro con il suo nome: toccalo per aprire la sua pagina con chat, fondo comune, associazioni e prestiti."],
   },
