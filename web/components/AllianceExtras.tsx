@@ -199,7 +199,7 @@ export function AllianceChat({ allianceId, myOrg }: { allianceId: string; myOrg:
 // ---------- contratto con firma animata ----------
 export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
   a: Pick<AllianceFull, "name" | "logo_url">; orgName: string; founding?: boolean;
-  onSign: (signer: string) => Promise<string | null>; onClose: () => void;
+  onSign: (signer: string) => Promise<string | null>; onClose: (signed?: boolean) => void;
 }) {
   const [signer, setSigner] = useState(`Il Presidente di ${orgName}`);
   const [phase, setPhase] = useState<"read" | "signing" | "done">("read");
@@ -223,7 +223,7 @@ export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
   }
   const showSig = phase !== "read";
   return (
-    <div onClick={phase === "signing" ? undefined : onClose} style={{ position: "fixed", inset: 0, background: "rgba(5,10,25,.75)", zIndex: 3000, overflowY: "auto", padding: "20px 12px" }}>
+    <div onClick={phase === "signing" ? undefined : () => onClose(phase === "done")} style={{ position: "fixed", inset: 0, background: "rgba(5,10,25,.75)", zIndex: 3000, overflowY: "auto", padding: "20px 12px" }}>
       <style>{`
         @keyframes fsSig { from { stroke-dashoffset: 1600 } to { stroke-dashoffset: 0 } }
         @keyframes fsInk { 0%,70% { fill-opacity: 0 } 100% { fill-opacity: 1 } }
@@ -284,7 +284,7 @@ export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
             </label>
             {err && <div style={{ color: "#B91C1C", fontSize: 13, marginTop: 8 }}>{err}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={onClose} style={{ flex: 1, border: "1px solid #C9B78B", background: "#fff", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer" }}>Non ora</button>
+              <button onClick={() => onClose()} style={{ flex: 1, border: "1px solid #C9B78B", background: "#fff", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer" }}>Non ora</button>
               <button disabled={!agree || signer.trim().length < 2} onClick={sign}
                       style={{ flex: 2, border: "none", borderRadius: 10, padding: 12, fontWeight: 800, fontSize: 16, color: "#fff", cursor: "pointer",
                                background: "linear-gradient(135deg,#1E3A8A,#13294B)", opacity: !agree || signer.trim().length < 2 ? 0.45 : 1 }}>✍️ Firma il contratto</button>
@@ -295,7 +295,7 @@ export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
         {phase === "done" && (
           <div style={{ marginTop: 14, textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: "#15803D" }}>🤝 {founding ? "Alleanza fondata!" : `Benvenuti in ${a.name}!`}</div>
-            <button onClick={onClose} style={{ marginTop: 10, border: "none", borderRadius: 10, padding: "11px 22px", fontWeight: 800, background: "#EA6A1F", color: "#fff", cursor: "pointer" }}>Entra nell&apos;alleanza</button>
+            <button onClick={() => onClose(true)} style={{ marginTop: 10, border: "none", borderRadius: 10, padding: "11px 22px", fontWeight: 800, background: "#EA6A1F", color: "#fff", cursor: "pointer" }}>Entra nell&apos;alleanza</button>
           </div>
         )}
       </div>

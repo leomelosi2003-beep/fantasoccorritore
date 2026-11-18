@@ -56,9 +56,10 @@ function OrgBadge({ o, size = 26 }: { o?: Org; size?: number }) {
   );
 }
 
-export type AllianceSection = "alleanza" | "offerte" | "gemellaggio";
+export type AllianceSection = "alleanza" | "mia" | "offerte" | "gemellaggio";
 const HEAD: Record<AllianceSection, { title: string; color: string }> = {
-  alleanza: { title: "🤝 Alleanza", color: "#15803D" },
+  alleanza: { title: "🤝 Alleanze", color: "#15803D" },
+  mia: { title: "🤝 La mia alleanza", color: "#13294B" },
   offerte: { title: "💼 Offerte e acquisti", color: "#1E3A8A" },
   gemellaggio: { title: "🔗 Gemellaggio", color: "#0E7490" },
 };
@@ -213,7 +214,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
     <main style={shell}>
       <div style={{ background: HEAD[section].color, color: "#fff" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "rgba(0,0,0,.25)" }}>← Mappa</button>
+          <button onClick={() => router.push(section === "mia" ? "/alleanza" : "/")} style={{ ...btn, background: "rgba(0,0,0,.25)" }}>{section === "mia" ? "← Alleanze" : "← Mappa"}</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 800 }}>{HEAD[section].title}</div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>{me.name} · {euro(me.funds)}</div>
@@ -224,20 +225,38 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
       <div style={wrap}>
         {msg && <div style={{ ...box, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 600 }}>{msg.text}</div>}
 
-        {section === "alleanza" && alliance && (<>
+        {/* pagina 1: tutte le alleanze; se sei dentro, il pulsante per la tua (pagina 2) */}
+        {section === "alleanza" && alliance && (
+          <button onClick={() => router.push("/alleanza/mia")}
+                  style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", border: "none", cursor: "pointer", marginBottom: 14,
+                           borderRadius: 16, padding: 14, color: "#fff", boxShadow: "0 6px 20px rgba(19,41,75,.3)", backgroundSize: "cover", backgroundPosition: "center",
+                           backgroundImage: alliance.banner_url ? `linear-gradient(90deg,rgba(19,41,75,.95),rgba(19,41,75,.55)),url(${alliance.banner_url})` : "linear-gradient(135deg,#13294B,#1D3D6B 60%,#EA6A1F 150%)" }}>
+            <AllianceLogo a={alliance} size={56} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 12, opacity: 0.8, fontWeight: 700 }}>LA TUA ALLEANZA</span>
+              <span style={{ display: "block", fontSize: 20, fontWeight: 900 }}>{alliance.name}</span>
+              <span style={{ display: "block", fontSize: 12.5, opacity: 0.85 }}>💬 chat · 💰 fondo {euro(alliance.fund ?? 0)} · 🤝 associazioni e prestiti</span>
+            </span>
+            <span style={{ fontSize: 26, fontWeight: 900 }}>›</span>
+          </button>
+        )}
+        {section === "mia" && !alliance && (
+          <div style={box}>Non sei in nessuna alleanza. <button style={{ ...btn, marginLeft: 8 }} onClick={() => router.push("/alleanza")}>Vedi tutte le alleanze</button></div>
+        )}
+        {section === "mia" && alliance && (<>
           <AllianceHero a={alliance} members={members.filter((m) => m.alliance_id === alliance.id).length}
                         isAdmin={alliance.founder_org === me.id} myOrg={me.id} onChanged={load} />
           {alliance.founder_org === me.id && <JoinRequestsAdmin />}
           <AllianceFund key={"f" + alliance.id} onChanged={load} myFunds={me.funds} />
           <AllianceChat allianceId={alliance.id} myOrg={me.id} />
         </>)}
-        {section === "alleanza" && myAlliance && <AllianceGoal key={myAlliance} />}
-        {section === "alleanza" && !myAlliance && <AllianceDirectory inAlliance={false} onChanged={load} />}
+        {section === "mia" && myAlliance && <AllianceGoal key={myAlliance} />}
+        {section === "alleanza" && <AllianceDirectory inAlliance={!!myAlliance} onChanged={load} />}
         {contract && (() => {
           const al = contract.invite ? alliances.find((a) => a.id === contract.invite!.alliance_id) : null;
           return (
             <AllianceContract a={al ?? { name: contract.name ?? "", logo_url: null }} orgName={me.name} founding={!contract.invite}
-              onClose={() => { setContract(null); load(); }}
+              onClose={(signed) => { setContract(null); if (signed) router.push("/alleanza/mia"); else load(); }}
               onSign={async (signer) => {
                 const { error } = contract.invite
                   ? await supabase.rpc("sign_alliance_contract", { p_invite: contract.invite.id, p_signer: signer })
@@ -359,9 +378,9 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
         )}
 
         {/* La mia alleanza */}
-        {section === "alleanza" && (<>
+        {((section === "mia" && alliance) || (section === "alleanza" && !alliance)) && (<>
         <div style={box}>
-          <div style={h2}>{alliance ? "🤝 Associazioni aderenti" : "La tua alleanza"}</div>
+          <div style={h2}>{alliance ? "🤝 Associazioni aderenti" : "🏗️ Fonda la tua alleanza"}</div>
           {!alliance ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <input style={{ ...inp, flex: 1, minWidth: 180 }} placeholder="Nome dell'alleanza" value={newName} maxLength={40}
@@ -541,7 +560,6 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
           })}
         </div>
         </>)}
-        {section === "alleanza" && myAlliance && <AllianceDirectory inAlliance onChanged={load} />}
       </div>
     </main>
   );

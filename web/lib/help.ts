@@ -78,6 +78,14 @@ export const HELP: Record<string, Help> = {
       ["🎁", "Quando uno è pronto premi «Riscuoti» per prendere il premio."],
     ],
   },
+  "/alleanza/mia": {
+    title: "La mia alleanza", sub: "Chat, fondo comune e alleati",
+    steps: [
+      ["💬", "La chat dell'alleanza la vedono solo gli aderenti e si cancella ogni lunedì."],
+      ["💰", "Ogni domenica alle 23 il fondo comune si divide in parti uguali tra tutte le associazioni."],
+      ["🤝", "Puoi prestare ambulanze e volontari agli alleati."],
+    ],
+  },
   "/alleanza": {
     title: "Alleanza", sub: "Gioca in squadra con altre associazioni",
     steps: [
