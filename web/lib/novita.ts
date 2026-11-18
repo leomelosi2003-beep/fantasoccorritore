@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18c", date: "18 novembre 2026", title: "🛞 Gomme più chiare",
+    items: ["In Officina → Gomme vedi subito la situazione: quanti mezzi sono a posto, quanti hanno gomme quasi finite, fuori stagione o senza gomme.",
+            "Sede per sede, ogni mezzo mostra che gomme ha, quanto le ha consumate e se vanno cambiate (puoi montarle da lì).",
+            "Nel negozio ogni gomma dice quante ne hai in magazzino e su quali mezzi è montata; scegli la quantità con + e − o «quante ne mancano»."],
+  },
+  {
     id: "2026-11-18b", date: "18 novembre 2026", title: "Il logo dell'alleanza su ogni sede",
     items: ["🛡️ Le sedi delle associazioni che fanno parte di un'alleanza mostrano il logo dell'alleanza: sulla mappa (nell'angolo del simbolo e nel popup), nella pagina Sedi, in Officina e nel Garage.",
             "💬 La chat dell'alleanza non è più nella chat generale: si trova solo nella pagina Alleanza e la vedono solo le associazioni che sono entrate."],

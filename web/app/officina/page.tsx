@@ -467,48 +467,161 @@ export default function Officina() {
 
         {tab === "presidi" && org && <PresidiPanel funds={org.funds} onChange={load} />}
 
-        {tab === "gomme" && (
+        {tab === "gomme" && (() => {
+          // stato delle gomme di ogni mezzo di terra
+          const st = (v: Vehicle) => {
+            const h = health(v);
+            if (!h.t) return { k: "none", label: "Senza gomme", icon: "❌", color: "#B91C1C", bg: "#FEE2E2" };
+            if (h.tr >= 1) return { k: "worn", label: "Finite", icon: "❌", color: "#B91C1C", bg: "#FEE2E2" };
+            if (h.wrongSeason) return { k: "season", label: "Fuori stagione", icon: winter ? "❄️" : "☀️", color: "#B45309", bg: "#FEF3C7" };
+            if (h.tr >= 0.8) return { k: "low", label: "Quasi finite", icon: "⚠️", color: "#B45309", bg: "#FEF3C7" };
+            return { k: "ok", label: "A posto", icon: "✅", color: "#15803D", bg: "#DCFCE7" };
+          };
+          const all = land.map((v) => ({ v, s: st(v), h: health(v) }));
+          const cnt = (k: string) => all.filter((x) => x.s.k === k).length;
+          const okSeason = (t: Tire) => (winter ? t.season !== "estiva" : t.season !== "invernale");
+          return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {(Object.keys(SEASON) as Tire["season"][]).map((s) => (
-              <div key={s} style={box}>
-                <h3 style={{ margin: "0 0 8px", color: SEASON[s].color }}>{SEASON[s].icon} {SEASON[s].label}</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-                  {tires.filter((t) => t.season === s).map((t) => {
-                    const q = qty[t.id] ?? 1;
-                    return (
-                      <div key={t.id} style={{ border: "1px solid #eee", borderRadius: 10, padding: 10 }}>
-                        <div style={{ fontWeight: 800 }}>{t.brand}</div>
-                        <div style={{ fontSize: 13 }}>{t.name}</div>
-                        <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                          Durata {kmFmt(t.life_km)} · aderenza {"★".repeat(t.grip)}{"☆".repeat(5 - t.grip)}
+            {/* 1) situazione */}
+            <div style={box}>
+              <h3 style={{ margin: "0 0 4px", color: "#13294B" }}>🛞 Situazione gomme della flotta</h3>
+              <div style={{ fontSize: 13.5, color: "#475569", marginBottom: 10 }}>
+                {winter ? "❄️ Adesso è inverno: servono gomme invernali o 4 stagioni." : "☀️ Adesso è estate: vanno bene estive o 4 stagioni."}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+                {[["✅", "A posto", cnt("ok"), "#15803D", "#DCFCE7"], ["⚠️", "Quasi finite", cnt("low"), "#B45309", "#FEF3C7"],
+                  [winter ? "❄️" : "☀️", "Fuori stagione", cnt("season"), "#B45309", "#FEF3C7"], ["❌", "Finite o senza", cnt("worn") + cnt("none"), "#B91C1C", "#FEE2E2"]].map(([i, l, n, c, bg]) => (
+                  <div key={l as string} style={{ background: bg as string, borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: c as string, lineHeight: 1 }}>{i} {n}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: c as string, marginTop: 2 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12.5, color: "#64748B", marginTop: 8 }}>{land.length} mezzi in tutto · {Object.values(stock).reduce((a, b) => a + b, 0)} treni in magazzino</div>
+            </div>
+
+            {/* 2) mezzo per mezzo, per sede */}
+            <div style={box}>
+              <h3 style={{ margin: "0 0 8px", color: "#13294B" }}>🚑 Cosa monta ogni mezzo</h3>
+              {bases.map((b) => {
+                const list = all.filter((x) => x.v.base_id === b.id);
+                if (!list.length) return null;
+                const okN = list.filter((x) => x.s.k === "ok").length;
+                const key = "__tb_" + b.id; const isOpen = open[key] ?? okN < list.length;
+                return (
+                  <div key={b.id} style={{ border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 8, overflow: "hidden" }}>
+                    <button onClick={() => setOpen((o) => ({ ...o, [key]: !isOpen }))}
+                            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", cursor: "pointer", textAlign: "left",
+                                     background: "#EEF3F8", padding: "10px 12px", color: "#13294B" }}>
+                      <span style={{ flex: 1, fontWeight: 800 }}>{b.is_headquarters ? "⭐" : "🏠"} {b.name}</span>
+                      <span style={{ fontWeight: 800, fontSize: 13, borderRadius: 999, padding: "2px 10px", background: okN === list.length ? "#DCFCE7" : "#FEF3C7",
+                                     color: okN === list.length ? "#15803D" : "#B45309" }}>{okN === list.length ? "✅ tutti a posto" : `${okN}/${list.length} a posto`}</span>
+                      <span>{isOpen ? "▲" : "▼"}</span>
+                    </button>
+                    {isOpen && list.map(({ v, s: ss, h }) => (
+                      <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderTop: "1px solid #F1F5F9", flexWrap: "wrap" }}>
+                        <div style={{ minWidth: 110, fontWeight: 800, color: "#13294B" }}>{v.call_sign}</div>
+                        <div style={{ flex: 1, minWidth: 160 }}>
+                          {h.t ? <>
+                            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{SEASON[h.t.season].icon} {h.t.brand} {h.t.name}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                              <div style={{ flex: 1, maxWidth: 160, height: 7, background: "#E2E8F0", borderRadius: 999, overflow: "hidden" }}>
+                                <div style={{ width: `${Math.min(100, h.tr * 100)}%`, height: "100%", background: lifeColor(h.tr) }} />
+                              </div>
+                              <span style={{ fontSize: 11.5, color: "#64748B" }}>consumate {Math.min(100, Math.round(h.tr * 100))}%</span>
+                            </div>
+                          </> : <div style={{ fontSize: 13.5, color: "#B91C1C", fontWeight: 700 }}>Nessuna gomma montata</div>}
                         </div>
-                        <div style={{ fontSize: 12, color: "#555" }}>In magazzino: <strong>{stock[t.id] ?? 0}</strong> treni</div>
-                        {(() => { const bb = bulkBase[t.id] ?? ""; const i = bulkInfo(t.id, bb); return (
-                          <div style={{ marginTop: 6, padding: 6, background: "#f6f6f4", borderRadius: 8 }}>
-                            <select value={bb} onChange={(e) => setBulkBase((x) => ({ ...x, [t.id]: e.target.value }))}
-                                    style={{ width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 8 }}>
-                              <option value="">Tutte le sedi</option>
-                              {bases.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        <span style={{ fontSize: 12.5, fontWeight: 800, borderRadius: 999, padding: "3px 10px", background: ss.bg, color: ss.color, whiteSpace: "nowrap" }}>{ss.icon} {ss.label}</span>
+                        {ss.k !== "ok" && (
+                          <span style={{ display: "flex", gap: 4 }}>
+                            <select value={pickTire[v.id] ?? ""} onChange={(e) => setPickTire((p) => ({ ...p, [v.id]: e.target.value }))}
+                                    style={{ fontSize: 12.5, padding: "4px 6px", borderRadius: 8, maxWidth: 170 }}>
+                              <option value="">Scegli dal magazzino…</option>
+                              {tires.filter((t) => (stock[t.id] ?? 0) > 0).map((t) => (
+                                <option key={t.id} value={t.id}>{SEASON[t.season].icon} {t.brand} {t.name} ({stock[t.id]}){okSeason(t) ? "" : " ⚠️ stagione"}</option>
+                              ))}
                             </select>
-                            <div style={{ fontSize: 11, color: i.missing ? "#B45309" : "#15803D", marginTop: 3 }}>
-                              {i.need === 0 ? "Le hanno già tutti ✓" : `Servono ${i.need} treni · ${i.missing ? `ti mancano ${i.missing}` : "li hai tutti ✓"}`}
-                            </div>
-                            <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                              {i.missing > 0 && <button onClick={() => setQty((x) => ({ ...x, [t.id]: Math.min(50, i.missing) }))} style={{ ...small, flex: 1, background: "#555" }}>Quantità mancante</button>}
-                              <button disabled={busy || !i.have || !i.free} onClick={() => bulkMount(t.id, bb)}
-                                      style={{ ...small, flex: 1, opacity: busy || !i.have || !i.free ? 0.4 : 1 }}>Monta a tutti</button>
-                            </div>
+                            <button disabled={busy || v.status !== "disponibile" || !pickTire[v.id]}
+                                    onClick={() => call("mount_tires", { p_vehicle: v.id, p_model: pickTire[v.id] }, `🛞 Cambio gomme su ${v.call_sign} (15 minuti).`)}
+                                    style={{ ...small, opacity: busy || v.status !== "disponibile" || !pickTire[v.id] ? 0.4 : 1 }}>Monta</button>
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 3) negozio */}
+            {(Object.keys(SEASON) as Tire["season"][]).map((sea) => (
+              <div key={sea} style={{ ...box, borderTop: `5px solid ${SEASON[sea].color}` }}>
+                <h3 style={{ margin: "0 0 2px", color: SEASON[sea].color }}>{SEASON[sea].icon} Gomme {SEASON[sea].label.toLowerCase()}</h3>
+                <div style={{ fontSize: 12.5, color: "#64748B", marginBottom: 10 }}>
+                  {sea === "4stagioni" ? "Vanno bene tutto l'anno." : sea === "invernale" ? "Obbligatorie d'inverno, d'estate si consumano." : "Solo per l'estate."}
+                  {(winter ? sea !== "estiva" : sea !== "invernale") && <b style={{ color: "#15803D" }}> ✓ Adatte adesso</b>}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+                  {tires.filter((t) => t.season === sea).map((t) => {
+                    const q = qty[t.id] ?? 1;
+                    const on = land.filter((v) => v.tire_model_id === t.id);
+                    const bb = bulkBase[t.id] ?? ""; const i = bulkInfo(t.id, bb);
+                    const showList = open["__tl_" + t.id];
+                    return (
+                      <div key={t.id} style={{ border: "1px solid #E2E8F0", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 900, fontSize: 15.5, color: "#13294B" }}>{t.brand}</div>
+                            <div style={{ fontSize: 13 }}>{t.name}</div>
                           </div>
-                        ); })()}
-                        <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                          <input type="number" min={1} max={50} value={q} onChange={(e) => setQty((x) => ({ ...x, [t.id]: Number(e.target.value) }))}
-                                 style={{ width: 54, padding: "4px 6px", borderRadius: 8, border: "1px solid #ccc" }} />
-                          <button disabled={busy || t.price * q > org.funds}
-                                  onClick={() => call("buy_tires", { p_model: t.id, p_sets: q }, `🛞 ${q} treni ${t.brand} ${t.name} in magazzino.`)}
-                                  style={{ ...small, flex: 1, background: SEASON[s].color, opacity: busy || t.price * q > org.funds ? 0.4 : 1 }}>
-                            Compra · {euro(t.price * q)}
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontWeight: 900, fontSize: 17, color: "#13294B" }}>{euro(t.price)}</div>
+                            <div style={{ fontSize: 11, color: "#64748B" }}>a treno (4 gomme)</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, fontSize: 12.5, color: "#334155", flexWrap: "wrap" }}>
+                          <span>⏱️ dura {kmFmt(t.life_km)}</span><span title="Aderenza">🛣️ {"★".repeat(t.grip)}<span style={{ color: "#CBD5E1" }}>{"★".repeat(5 - t.grip)}</span></span>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, borderRadius: 999, padding: "3px 10px", background: "#EEF3F8", color: "#13294B" }}>📦 {stock[t.id] ?? 0} in magazzino</span>
+                          <button onClick={() => setOpen((o) => ({ ...o, ["__tl_" + t.id]: !showList }))} disabled={!on.length}
+                                  style={{ fontSize: 12.5, fontWeight: 800, borderRadius: 999, padding: "3px 10px", border: "none", cursor: on.length ? "pointer" : "default",
+                                           background: on.length ? "#DCFCE7" : "#F1F5F9", color: on.length ? "#15803D" : "#94A3B8" }}>
+                            🚑 montate su {on.length} {on.length === 1 ? "mezzo" : "mezzi"}{on.length ? (showList ? " ▲" : " ▼") : ""}
                           </button>
                         </div>
+                        {showList && on.length > 0 && (
+                          <div style={{ fontSize: 12.5, background: "#F8FAFC", borderRadius: 8, padding: "6px 8px", lineHeight: 1.6 }}>
+                            {on.map((v) => { const ss = st(v); return <div key={v.id}>{ss.icon} <b>{v.call_sign}</b> · {bases.find((b) => b.id === v.base_id)?.name ?? ""}</div>; })}
+                          </div>
+                        )}
+                        <div style={{ background: "#F8FAFC", borderRadius: 10, padding: 8 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: "#13294B", marginBottom: 4 }}>Montale ai mezzi che non le hanno</div>
+                          <select value={bb} onChange={(e) => setBulkBase((x) => ({ ...x, [t.id]: e.target.value }))}
+                                  style={{ width: "100%", fontSize: 13, padding: "5px 6px", borderRadius: 8 }}>
+                            <option value="">Tutte le sedi</option>
+                            {bases.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                          </select>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: i.need === 0 ? "#15803D" : i.missing ? "#B45309" : "#15803D", marginTop: 4 }}>
+                            {i.need === 0 ? "✅ Ce l'hanno già tutti" : `Mancano a ${i.need} mezzi · ${i.missing ? `ti servono altri ${i.missing} treni` : "hai abbastanza treni ✓"}`}
+                          </div>
+                          {i.need > 0 && (
+                            <button disabled={busy || !i.have || !i.free} onClick={() => bulkMount(t.id, bb)}
+                                    style={{ ...small, width: "100%", marginTop: 4, padding: "7px 10px", opacity: busy || !i.have || !i.free ? 0.4 : 1 }}>🔧 Monta a tutti ({Math.min(i.free, i.have)})</button>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <button onClick={() => setQty((x) => ({ ...x, [t.id]: Math.max(1, q - 1) }))} style={{ ...small, width: 34, height: 34, padding: 0, fontSize: 18, background: "#E2E8F0", color: "#13294B" }}>−</button>
+                          <div style={{ minWidth: 36, textAlign: "center", fontWeight: 900, fontSize: 17 }}>{q}</div>
+                          <button onClick={() => setQty((x) => ({ ...x, [t.id]: Math.min(50, q + 1) }))} style={{ ...small, width: 34, height: 34, padding: 0, fontSize: 18, background: "#E2E8F0", color: "#13294B" }}>+</button>
+                          {i.missing > 0 && <button onClick={() => setQty((x) => ({ ...x, [t.id]: Math.min(50, i.missing) }))} style={{ ...small, background: "#64748B" }}>= {Math.min(50, i.missing)} che mancano</button>}
+                        </div>
+                        <button disabled={busy || t.price * q > org.funds}
+                                onClick={() => call("buy_tires", { p_model: t.id, p_sets: q }, `🛞 ${q} treni ${t.brand} ${t.name} in magazzino.`)}
+                                style={{ ...btn, padding: "10px 12px", fontSize: 14.5, background: SEASON[sea].color, opacity: busy || t.price * q > org.funds ? 0.4 : 1 }}>
+                          🛒 Compra {q} {q === 1 ? "treno" : "treni"} · {euro(t.price * q)}
+                        </button>
                       </div>
                     );
                   })}
@@ -517,7 +630,8 @@ export default function Officina() {
             ))}
             <div style={{ fontSize: 12, color: "#666" }}>Prezzi per treno da 4 gomme. Il montaggio costa 120 € e il mezzo resta in officina 15 minuti.</div>
           </div>
-        )}
+          );
+        })()}
 
         {tab === "segnalazioni" && (
           <div style={box}>
