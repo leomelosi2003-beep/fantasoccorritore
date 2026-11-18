@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18h", date: "18 novembre 2026", title: "🤖 Automatico: perché i mezzi restano in sede",
+    items: ["Nella pagina Automatico c'è un riquadro che spiega quanti mezzi sono fermi e perché: niente autisti liberi, riserva, ordinari spenti, mezzi bloccati in officina o speciali.",
+            "🎓 Corso autisti: con 5.000 € a volontario puoi far diventare autisti i tuoi soccorritori base (guidano subito, anche in automatico; puoi farli tornare soccorritori quando vuoi)."],
+  },
+  {
     id: "2026-11-18g", date: "18 novembre 2026", title: "🔥 Antincendio riattivabili mentre rientrano",
     items: ["Come le ambulanze, i mezzi antincendio tornano disponibili appena lasciano l'incendio per rientrare (anche quando l'incendio viene spento): puoi mandarli subito su un altro incendio e partono da dove si trovano."],
   },

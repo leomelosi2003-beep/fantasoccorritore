@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import AutoDiagnosis from "@/components/AutoDiagnosis";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TutorialCoach from "@/components/TutorialCoach";
@@ -168,6 +169,7 @@ export default function Automatico() {
       <div style={wrap}>
         {!loaded ? <div style={{ padding: 20, color: "#888", textAlign: "center" }}>Caricamento…</div> : (
           <>
+            <AutoDiagnosis reserve={reserve} codes={codes} onReserve={(r) => save({ reserve: r })} onCodes={(c) => save({ codes: c })} />
             <div style={card}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ flex: 1 }}>
