@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18e", date: "18 novembre 2026", title: "Nomi delle alleanze unici",
+    items: ["Non si può più fondare un'alleanza con lo stesso nome di una che esiste già, nemmeno cambiando maiuscole, spazi o simboli."],
+  },
+  {
     id: "2026-11-18d", date: "18 novembre 2026", title: "🌐 Vetrina delle alleanze e quota giusta per tutti",
     items: ["Nella pagina Alleanza vedi tutte le alleanze con banner, logo, motto, aderenti, fondo comune e quanto riceveresti domenica entrando.",
             "🙋 Chiunque può chiedere di entrare: l'amministratore accetta o rifiuta, poi firmi il contratto e sei dentro.",

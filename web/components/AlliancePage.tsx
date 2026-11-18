@@ -31,6 +31,7 @@ const h2: CSSProperties = { fontSize: 17, fontWeight: 800, margin: "0 0 10px" };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 const ERR: Record<string, string> = {
+  alliances_name_unico: "Esiste già un'alleanza con questo nome (anche scritto in modo diverso): scegline un altro.",
   CANT_KICK_SELF: "Non puoi espellere te stesso.", NOT_MEMBER: "Non fa parte della tua alleanza.",
   NO_SIGNATURE: "Scrivi chi firma il contratto.", SIGN_CONTRACT: "Per entrare devi firmare il contratto.", NOT_ADMIN: "Solo l'amministratore può farlo.",
   ALREADY_IN_ALLIANCE: "È già in un'alleanza.", NO_ALLIANCE: "Prima crea o entra in un'alleanza.",
