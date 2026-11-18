@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18d", date: "18 novembre 2026", title: "🌐 Vetrina delle alleanze e quota giusta per tutti",
+    items: ["Nella pagina Alleanza vedi tutte le alleanze con banner, logo, motto, aderenti, fondo comune e quanto riceveresti domenica entrando.",
+            "🙋 Chiunque può chiedere di entrare: l'amministratore accetta o rifiuta, poi firmi il contratto e sei dentro.",
+            "⚖️ La quota del fondo ora è uguale per tutti in proporzione: ogni ora lo 0,03% dei soldi in cassa (circa il 5% a settimana). I versamenti volontari si scelgono in percentuale (1%, 2%, 5%, 10%)."],
+  },
+  {
     id: "2026-11-18c", date: "18 novembre 2026", title: "🛞 Gomme più chiare",
     items: ["In Officina → Gomme vedi subito la situazione: quanti mezzi sono a posto, quanti hanno gomme quasi finite, fuori stagione o senza gomme.",
             "Sede per sede, ogni mezzo mostra che gomme ha, quanto le ha consumate e se vanno cambiate (puoi montarle da lì).",

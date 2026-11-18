@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import AllianceGoal from "@/components/AllianceGoal";
-import { AllianceChat, AllianceContract, AllianceFund, AllianceHero, AllianceLogo } from "@/components/AllianceExtras";
+import { AllianceChat, AllianceContract, AllianceDirectory, AllianceFund, AllianceHero, AllianceLogo, JoinRequestsAdmin } from "@/components/AllianceExtras";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
 import OfferEditor, { offerError, itemsSummary, type OfferItems, type ItemsList } from "@/components/OfferEditor";
 
@@ -226,10 +226,12 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
         {section === "alleanza" && alliance && (<>
           <AllianceHero a={alliance} members={members.filter((m) => m.alliance_id === alliance.id).length}
                         isAdmin={alliance.founder_org === me.id} myOrg={me.id} onChanged={load} />
-          <AllianceFund key={"f" + alliance.id} onChanged={load} />
+          {alliance.founder_org === me.id && <JoinRequestsAdmin />}
+          <AllianceFund key={"f" + alliance.id} onChanged={load} myFunds={me.funds} />
           <AllianceChat allianceId={alliance.id} myOrg={me.id} />
         </>)}
         {section === "alleanza" && myAlliance && <AllianceGoal key={myAlliance} />}
+        {section === "alleanza" && !myAlliance && <AllianceDirectory inAlliance={false} onChanged={load} />}
         {contract && (() => {
           const al = contract.invite ? alliances.find((a) => a.id === contract.invite!.alliance_id) : null;
           return (
@@ -538,6 +540,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
           })}
         </div>
         </>)}
+        {section === "alleanza" && myAlliance && <AllianceDirectory inAlliance onChanged={load} />}
       </div>
     </main>
   );

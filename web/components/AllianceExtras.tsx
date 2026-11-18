@@ -95,9 +95,10 @@ export function AllianceHero({ a, members, isAdmin, myOrg, onChanged }: { a: All
 
 // ---------- fondo comune ----------
 type Fund = { fund: number; members: number; next_payout: string; week_in: number; my_week_in: number; last_payouts: { at: string; amount: number; members: number }[] };
-export function AllianceFund({ onChanged }: { onChanged: () => void }) {
+export function AllianceFund({ onChanged, myFunds }: { onChanged: () => void; myFunds: number }) {
   const [f, setF] = useState<Fund | null>(null);
-  const [amt, setAmt] = useState(10000);
+  const [pct, setPct] = useState(2);
+  const amt = Math.max(1000, Math.floor((myFunds * pct) / 100));
   const [msg, setMsg] = useState<string | null>(null);
   const load = useCallback(() => { supabase.rpc("my_alliance_fund").then(({ data }) => setF(data as Fund)); }, []);
   useEffect(() => { load(); }, [load]);
@@ -122,13 +123,15 @@ export function AllianceFund({ onChanged }: { onChanged: () => void }) {
         ))}
       </div>
       <div style={{ fontSize: 13, color: "#475569", marginBottom: 10 }}>
-        Come una federazione: ogni ora chi ha più di 1 milione versa lo 0,1% del patrimonio nel fondo (più i versamenti volontari).
+        Come una federazione: ogni ora ogni associazione versa lo <b>0,03% dei soldi in cassa</b> (circa il 5% a settimana): chi ha tanto versa tanto, chi ha poco versa poco. Più i versamenti volontari.
         Ogni <b>domenica alle 23</b> il fondo si divide <b>in parti uguali</b> tra tutte le {f.members} associazioni. Prossima ripartizione tra {d > 0 ? `${d} g ` : ""}{h} h.
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <select value={amt} onChange={(e) => setAmt(Number(e.target.value))} style={{ padding: 9, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }}>
-          {[1000, 5000, 10000, 50000, 100000, 500000, 1000000].map((v) => <option key={v} value={v}>{euro(v)}</option>)}
-        </select>
+        {[1, 2, 5, 10].map((p) => (
+          <button key={p} onClick={() => setPct(p)} style={{ borderRadius: 999, padding: "7px 12px", fontWeight: 800, cursor: "pointer",
+                  border: pct === p ? "2px solid #EA6A1F" : "1px solid #CBD5E1", background: pct === p ? "#FFF7ED" : "#fff", color: "#13294B" }}>{p}%</button>
+        ))}
+        <span style={{ alignSelf: "center", fontWeight: 800, color: "#13294B" }}>= {euro(amt)}</span>
         <button onClick={give} style={{ border: "none", borderRadius: 10, padding: "9px 14px", fontWeight: 800, background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", cursor: "pointer" }}>Versa nel fondo</button>
       </div>
       {msg && <div style={{ fontSize: 13, marginTop: 8, color: msg.startsWith("💶") ? "#15803D" : "#B91C1C" }}>{msg}</div>}
@@ -205,7 +208,7 @@ export function AllianceContract({ a, orgName, founding, onSign, onClose }: {
   const today = new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
   const clauses = [
     ["Mutuo soccorso", "Le associazioni aderenti si aiutano a vicenda: si prestano ambulanze e volontari e rispondono insieme a maxi emergenze, incendi e grandi eventi."],
-    ["Fondo comune", "Ogni ora l'associazione con un patrimonio sopra 1.000.000 € versa nel fondo comune lo 0,1% della parte eccedente. Sono ammessi versamenti volontari."],
+    ["Fondo comune", "Ogni ora ogni associazione aderente versa nel fondo comune lo 0,03% dei soldi in cassa (circa il 5% a settimana): chi ha di più versa di più, chi ha di meno versa di meno. Sono ammessi versamenti volontari."],
     ["Ripartizione", "Ogni domenica alle ore 23 il fondo comune viene diviso in parti uguali tra tutte le associazioni aderenti in quel momento."],
     ["Amministrazione", "L'associazione fondatrice è l'amministratore: cura il logo, il banner, il motto e gli inviti di nuove associazioni."],
     ["Comunicazioni", "La chat dell'alleanza è riservata agli aderenti; il linguaggio è rispettoso. La cronologia si cancella ogni lunedì."],
@@ -325,5 +328,93 @@ export function AllyChip({ a, size = 22, dark = false }: { a: AllyBadge; size?: 
                  background: dark ? "rgba(255,255,255,.18)" : "#EEF3F8", color: dark ? "#fff" : "#13294B", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>
       <AllianceLogo a={a} size={size} />{a.name}
     </span>
+  );
+}
+
+// ---------- vetrina di tutte le alleanze ----------
+type Dir = { id: string; name: string; logo_url: string | null; banner_url: string | null; motto: string | null; fund: number; members: number;
+  founder_name: string | null; last_share: number | null; est_share: number; is_mine: boolean; requested: boolean; invited: boolean };
+export function AllianceDirectory({ inAlliance, onChanged }: { inAlliance: boolean; onChanged: () => void }) {
+  const [list, setList] = useState<Dir[] | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(() => { supabase.rpc("alliances_directory").then(({ data }) => setList((data as Dir[]) ?? [])); }, []);
+  useEffect(() => { load(); }, [load]);
+  async function ask(a: Dir, cancel: boolean) {
+    setMsg(null);
+    const { error } = await supabase.rpc(cancel ? "cancel_join_request" : "request_join_alliance", { p_alliance: a.id });
+    if (error) setMsg(error.message.includes("ALREADY_IN_ALLIANCE") ? "Sei già in un'alleanza: per entrare in un'altra prima esci." : error.message);
+    else { setMsg(cancel ? `Richiesta a ${a.name} annullata.` : `📨 Richiesta inviata a ${a.name}: quando l'amministratore accetta ti arriva il contratto da firmare.`); load(); onChanged(); }
+  }
+  if (!list) return null;
+  return (
+    <div style={box}>
+      <div style={h2}>🌐 Tutte le alleanze</div>
+      {list.length === 0 && <div style={{ color: "#64748B" }}>Non c&apos;è ancora nessuna alleanza: fondane una!</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12 }}>
+        {list.map((a) => (
+          <div key={a.id} style={{ borderRadius: 14, overflow: "hidden", border: a.is_mine ? "2px solid #EA6A1F" : "1px solid #E2E8F0", background: "#fff", display: "flex", flexDirection: "column" }}>
+            <div style={{ height: 78, position: "relative", backgroundSize: "cover", backgroundPosition: "center",
+                          backgroundImage: a.banner_url ? `url(${a.banner_url})` : "linear-gradient(135deg,#13294B,#1D3D6B 60%,#EA6A1F 140%)" }}>
+              <div style={{ position: "absolute", left: 10, bottom: -22 }}><AllianceLogo a={a} size={52} /></div>
+              {a.is_mine && <span style={{ position: "absolute", right: 8, top: 8, background: "#EA6A1F", color: "#fff", borderRadius: 999, padding: "2px 9px", fontSize: 11.5, fontWeight: 800 }}>La tua</span>}
+            </div>
+            <div style={{ padding: "26px 12px 12px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+              <div style={{ fontWeight: 900, fontSize: 16, color: "#13294B" }}>{a.name}</div>
+              {a.motto && <div style={{ fontSize: 12.5, fontStyle: "italic", color: "#64748B" }}>«{a.motto}»</div>}
+              <div style={{ fontSize: 12.5, color: "#475569" }}>🤝 {a.members} associazioni{a.founder_name ? ` · amministratore ${a.founder_name}` : ""}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, background: "#EEF3F8", color: "#13294B", borderRadius: 999, padding: "2px 9px" }}>💰 fondo {euro(a.fund)}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, background: "#DCFCE7", color: "#15803D", borderRadius: 999, padding: "2px 9px" }}>
+                  🎁 {a.is_mine ? "ti arrivano" : "riceveresti"} ~{euro(a.est_share)} domenica
+                </span>
+              </div>
+              {a.last_share != null && <div style={{ fontSize: 11.5, color: "#64748B" }}>Ultima ripartizione: {euro(a.last_share)} a testa</div>}
+              <div style={{ marginTop: "auto", paddingTop: 6 }}>
+                {a.is_mine ? null
+                  : a.invited ? <div style={{ fontSize: 12.5, fontWeight: 800, color: "#15803D" }}>✅ Accettato: firma il contratto in «Richieste per te»</div>
+                  : inAlliance ? <div style={{ fontSize: 12, color: "#94A3B8" }}>Sei già in un&apos;alleanza</div>
+                  : a.requested
+                    ? <button onClick={() => ask(a, true)} style={{ width: "100%", border: "1px solid #CBD5E1", background: "#fff", borderRadius: 10, padding: 9, fontWeight: 700, cursor: "pointer" }}>⏳ Richiesta inviata · annulla</button>
+                    : <button onClick={() => ask(a, false)} style={{ width: "100%", border: "none", background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", color: "#fff", borderRadius: 10, padding: 10, fontWeight: 800, cursor: "pointer" }}>🙋 Chiedi di entrare</button>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {msg && <div style={{ fontSize: 13, marginTop: 10, color: msg.startsWith("📨") || msg.startsWith("Richiesta") ? "#15803D" : "#B91C1C" }}>{msg}</div>}
+    </div>
+  );
+}
+
+// ---------- richieste di entrare (solo amministratore) ----------
+type Req = { id: string; org_id: string; org_name: string; logo_url: string | null; reputation: number; vehicles: number; created_at: string };
+export function JoinRequestsAdmin() {
+  const [list, setList] = useState<Req[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(() => { supabase.rpc("admin_join_requests").then(({ data }) => setList((data as Req[]) ?? [])); }, []);
+  useEffect(() => { load(); }, [load]);
+  if (list.length === 0) return null;
+  async function answer(r: Req, ok: boolean) {
+    const { error } = await supabase.rpc("answer_join_request", { p_request: r.id, p_accept: ok });
+    setMsg(error ? error.message : ok ? `✅ ${r.org_name} accettata: ora deve firmare il contratto.` : `Richiesta di ${r.org_name} rifiutata.`);
+    load();
+  }
+  return (
+    <div style={{ ...box, border: "2px solid #F59E0B" }}>
+      <div style={h2}>📥 Chiedono di entrare nella tua alleanza</div>
+      {list.map((r) => (
+        <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #F1F5F9", flexWrap: "wrap" }}>
+          {r.logo_url ? <img src={r.logo_url} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover" }} />
+            : <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#13294B", color: "#fff", display: "grid", placeItems: "center", fontWeight: 800 }}>{r.org_name.slice(0, 1)}</div>}
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ fontWeight: 800 }}>{r.org_name}</div>
+            <div style={{ fontSize: 12, color: "#64748B" }}>⭐ {r.reputation} · 🚑 {r.vehicles} mezzi</div>
+          </div>
+          <button onClick={() => answer(r, true)} style={{ border: "none", borderRadius: 10, padding: "8px 12px", fontWeight: 800, background: "#15803D", color: "#fff", cursor: "pointer" }}>Accetta</button>
+          <button onClick={() => answer(r, false)} style={{ border: "1px solid #CBD5E1", borderRadius: 10, padding: "8px 12px", fontWeight: 700, background: "#fff", cursor: "pointer" }}>Rifiuta</button>
+        </div>
+      ))}
+      {msg && <div style={{ fontSize: 13, marginTop: 6, color: "#15803D" }}>{msg}</div>}
+    </div>
   );
 }
