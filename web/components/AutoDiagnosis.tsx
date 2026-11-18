@@ -1,6 +1,6 @@
 "use client";
 // Pagina Automatico: perché alcuni mezzi delle sedi in automatico restano fermi, con le soluzioni a un tocco.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
@@ -15,8 +15,12 @@ export default function AutoDiagnosis({ reserve, codes, onReserve, onCodes }: {
   const router = useRouter();
   const [d, setD] = useState<Diag | null>(null);
   const [n, setN] = useState(10);
+  const [trained, setTrained] = useState(0);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const load = useCallback(() => { supabase.rpc("auto_diagnosis").then(({ data }) => setD(data as Diag)); }, []);
+  const load = useCallback(() => {
+    supabase.rpc("auto_diagnosis").then(({ data }) => setD(data as Diag));
+    supabase.rpc("trained_drivers_count").then(({ data }) => setTrained((data as number) ?? 0));
+  }, []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load, reserve, codes.join()]);
   if (!d) return null;
 
@@ -26,7 +30,7 @@ export default function AutoDiagnosis({ reserve, codes, onReserve, onCodes }: {
   const missingDrivers = Math.max(0, d.vehicles_total - d.drivers_total);
   const euro = (x: number) => x.toLocaleString("it-IT") + " €";
 
-  const rows: { icon: string; n: number; text: string; fix?: React.ReactNode }[] = [
+  const rows: { icon: string; n: number; text: string; fix?: ReactNode }[] = [
     { icon: "🚗", n: noDriver, text: `ferme perché non ci sono autisti liberi (liberi adesso: ${d.drivers_free} su ${d.drivers_total})`,
       fix: <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {d.trainable > 0 && <button style={btn("#0F766E")} onClick={async () => {
@@ -67,8 +71,17 @@ export default function AutoDiagnosis({ reserve, codes, onReserve, onCodes }: {
           {d.trainable > 0 && ` Hai ${d.trainable} soccorritori base che puoi formare come autisti.`}
         </div>
       )}
+      {trained > 0 && (
+        <div style={{ fontSize: 12.5, color: "#475569", marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          🎓 Soccorritori formati come autisti: <b>{trained}</b>
+          <button style={{ ...btn("#fff"), color: "#475569", border: "1px solid #CBD5E1" }} onClick={async () => {
+            if (!(await gameConfirm("Far tornare soccorritori gli autisti formati?\nQuelli in servizio restano autisti fino al rientro."))) return;
+            const { data } = await supabase.rpc("untrain_drivers_all"); setMsg({ ok: true, text: `${data ?? 0} autisti formati sono tornati soccorritori.` }); load();
+          }}>Falli tornare soccorritori</button>
+        </div>
+      )}
       {msg && <div style={{ fontSize: 13, marginTop: 8, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
     </div>
   );
 }
-const btn = (bg: string): React.CSSProperties => ({ border: "none", borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, background: bg, color: "#fff", cursor: "pointer" });
+const btn = (bg: string): CSSProperties => ({ border: "none", borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12.5, background: bg, color: "#fff", cursor: "pointer" });
