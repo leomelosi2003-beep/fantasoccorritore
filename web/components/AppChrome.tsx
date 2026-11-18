@@ -8,7 +8,7 @@ import { helpFor } from "@/lib/help";
 const NAV: [string, string, string][] = [
   ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["👥", "Squadra", "/squadra"], ["🔧", "Officina", "/officina"],
 ];
-const NO_CHROME = ["/login", "/onboarding", "/reset", "/maxi", "/admin"];
+const NO_CHROME = ["/login", "/onboarding", "/reset", "/recupero", "/maxi", "/admin"];
 
 export default function AppChrome() {
   const path = usePathname() ?? "/";
