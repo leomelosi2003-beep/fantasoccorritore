@@ -8,7 +8,8 @@ export const NOVITA: Novita[] = [
     items: ["In alto nella pagina Alleanza ci sono il logo e un banner con qualsiasi foto: li sceglie solo l'amministratore (chi l'ha fondata), insieme al motto.",
             "💰 Fondo comune: la tassa dell'alleanza e i versamenti volontari finiscono in un fondo che ogni domenica alle 23 si divide in parti uguali tra tutte le associazioni.",
             "💬 La chat dell'alleanza è nella pagina, e si cancella ogni lunedì.",
-            "📜 Per entrare (o fondarne una) si firma un contratto con il logo dell'alleanza e tutte le clausole: firmato, sei dentro."],
+            "📜 Per entrare (o fondarne una) si firma un contratto con il logo dell'alleanza e tutte le clausole: firmato, sei dentro.",
+            "🚫 L'amministratore può espellere un'associazione dall'alleanza."],
   },
   {
     id: "2026-11-17a", date: "17 novembre 2026", title: "🔥 Antincendio: ricarica alla sede più vicina",

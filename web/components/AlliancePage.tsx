@@ -31,6 +31,7 @@ const h2: CSSProperties = { fontSize: 17, fontWeight: 800, margin: "0 0 10px" };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 const ERR: Record<string, string> = {
+  CANT_KICK_SELF: "Non puoi espellere te stesso.", NOT_MEMBER: "Non fa parte della tua alleanza.",
   NO_SIGNATURE: "Scrivi chi firma il contratto.", SIGN_CONTRACT: "Per entrare devi firmare il contratto.", NOT_ADMIN: "Solo l'amministratore può farlo.",
   ALREADY_IN_ALLIANCE: "È già in un'alleanza.", NO_ALLIANCE: "Prima crea o entra in un'alleanza.",
   NOT_ALLY: "Puoi prestare solo ai tuoi alleati.", VEHICLE_BUSY: "Il mezzo è impegnato in un servizio.",
@@ -372,6 +373,12 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
                   <OrgBadge o={orgById(m.org_id)} />
                   {m.org_id === alliance.founder_org && <span style={{ fontSize: 12, color: "#EA6A1F", fontWeight: 700 }}>amministratore</span>}
                   {m.org_id === me.id && <span style={{ fontSize: 12, color: "#888" }}>(tu)</span>}
+                  {alliance.founder_org === me.id && m.org_id !== me.id && (
+                    <button disabled={busy} style={{ ...btn, marginLeft: "auto", padding: "5px 10px", fontSize: 12.5, background: "#fff", color: "#B91C1C", border: "1px solid #B91C1C" }}
+                            onClick={async () => { const n = orgById(m.org_id)?.name ?? "questa associazione";
+                              if (await gameConfirm(`Espellere ${n}?\nEsce subito dall'alleanza, i prestiti con lei finiscono e quanto ha versato resta nel fondo comune.`))
+                                call("kick_from_alliance", { p_org: m.org_id }, `${n} è stata espulsa dall'alleanza.`); }}>🚫 Espelli</button>
+                  )}
                 </div>
               ))}
               {sentInvites.length > 0 && (
