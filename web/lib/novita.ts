@@ -5,7 +5,7 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 export const NOVITA: Novita[] = [
   {
     id: "2026-11-18g", date: "18 novembre 2026", title: "🔥 Antincendio riattivabili mentre rientrano",
-    items: ["Come le ambulanze, i mezzi antincendio tornano disponibili appena lasciano l'incendio per rientrare: puoi mandarli subito su un altro incendio e partono da dove si trovano."],
+    items: ["Come le ambulanze, i mezzi antincendio tornano disponibili appena lasciano l'incendio per rientrare (anche quando l'incendio viene spento): puoi mandarli subito su un altro incendio e partono da dove si trovano."],
   },
   {
     id: "2026-11-18f", date: "18 novembre 2026", title: "Alleanza su due pagine",
