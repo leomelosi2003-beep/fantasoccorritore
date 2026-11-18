@@ -1,0 +1,2 @@
+select 'V', c.relname, position('role_override' in pg_get_viewdef(c.oid)) > 0 from pg_class c where c.relkind = 'v' and c.relnamespace = 'public'::regnamespace and pg_get_viewdef(c.oid) like '%card_inventory%';
+select 'F', p.proname, position('role_override' in pg_get_functiondef(p.oid)) > 0 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('claim_mission_as','auto_dispatch_org','auto_medical');
