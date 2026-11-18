@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import AllianceGoal from "@/components/AllianceGoal";
+import { AllianceChat, AllianceContract, AllianceFund, AllianceHero, AllianceLogo } from "@/components/AllianceExtras";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
 import OfferEditor, { offerError, itemsSummary, type OfferItems, type ItemsList } from "@/components/OfferEditor";
 
 type Org = Pick<Organization, "id" | "name" | "type" | "logo_url">;
-type Alliance = { id: string; name: string; founder_org: string };
+type Alliance = { id: string; name: string; founder_org: string; logo_url?: string | null; banner_url?: string | null; motto?: string | null; fund?: number };
 type Member = { org_id: string; alliance_id: string };
 type Invite = { id: string; alliance_id: string; org_id: string };
 type Twin = { id: string; status: string; other_org: string; other_name: string; other_logo: string | null; other_type: string; can_answer: boolean; i_requested: boolean };
@@ -30,6 +31,7 @@ const h2: CSSProperties = { fontSize: 17, fontWeight: 800, margin: "0 0 10px" };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
 const ERR: Record<string, string> = {
+  NO_SIGNATURE: "Scrivi chi firma il contratto.", SIGN_CONTRACT: "Per entrare devi firmare il contratto.", NOT_ADMIN: "Solo l'amministratore può farlo.",
   ALREADY_IN_ALLIANCE: "È già in un'alleanza.", NO_ALLIANCE: "Prima crea o entra in un'alleanza.",
   NOT_ALLY: "Puoi prestare solo ai tuoi alleati.", VEHICLE_BUSY: "Il mezzo è impegnato in un servizio.",
   CARD_BUSY: "Il volontario è in servizio o ha il contratto scaduto.", ALREADY_LENT: "È già in prestito.",
@@ -84,6 +86,8 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
   const [editing, setEditing] = useState<string | null>(null); // associazione per cui sto preparando un'offerta
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // contratto da firmare: per entrare con un invito o per fondare un'alleanza nuova
+  const [contract, setContract] = useState<{ invite?: Invite; name?: string } | null>(null);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -95,7 +99,7 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
     const nowIso = new Date().toISOString();
     const [og, al, mb, inv, of, vl, cl, fl, cd, tw, bs] = await Promise.all([
       supabase.from("organizations").select("id,name,type,logo_url").order("name"),
-      supabase.from("alliances").select("id,name,founder_org"),
+      supabase.from("alliances").select("id,name,founder_org,logo_url,banner_url,motto,fund"),
       supabase.from("alliance_members").select("org_id,alliance_id"),
       supabase.from("alliance_invites").select("id,alliance_id,org_id"),
       supabase.from("acquisition_offers").select("*").eq("status", "in_attesa").order("created_at", { ascending: false }),
@@ -218,7 +222,26 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
       <div style={wrap}>
         {msg && <div style={{ ...box, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 600 }}>{msg.text}</div>}
 
+        {section === "alleanza" && alliance && (<>
+          <AllianceHero a={alliance} members={members.filter((m) => m.alliance_id === alliance.id).length}
+                        isAdmin={alliance.founder_org === me.id} myOrg={me.id} onChanged={load} />
+          <AllianceFund key={"f" + alliance.id} onChanged={load} />
+          <AllianceChat allianceId={alliance.id} myOrg={me.id} />
+        </>)}
         {section === "alleanza" && myAlliance && <AllianceGoal key={myAlliance} />}
+        {contract && (() => {
+          const al = contract.invite ? alliances.find((a) => a.id === contract.invite!.alliance_id) : null;
+          return (
+            <AllianceContract a={al ?? { name: contract.name ?? "", logo_url: null }} orgName={me.name} founding={!contract.invite}
+              onClose={() => { setContract(null); load(); }}
+              onSign={async (signer) => {
+                const { error } = contract.invite
+                  ? await supabase.rpc("sign_alliance_contract", { p_invite: contract.invite.id, p_signer: signer })
+                  : await supabase.rpc("create_alliance_signed", { p_name: contract.name, p_signer: signer });
+                return error ? errText(error.message) : null;
+              }} />
+          );
+        })()}
 
         {/* Gemellaggio */}
         {section === "gemellaggio" && (<>
@@ -312,9 +335,10 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
             <div style={h2}>📬 Richieste per te</div>
             {section === "alleanza" && myInvites.map((i) => (
               <div key={i.id} style={row}>
+                {(() => { const al = alliances.find((a) => a.id === i.alliance_id); return al ? <AllianceLogo a={al} size={38} /> : null; })()}
                 <span style={{ flex: 1 }}>Invito nell&apos;alleanza <strong>{alliances.find((a) => a.id === i.alliance_id)?.name}</strong></span>
                 <button disabled={busy} style={{ ...btn, background: "#15803D" }}
-                        onClick={() => call("answer_alliance_invite", { p_invite: i.id, p_accept: true }, "Sei entrato nell'alleanza.")}>Entra</button>
+                        onClick={() => setContract({ invite: i })}>📜 Leggi e firma</button>
                 <button disabled={busy} style={{ ...btn, background: "#eee", color: "#111" }}
                         onClick={() => call("answer_alliance_invite", { p_invite: i.id, p_accept: false }, "Invito rifiutato.")}>No</button>
               </div>
@@ -333,21 +357,20 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
         {/* La mia alleanza */}
         {section === "alleanza" && (<>
         <div style={box}>
-          <div style={h2}>La tua alleanza</div>
+          <div style={h2}>{alliance ? "🤝 Associazioni aderenti" : "La tua alleanza"}</div>
           {!alliance ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <input style={{ ...inp, flex: 1, minWidth: 180 }} placeholder="Nome dell'alleanza" value={newName} maxLength={40}
                      onChange={(e) => setNewName(e.target.value)} />
               <button disabled={busy || newName.trim().length < 3} style={{ ...btn, background: "#15803D" }}
-                      onClick={() => call("create_alliance", { p_name: newName }, "Alleanza creata!")}>Crea alleanza</button>
+                      onClick={() => setContract({ name: newName.trim() })}>📜 Fonda l&apos;alleanza</button>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{alliance.name}</div>
               {members.filter((m) => m.alliance_id === alliance.id).map((m) => (
                 <div key={m.org_id} style={row}>
                   <OrgBadge o={orgById(m.org_id)} />
-                  {m.org_id === alliance.founder_org && <span style={{ fontSize: 12, color: "#888" }}>fondatore</span>}
+                  {m.org_id === alliance.founder_org && <span style={{ fontSize: 12, color: "#EA6A1F", fontWeight: 700 }}>amministratore</span>}
                   {m.org_id === me.id && <span style={{ fontSize: 12, color: "#888" }}>(tu)</span>}
                 </div>
               ))}

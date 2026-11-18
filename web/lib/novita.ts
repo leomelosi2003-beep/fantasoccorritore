@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-18a", date: "18 novembre 2026", title: "🤝 Alleanze nuove, come una federazione",
+    items: ["In alto nella pagina Alleanza ci sono il logo e un banner con qualsiasi foto: li sceglie solo l'amministratore (chi l'ha fondata), insieme al motto.",
+            "💰 Fondo comune: la tassa dell'alleanza e i versamenti volontari finiscono in un fondo che ogni domenica alle 23 si divide in parti uguali tra tutte le associazioni.",
+            "💬 La chat dell'alleanza è nella pagina, e si cancella ogni lunedì.",
+            "📜 Per entrare (o fondarne una) si firma un contratto con il logo dell'alleanza e tutte le clausole: firmato, sei dentro."],
+  },
+  {
     id: "2026-11-17a", date: "17 novembre 2026", title: "🔥 Antincendio: ricarica alla sede più vicina",
     items: ["I mezzi antincendio ricaricano l'acqua alla sede più vicina al fuoco, di qualsiasi associazione, senza tornare alla propria.",
             "Chi arriva da lontano lavora sempre almeno 30 minuti sull'incendio, anche se l'orario di fine previsto è già passato. Vale anche per i mezzi già in servizio."],
