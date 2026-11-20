@@ -234,7 +234,7 @@ export default function LiveryEditor() {
   const [pick, setPick] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [sel, setSel] = useState<string | null>(null);
-  const [mode, setMode] = useState<"select" | "brush">("select");
+  const [mode, setMode] = useState<"select" | "brush" | "pick">("select");
   const [brush, setBrush] = useState({ color: "#1D4ED8", size: 10 });
   const [blank, setBlank] = useState<HTMLCanvasElement | null>(null);
   const [paint, setPaint] = useState<HTMLCanvasElement | null>(null);
@@ -297,6 +297,13 @@ export default function LiveryEditor() {
     g.drawImage(compose(blank, items, paint), 0, 0);
   }, [blank, paint, items, tick, W, H]);
 
+  // colori già usati nella livrea (per il pennello e per le forme)
+  const used = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) for (const c of [it.fill, it.stroke, it.c2]) if (c && c !== "none" && /^#[0-9a-f]{6}$/i.test(c)) set.add(c.toLowerCase());
+    for (const c of ["#f97316", "#facc15", "#1d4ed8", "#1e3a8a", "#dc2626", "#16a34a", "#ffffff", "#111827"]) set.add(c);
+    return Array.from(set).slice(0, 18);
+  }, [items]);
   const myLvs = useMemo(() => lvs.filter((l) => l.model_id === modelId), [lvs, modelId]);
 
   // ---------- modifiche con annulla ----------
@@ -369,6 +376,17 @@ export default function LiveryEditor() {
     if (!blank) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const [x, y] = toImg(e);
+    if (mode === "pick") {   // contagocce: prende il colore dal mezzo e lo dà al pennello (e alla forma scelta)
+      const px = canvasRef.current?.getContext("2d")?.getImageData(Math.max(0, Math.min(W - 1, Math.round(x))), Math.max(0, Math.min(H - 1, Math.round(y))), 1, 1).data;
+      if (px && px[3] > 0) {
+        const hex = "#" + [px[0], px[1], px[2]].map((v) => v.toString(16).padStart(2, "0")).join("");
+        setBrush((b) => ({ ...b, color: hex }));
+        if (selected) patch(selected.id, ["line", "path"].includes(selected.t) ? { stroke: hex } : { fill: hex });
+        setMsg({ ok: true, text: `💧 Colore preso: ${hex}. Ora il pennello usa questo colore.` });
+        setMode(selected ? "select" : "brush");
+      }
+      return;
+    }
     if (mode === "brush") {
       const it: Item = { id: uid(), t: "path", x, y, w: 0, h: 0, r: 0, fill: "none", stroke: brush.color, sw: brush.size, op: 1, pts: [[x, y]] };
       undo.current.push(items); redo.current = [];
@@ -512,10 +530,18 @@ export default function LiveryEditor() {
           <button style={tool} disabled={busy} onClick={() => fileRef.current?.click()}>🖼️ Foto / logo</button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addPhoto(f); }} />
           <button style={{ ...tool, background: mode === "brush" ? "#13294B" : "#fff", color: mode === "brush" ? "#fff" : "#13294B" }} onClick={() => { setMode("brush"); setSel(null); }}>🖌️ Pennello</button>
-          {mode === "brush" && <>
-            <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} title="Colore pennello" />
+          <button style={{ ...tool, background: mode === "pick" ? "#13294B" : "#fff", color: mode === "pick" ? "#fff" : "#13294B" }} onClick={() => setMode(mode === "pick" ? "brush" : "pick")} title="Prendi un colore dal mezzo">💧 Contagocce</button>
+          {(mode === "brush" || mode === "pick") && <>
+            <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} title="Colore pennello" style={{ width: 40, height: 34, border: "none", background: "none" }} />
+            <span style={{ fontSize: 12, color: "#475569" }}>Spessore</span>
             <input type="range" min={2} max={60} value={brush.size} onChange={(e) => setBrush({ ...brush, size: +e.target.value })} title="Spessore" />
+            <span style={{ display: "inline-block", width: Math.min(30, brush.size), height: Math.min(30, brush.size), borderRadius: "50%", background: brush.color, border: "1px solid #CBD5E1" }} />
           </>}
+          {(mode === "brush" || mode === "pick") && <div style={{ width: "100%", display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>I tuoi colori:</span>
+            {used.map((c) => <button key={c} title={c} onClick={() => { setBrush((b) => ({ ...b, color: c })); setMode("brush"); }}
+              style={{ width: 26, height: 26, borderRadius: 7, background: c, border: brush.color.toLowerCase() === c ? "3px solid #13294B" : "1px solid #CBD5E1", cursor: "pointer", padding: 0 }} />)}
+          </div>}
           <span style={{ flex: 1 }} />
           <button style={tool} onClick={doUndo} title="Annulla">↶</button>
           <button style={tool} onClick={doRedo} title="Ripeti">↷</button>
@@ -525,7 +551,7 @@ export default function LiveryEditor() {
         <div style={{ ...box, padding: 8, background: "repeating-conic-gradient(#eef2f7 0% 25%, #fff 0% 50%) 50% / 24px 24px" }}>
           <div style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}>
             <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", touchAction: "none", cursor: mode === "brush" ? "crosshair" : "default" }}
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", touchAction: "none", cursor: mode === "brush" ? "crosshair" : mode === "pick" ? "copy" : "default" }}
                  onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
               <rect x={0} y={0} width={W} height={H} fill="transparent" />
               {mode === "select" && items.map((it) => { const b = bbox(it); return <rect key={it.id} x={b.x} y={b.y} width={Math.max(1, b.w)} height={Math.max(1, b.h)} fill="none" stroke="rgba(19,41,75,.18)" strokeDasharray="6 6" strokeWidth={1} pointerEvents="none" />; })}
@@ -560,6 +586,12 @@ export default function LiveryEditor() {
               <input type="range" min={-180} max={180} value={selected.r} onChange={(e) => setItems(items.map((i) => (i.id === selected.id ? { ...i, r: +e.target.value } : i)))} style={{ width: "100%" }} /></div>}
             <div style={{ flex: "1 1 140px" }}><span style={lbl}>Trasparenza {Math.round((1 - selected.op) * 100)}%</span>
               <input type="range" min={10} max={100} value={Math.round(selected.op * 100)} onChange={(e) => setItems(items.map((i) => (i.id === selected.id ? { ...i, op: +e.target.value / 100 } : i)))} style={{ width: "100%" }} /></div>
+            <div style={{ width: "100%", display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>I tuoi colori:</span>
+              {used.map((c) => <button key={c} title={c} onClick={() => patch(selected.id, ["line", "path"].includes(selected.t) ? { stroke: c } : { fill: c })}
+                style={{ width: 26, height: 26, borderRadius: 7, background: c, border: "1px solid #CBD5E1", cursor: "pointer", padding: 0 }} />)}
+              <button style={{ ...tool, padding: "4px 8px" }} onClick={() => setMode("pick")}>💧 Prendi dal mezzo</button>
+            </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <button style={tool} onClick={() => layer(1)}>⬆️ Sopra</button>
               <button style={tool} onClick={() => layer(-1)}>⬇️ Sotto</button>
