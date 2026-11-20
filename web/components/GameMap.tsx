@@ -1006,20 +1006,27 @@ export default function GameMap() {
   // strade nuove arrivate: un solo ridisegno ogni 3 s al massimo
   useEffect(() => { onRoadsLoaded(() => setRoadsLoaded((n) => n + 1)); return () => onRoadsLoaded(null); }, []);
   // Scarica le strade vere dei tratti in movimento dei servizi in corso
+  // Prima i tratti che si vedono sulla mappa (i miei per primi); quelli degli altri fuori vista non si scaricano:
+  // con centinaia di mezzi in tutta Italia la coda era lunghissima e intanto si vedevano linee dritte.
   useEffect(() => {
     const tNow = serverNow();
-    for (const a of [...assignments, ...others]) {
+    const box = mv ? mv.b.pad(0.25) : null;
+    const list: [typeof assignments[number] | typeof others[number], boolean][] = [...assignments.map((x) => [x, true] as const), ...others.map((x) => [x, false] as const)];
+    for (const [a, mine] of list) {
       if (a.status === "conclusa" || !a.route?.length) continue;
       let ahead = 0;
       for (let i = 0; i < a.route.length - 1; i++) {
         const p = a.route[i], q = a.route[i + 1];
         if (new Date(q.t).getTime() < tNow) continue; // tratto già percorso: non serve
         if (p.lat === q.lat && p.lng === q.lng) continue;
-        if (isSea(p) || isSea(q) || ferrySeg(p, q)) continue; // barche e traghetti vanno in linea dritta sul mare
-        fetchLeg(p, q, Math.min(2, ahead++));
+        if (isSea(p) || isSea(q) || ferrySeg(p, q)) continue; // barche, traghetti e aerei vanno in linea dritta
+        const vis = !box || box.contains([p.lat, p.lng]) || box.contains([q.lat, q.lng])
+          || box.intersects(L.latLngBounds([p.lat, p.lng], [q.lat, q.lng]));
+        if (!mine && (!vis || far)) { ahead++; continue; }
+        fetchLeg(p, q, (vis ? 0 : 4) + (mine ? 0 : 1) + Math.min(2, ahead++));
       }
     }
-  }, [assignments, others]);
+  }, [assignments, others, mv, far]);
 
   // Sessione: se sei loggato ma senza associazione vai all'onboarding.
   // IMPORTANTE: se la query fallisce (server lento/riavvio) NON mandare in onboarding: si riprova,
