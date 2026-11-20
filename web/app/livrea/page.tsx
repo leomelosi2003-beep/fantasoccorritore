@@ -439,7 +439,6 @@ export default function LiveryEditor() {
           </>}
         </div>);
       })()}
-      </div>}
       {selected.t !== "image" && selected.t !== "checker" && <div style={{ marginBottom: 8 }}>
         <span style={lbl}>{["line", "path"].includes(selected.t) ? "Colore linea" : "Bordo"} · spessore {Math.round(selected.sw)}</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
