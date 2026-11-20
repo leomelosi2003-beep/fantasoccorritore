@@ -1,9 +1,9 @@
-// Percorsi su strada vera (OpenStreetMap, servizio OSRM gratuito) con cache in memoria e nel browser.
+// Percorsi su strada vera (OpenStreetMap: Valhalla con strade principali, OSRM di riserva) con cache in memoria e nel browser.
 export type LatLng = [number, number];
 export type Leg = { pts: LatLng[]; cum: number[] }; // punti e distanza cumulata (metri)
 
 const mem = new Map<string, Leg | "loading" | number>(); // number = momento del fallimento (si riprova dopo un po')
-const KEY = "fs-roads-v3";
+const KEY = "fs-roads-v4";   // v4: strade principali (Valhalla) invece delle stradine
 const RETRY_MS = 45_000;
 const MAX_STORED = 150;
 
@@ -12,7 +12,7 @@ const MAX_STORED = 150;
 let store: Record<string, LatLng[]> | null = null;
 function loadStore(): Record<string, LatLng[]> {
   if (store) return store;
-  try { localStorage.removeItem("fs-roads-v2"); } catch {} // vecchio archivio, troppo grande
+  try { localStorage.removeItem("fs-roads-v2"); localStorage.removeItem("fs-roads-v3"); } catch {} // vecchio archivio, troppo grande
   try { store = JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { store = {}; }
   return store!;
 }
@@ -64,7 +64,56 @@ type Job = { k: string; a: { lat: number; lng: number }; b: { lat: number; lng: 
 const jobs = new Map<string, Job>();
 let running = false;
 
+// Polilinea codificata di Valhalla (precisione 6)
+function decode6(str: string): LatLng[] {
+  const out: LatLng[] = []; let i = 0, lat = 0, lng = 0;
+  while (i < str.length) {
+    for (const k of [0, 1]) {
+      let res = 0, sh = 0, c: number;
+      do { c = str.charCodeAt(i++) - 63; res |= (c & 0x1f) << sh; sh += 5; } while (c >= 0x20);
+      const d = res & 1 ? ~(res >> 1) : res >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    out.push([lat / 1e6, lng / 1e6]);
+  }
+  return out;
+}
+
+// Valhalla (server gratuito di OpenStreetMap): come un'ambulanza vera evita sterrati, strade di servizio e vicoli,
+// e li usa solo se non c'è altro modo. Prima si aggancia a strade almeno "residenziali", poi a qualsiasi strada.
+let valhallaOff = 0;
+async function valhalla(a: { lat: number; lng: number }, b: { lat: number; lng: number }, strict: boolean): Promise<LatLng[] | null> {
+  const loc = (p: { lat: number; lng: number }) => ({ lat: p.lat, lon: p.lng, radius: 600,
+    ...(strict ? { search_filter: { min_road_class: "residential" } } : {}) });
+  const q = { locations: [loc(a), loc(b)], costing: "auto", directions_type: "none",
+    costing_options: { auto: { use_tracks: 0, use_living_streets: 0, service_penalty: 300, service_factor: 5, use_highways: 1, use_ferry: 0 } } };
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), 9000);
+  try {
+    const r = await fetch(`https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(q))}`, { signal: ctl.signal });
+    if (r.status === 429 || r.status >= 500) { valhallaOff = Date.now(); return null; }
+    if (!r.ok) return null;                                   // per esempio nessuna strada adatta: si riprova più largo
+    const j = await r.json();
+    const shape: string | undefined = j?.trip?.legs?.[0]?.shape;
+    return shape ? decode6(shape) : null;
+  } catch { valhallaOff = Date.now(); return null; }
+  finally { clearTimeout(to); }
+}
+
+function thin(all: LatLng[]): LatLng[] {
+  all = all.map(([la, ln]) => [Math.round(la * 1e5) / 1e5, Math.round(ln * 1e5) / 1e5] as LatLng);
+  const out: LatLng[] = [all[0]];
+  for (let i = 1; i < all.length - 1; i++) if (meters(out[out.length - 1], all[i]) >= 12) out.push(all[i]);
+  if (all.length > 1) out.push(all[all.length - 1]);
+  return out;
+}
+
 async function download(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<LatLng[] | null> {
+  // prima le strade principali; se il server non risponde per un po' si usa OSRM
+  if (Date.now() - valhallaOff > 120_000) {
+    const v = (await valhalla(a, b, true)) ?? (Date.now() - valhallaOff > 120_000 ? await valhalla(a, b, false) : null);
+    if (v && v.length > 1) return thin(v);
+  }
   for (let tries = 0; tries < SERVERS.length; tries++) {
     const base = SERVERS[srv];
     try {
@@ -98,7 +147,7 @@ async function worker() {
     const pts = await download(job.a, job.b);
     if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); roadsArrived(); } else mem.set(job.k, Date.now());
     job.done.forEach((f) => f());
-    await new Promise((res) => setTimeout(res, 350));
+    await new Promise((res) => setTimeout(res, 1000));   // il server gratuito chiede al massimo ~1 richiesta al secondo
   }
   running = false;
 }

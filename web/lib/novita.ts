@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20e", date: "20 novembre 2026", title: "🛣️ Percorsi sulle strade principali",
+    items: ["Le ambulanze sulla mappa non tagliano più per sterrati, strade di servizio e vicoli: seguono le strade principali e usano quelle piccole solo se non c'è altro modo."],
+  },
+  {
     id: "2026-11-20d", date: "20 novembre 2026", title: "✈️ Maxi lontane: si va col C-130H",
     items: ["Per le maxi emergenze lontane (oltre 300 km) le ambulanze vanno all'aeroporto più vicino, salgono sul C-130H convenzionato dell'Aeronautica e atterrano all'aeroporto più vicino alla maxi. Al ritorno lo stesso.",
             "Si prende l'aereo solo se si arriva prima che su strada. Sulla mappa vedi il mezzo in aeroporto, in volo e allo scarico."],
