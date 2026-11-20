@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20d", date: "20 novembre 2026", title: "✈️ Maxi lontane: si va col C-130H",
+    items: ["Per le maxi emergenze lontane (oltre 300 km) le ambulanze vanno all'aeroporto più vicino, salgono sul C-130H convenzionato dell'Aeronautica e atterrano all'aeroporto più vicino alla maxi. Al ritorno lo stesso.",
+            "Si prende l'aereo solo se si arriva prima che su strada. Sulla mappa vedi il mezzo in aeroporto, in volo e allo scarico."],
+  },
+  {
     id: "2026-11-20c", date: "20 novembre 2026", title: "🆘 Maxi emergenze: si finisce coi feriti",
     items: ["Ogni maxi emergenza ha i suoi feriti: le ambulanze sul posto li portano al PMA (un ferito al minuto) o fanno la spola con l'ospedale.",
             "Se all'ora di fine restano feriti, la maxi e i mezzi sul posto restano 15 minuti in più, e così via finché non sono stati trasportati tutti. Nella scena dal vivo il conto è quello vero."],

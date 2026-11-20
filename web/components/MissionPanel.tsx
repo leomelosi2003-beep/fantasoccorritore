@@ -593,7 +593,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
                   <div style={{ fontWeight: 800 }}>{v.call_sign}</div>
                   <div style={{ fontSize: 12, color: "#555" }}>{v.base_lat != null && v.base_lng != null && !v.boat && islandOf(v.base_lat, v.base_lng) !== islandOf(mission.lat, mission.lng)
                     ? "⛴ Attraversa il mare col traghetto: aspetta la prossima nave in porto (tempi lunghi)"
-                    : eta ? `${eta.km} km · arriva in ${eta.minutes} min` : "calcolo il tempo…"}</div>
+                    : eta ? `${eta.km} km · arriva in ${eta.minutes} min${isMaxi && eta.km > 300 ? " su strada · ✈️ se conviene va col C-130H dell'Aeronautica (aeroporto più vicino → aeroporto più vicino alla maxi) e arriva prima" : ""}` : "calcolo il tempo…"}</div>
                   {moduleChips(v)}
                 </div>
                 <button onClick={() => setShowVehicles((o) => !o)}

@@ -53,7 +53,11 @@ function alongRoute(route: RoutePoint[], now: number) {
       const la = a.label === "Rotta" ? ([...pts.slice(0, i + 1)].reverse().find((x) => x.label !== "Rotta")?.label ?? a.label) : a.label;
       const lb = b.label === "Rotta" ? (pts.slice(i + 1).find((x) => x.label !== "Rotta")?.label ?? b.label) : b.label;
       const hhmm = (ms: number) => new Date(ms).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-      const text = still && la.startsWith("⛴ Imbarco") ? `⛴ Al porto: aspetta il traghetto delle ${hhmm(b.ms)}`
+      const text = still && la.startsWith("✈️ Imbarco") ? `✈️ In aeroporto: carico sul C-130H, decolla alle ${hhmm(b.ms)}`
+        : still && la.startsWith("✈️ Sbarco") ? "✈️ Scarico dal C-130H"
+        : !still && lb.startsWith("✈️ Sbarco") ? `✈️ In volo sul C-130H verso ${lb.replace("✈️ Sbarco: ", "")}`
+        : !still && lb.startsWith("✈️ Imbarco") ? `Verso l'aeroporto (${lb.replace("✈️ Imbarco C-130: ", "")})`
+        : still && la.startsWith("⛴ Imbarco") ? `⛴ Al porto: aspetta il traghetto delle ${hhmm(b.ms)}`
         : still && la.startsWith("⛴ Sbarco") ? "⛴ Sbarca dal traghetto"
         : !still && lb.startsWith("⛴ Sbarco") ? `⛴ In traghetto verso ${lb.replace("⛴ Sbarco: ", "")}`
         : !still && lb.startsWith("⛴ Imbarco") ? `Verso il porto per l'imbarco (${lb.replace("⛴ Imbarco: ", "")})`
@@ -111,7 +115,8 @@ const shortEuro = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString("it-IT",
 
 // tratti della barca: niente strade
 // tratto in traghetto: dal porto d'imbarco (alla partenza) alla rotta della nave e allo sbarco
-const ferrySeg = (p: RoutePoint, q: RoutePoint) => p.label.startsWith("⛴ Imbarco") && (q.label === "Rotta" || q.label.startsWith("⛴ Sbarco"));
+const ferrySeg = (p: RoutePoint, q: RoutePoint) => (p.label.startsWith("⛴ Imbarco") && (q.label === "Rotta" || q.label.startsWith("⛴ Sbarco")))
+  || (p.label.startsWith("✈️ Imbarco") && q.label.startsWith("✈️ Sbarco"));   // traghetto o aereo: linea dritta
 const isSea = (p: RoutePoint) => p.label === "Ormeggio" || p.label === "In mare" || p.label === "Rotta" || p.label.startsWith("Approdo")
   || p.label.startsWith("Eli"); // anche l'elisoccorso vola in linea retta
 const heliIcon = L.divIcon({
