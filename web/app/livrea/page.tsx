@@ -38,19 +38,28 @@ async function loadImg(src: string): Promise<HTMLImageElement> {
 function blankOf(img: HTMLImageElement): HTMLCanvasElement {
   const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
   const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-  const d = g.getImageData(0, 0, c.width, c.height); const p = d.data;
+  const W = c.width, H = c.height;
+  const d = g.getImageData(0, 0, W, H); const p = d.data;
+  // bianco della carrozzeria (mediana dei pixel chiari e grigi), per ridipingere le strisce dello stesso bianco
+  const hist = new Array(256).fill(0); let nb = 0;
   for (let i = 0; i < p.length; i += 4) {
+    const mx = Math.max(p[i], p[i + 1], p[i + 2]), mn = Math.min(p[i], p[i + 1], p[i + 2]);
+    if (p[i + 3] > 200 && mx > 190 && (mx - mn) / mx < 0.08) { hist[mx]++; nb++; }
+  }
+  let w0 = 240, acc = 0;
+  for (let v = 0; v < 256 && nb; v++) { acc += hist[v]; if (acc >= nb / 2) { w0 = v; break; } }
+  for (let i = 0; i < p.length; i += 4) {
+    if (!p[i + 3]) continue;
     const r = p[i], gg = p[i + 1], b = p[i + 2];
-    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dl = mx - mn;
-    if (mx < 60 || dl / (mx || 1) < 0.18) continue;
+    const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dl = mx - mn, s = mx ? dl / mx : 0;
+    if (!((s >= 0.15 && mx >= 95) || (s >= 0.45 && mx >= 45))) continue;
     let h = 0;
     if (mx === r) h = ((gg - b) / dl) % 6; else if (mx === gg) h = (b - r) / dl + 2; else h = (r - gg) / dl + 4;
     h = (h * 60 + 360) % 360;
-    // arancio, giallo e rosso della livrea (le luci blu restano)
-    if (h >= 10 && h <= 72) {
-      const v = Math.min(255, mx * 1.04);
-      p[i] = v; p[i + 1] = v; p[i + 2] = v;
-    }
+    const px = (i / 4) % W, py = Math.floor(i / 4 / W);
+    if (py < 0.2 * H && h >= 190 && h <= 260) continue;                          // lampeggianti blu sul tetto
+    if ((h < 12 || h > 345) && s > 0.5 && px > 0.93 * W) continue;              // fanali posteriori rossi
+    p[i] = w0; p[i + 1] = w0; p[i + 2] = w0;                                    // ogni colore della livrea → bianco
   }
   g.putImageData(d, 0, 0);
   return c;
