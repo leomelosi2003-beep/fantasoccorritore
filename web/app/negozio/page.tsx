@@ -45,7 +45,7 @@ export default function Negozio() {
     setOrg(o as Organization);
     const [e, f, st] = await Promise.all([
       supabase.from("equipment").select("*").order("sort"),
-      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,maxi").order("call_sign"),
+      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,maxi,banned_equipment").order("call_sign"),
       supabase.from("org_equipment_stock").select("code,qty"),
     ]);
     setEquip((e.data as Equip[]) ?? []);

@@ -7,11 +7,11 @@ import EquipmentIcon from "@/components/EquipmentIcon";
 
 export type SheetEquip = { code: string; slot: string; name: string; cost: number; description: string | null; image_url?: string | null };
 export type SheetVehicle = { id: string; call_sign: string; status: string; equipment: string[] | null; base_id: string | null;
-  base_name: string | null; maxi?: boolean };
+  base_name: string | null; maxi?: boolean; banned_equipment?: string[] | null };
 
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 const ERR: Record<string, string> = {
-  VEHICLE_BUSY: "fuori servizio", ALREADY_INSTALLED: "ce l'ha già", MAXI_SLOTS_FULL: "moduli pieni",
+  VEHICLE_BUSY: "fuori servizio", EQUIP_NOT_ALLOWED: "non si monta su questo mezzo", ALREADY_INSTALLED: "ce l'ha già", MAXI_SLOTS_FULL: "moduli pieni",
   MAXI_MODULE_ONLY: "non adatto", NO_STOCK: "magazzino vuoto", INSUFFICIENT_FUNDS: "soldi finiti", NO_EQUIPMENT_ON_THIS_VEHICLE: "non adatto",
 };
 const errShort = (m: string) => Object.entries(ERR).find(([k]) => m.includes(k))?.[1] ?? "errore";
@@ -26,7 +26,7 @@ export default function EquipBuySheet({ item, all, vehicles, stock, funds, onClo
   onClose: () => void; onDone: (text: string, ok: boolean) => void;
 }) {
   const isMaxi = item.slot.startsWith("maxi_");
-  const fit = useMemo(() => vehicles.filter((v) => !!v.maxi === isMaxi), [vehicles, isMaxi]);
+  const fit = useMemo(() => vehicles.filter((v) => !!v.maxi === isMaxi && !(v.banned_equipment ?? []).includes(item.code)), [vehicles, isMaxi, item.code]);
   const sameSlot = useMemo(() => new Map(all.filter((e) => e.slot === item.slot).map((e) => [e.code, e])), [all, item.slot]);
   const has = (v: SheetVehicle) => (v.equipment ?? []).includes(item.code);
   const canPick = (v: SheetVehicle) => !has(v) && v.status !== "fuori_servizio";

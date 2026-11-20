@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20j", date: "20 novembre 2026", title: "🌊 Presidi su moto d'acqua e barche",
+    items: ["Sulla moto d'acqua B-Jetto ci stanno solo DAE, borsoni e collari: niente cardiomonitor, massaggiatore, cucchiaio, KED, materasso, steccobende e tavole spinali.",
+            "Sulle barche niente KED. Quelli già montati sono tornati nel tuo magazzino presidi, non hai perso niente."],
+  },
+  {
     id: "2026-11-20i", date: "20 novembre 2026", title: "🪪 Profili delle associazioni",
     items: ["Nel menu (Altre associazioni) ci sono i profili di tutte le associazioni: colori, livree, sedi con la migliore, mezzi per tipo, volontari e leggendari. Ci arrivi anche toccando un nome in Classifica.",
             "Nel tuo profilo premi «✏️ Banner e presentazione» per mettere una foto di copertina e due righe su di voi."],

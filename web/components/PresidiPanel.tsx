@@ -23,7 +23,7 @@ const CATS: [string, string][] = [["monitor", "❤️ Monitor e DAE"], ["barella
 const btn: CSSProperties = { border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, cursor: "pointer", fontSize: 13 };
 const ERR: Record<string, string> = {
   VEHICLE_BUSY: "Il mezzo è in servizio: aspetta che rientri.", NO_STOCK: "Non ce l'hai in magazzino: compralo prima.",
-  INSUFFICIENT_FUNDS: "Soldi insufficienti.", ALREADY_INSTALLED: "È già montato su questo mezzo.",
+  INSUFFICIENT_FUNDS: "Soldi insufficienti.", ALREADY_INSTALLED: "È già montato su questo mezzo.", EQUIP_NOT_ALLOWED: "Questo presidio non si può montare su questo mezzo (moto d'acqua e barche hanno spazio limitato).",
   NO_EQUIPMENT_ON_THIS_VEHICLE: "Questo mezzo non porta questi presidi.",
   MAXI_MODULE_ONLY: "I moduli maxi vanno solo sul camion o sul furgone per le maxi emergenze.",
   MAXI_SLOTS_FULL: "Il mezzo è pieno: il camion porta 3 moduli, il furgone 2. Togline uno prima.", NOT_INSTALLED: "Non è montato su questo mezzo.",
@@ -45,7 +45,7 @@ export default function PresidiPanel({ funds, onChange }: { funds: number; onCha
   const load = useCallback(async () => {
     const [e, f, s] = await Promise.all([
       supabase.from("equipment").select("code,slot,name,cost,category,description,sort,image_url").order("slot").order("sort"),
-      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,ordinaria,maxi").order("call_sign"),
+      supabase.from("my_fleet").select("id,call_sign,status,equipment,base_id,base_name,mine,boat,aib,ordinaria,maxi,banned_equipment").order("call_sign"),
       supabase.from("org_equipment_stock").select("code,qty"),
     ]);
     setEq((e.data as Eq[]) ?? []);
