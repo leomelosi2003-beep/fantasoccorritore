@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20f", date: "20 novembre 2026", title: "🏎️ Agilità e velocità contano davvero",
+    items: ["Ogni viaggio ora è fatto di città, strade con curve e rettilinei.",
+            "In città e nelle curve vince il mezzo più AGILE (per esempio il V-Craftor batte l'M-Sprinterix), sui rettilinei lunghi vince la VELOCITÀ MASSIMA. Le barre sono nel Garage."],
+  },
+  {
     id: "2026-11-20e", date: "20 novembre 2026", title: "🛣️ Percorsi sulle strade principali",
     items: ["Le ambulanze sulla mappa non tagliano più per sterrati, strade di servizio e vicoli: seguono le strade principali e usano quelle piccole solo se non c'è altro modo."],
   },
