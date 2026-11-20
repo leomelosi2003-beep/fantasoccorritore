@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20g", date: "20 novembre 2026", title: "🚑 Due mezzi nuovi: X-Maxion e B-Jetto",
+    items: ["🔁 X-Maxion (46.000 €): ambulanza a doppio uso, fa sia le emergenze sia i trasferimenti (anche urgenti col medico) senza cambiare uso. Agile in città.",
+            "🌊 B-Jetto (28.000 €): moto d'acqua di soccorso con barella galleggiante, la più veloce in mare. Ci stanno solo 2 persone: 1 bagnino + 1 soccorritore."],
+  },
+  {
     id: "2026-11-20f", date: "20 novembre 2026", title: "🏎️ Agilità e velocità contano davvero",
     items: ["Ogni viaggio ora è fatto di città, strade con curve e rettilinei.",
             "In città e nelle curve vince il mezzo più AGILE (per esempio il V-Craftor batte l'M-Sprinterix), sui rettilinei lunghi vince la VELOCITÀ MASSIMA. Le barre sono nel Garage."],

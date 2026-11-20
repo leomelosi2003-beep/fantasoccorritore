@@ -8,7 +8,7 @@ import { avatarSvg } from "@/components/avatar";
 import { ROLE, RoleBadge, type Card } from "@/components/VolunteerCard";
 
 type Vehicle = { id: string; call_sign: string; status: string; wear: number; certification: string; equipment: string[];
-  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; long_emergency?: boolean; service_due?: boolean; issue_open?: boolean; issue_title?: string | null;
+  lent_to: string | null; lent_from: string | null; base_lat: number | null; base_lng: number | null; transfer_only?: boolean; dual_use?: boolean; long_emergency?: boolean; service_due?: boolean; issue_open?: boolean; issue_title?: string | null;
   fuel_liters?: number; electric?: boolean | null; battery_pct?: number; range_km?: number | null; automedica?: boolean; moto?: boolean; boat?: boolean; ordinaria?: boolean; aib?: boolean; maxi?: boolean; moor_lat?: number | null; moor_lng?: number | null };
 
 const MAX_KM = 25; // oltre questa distanza dalla sede il mezzo non può prendere il servizio
@@ -107,7 +107,8 @@ function claimError(m: string) {
   if (m.includes("FIRE_NEEDS_AIB")) return "🔥 All'incendio può andare solo un mezzo antincendio boschivo (AIB).";
   if (m.includes("AIB_ONLY_FIRE")) return "🔥 Il mezzo antincendio va solo sugli incendi boschivi.";
   if (m.includes("AIB_CREW")) return "🔥 Sul mezzo antincendio servono almeno 2 persone, con almeno 1 volontario AIB.";
-  if (m.includes("TRANSFER_NEEDS_LONG")) return "🔁 I trasferimenti li fa solo un'ambulanza a passo lungo.";
+  if (m.includes("TRANSFER_NEEDS_LONG")) return "🔁 I trasferimenti li fa solo un'ambulanza a passo lungo o a doppio uso (X-Maxion).";
+  if (m.includes("JETSKI_CREW")) return "🌊 Sulla moto d'acqua ci stanno solo 2 persone: 1 bagnino + 1 soccorritore.";
   if (m.includes("DIMISSIONE_NEEDS_ORDINARIA")) return "🚗 Dimissioni e trasporti ordinari li fa solo una macchina ordinaria.";
   if (m.includes("BOAT_CREW")) return "⛵ Sulla barca servono 1 bagnino e 1 o 2 soccorritori, niente medici.";
   if (m.includes("BAGNINO_ONLY_BOAT")) return "🛟 I bagnini montano solo sulle barche, non sui mezzi di terra.";
@@ -163,7 +164,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     // ricarica mezzi e volontari ogni 10 s: chi esce dal PS diventa subito selezionabile
     const loadAll = async () => {
       const [v, e, c] = await Promise.all([
-        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,maxi,moor_lat,moor_lng,service_due,issue_open,issue_title").order("call_sign"),
+        supabase.from("my_fleet").select("id,call_sign,status,wear,certification,equipment,lent_to,lent_from,base_lat,base_lng,transfer_only,dual_use,long_emergency,fuel_liters,electric,battery_pct,range_km,automedica,moto,boat,ordinaria,aib,maxi,moor_lat,moor_lng,service_due,issue_open,issue_title").order("call_sign"),
         supabase.from("equipment").select("code,provides"),
         supabase.from("my_cards").select("*"),
       ]);
@@ -203,7 +204,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
     if (v.lent_to) return `prestata a ${v.lent_to}`;
     if (v.transfer_only && !v.long_emergency && mission.transport !== "trasferimento") return "solo trasferimenti (passo lungo)";
     const isOrdinario = mission.category === "ordinario" && mission.transport !== "trasferimento";
-    if (mission.transport === "trasferimento" && !v.transfer_only) return "per i trasferimenti serve un passo lungo";
+    if (mission.transport === "trasferimento" && !v.transfer_only && !v.dual_use) return "per i trasferimenti serve un passo lungo o un mezzo a doppio uso";
     if (isOrdinario && !v.ordinaria) return "dimissioni/ordinari: serve una macchina ordinaria";
     if (v.ordinaria && !isOrdinario) return "la macchina ordinaria fa solo dimissioni e ordinari";
     const fire = mission.category === "grande_evento" && !mission.event_id && mission.venue === "AIB";
