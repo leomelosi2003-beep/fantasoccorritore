@@ -1011,7 +1011,7 @@ export default function GameMap() {
   useEffect(() => {
     const tNow = serverNow();
     const box = mv ? mv.b.pad(0.25) : null;
-    const list: [typeof assignments[number] | typeof others[number], boolean][] = [...assignments.map((x) => [x, true] as const), ...others.map((x) => [x, false] as const)];
+    const list: (readonly [Assignment | OtherAmbulance, boolean])[] = [...assignments.map((x) => [x, true] as const), ...others.map((x) => [x, false] as const)];
     for (const [a, mine] of list) {
       if (a.status === "conclusa" || !a.route?.length) continue;
       let ahead = 0;
