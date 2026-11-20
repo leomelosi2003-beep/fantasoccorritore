@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20b", date: "20 novembre 2026", title: "🔧 Officina: si sistema al rientro",
+    items: ["In Officina, sui mezzi in servizio o già in officina, c'è «🔧 Sistema appena rientra in sede»: appena il mezzo è fermo in sede si fanno da soli guasti, revisione, pezzi, gomme (dal magazzino) e carrozzeria, uno dopo l'altro.",
+            "Anche «✅ Sistema tutto» ora finisce da solo i lavori che restano, senza doverlo ripremere."],
+  },
+  {
     id: "2026-11-20a", date: "20 novembre 2026", title: "🦺 Protezione civile: tutti i moduli",
     items: ["Nei presidi, tra i moduli maxi, ci sono 6 moduli nuovi: 🚤 soccorso fluviale, 🪚 motoseghe e taglio, 📡 sala radio, 🏕️ tende e brandine, 🍲 cucina da campo, ☣️ NBCR.",
             "Nuovi interventi: tromba d'aria, terremoto, nube tossica e nevicata. Anche quelli di prima accettano più moduli (basta averne uno).",

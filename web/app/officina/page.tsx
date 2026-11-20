@@ -11,7 +11,7 @@ import TutorialCoach from "@/components/TutorialCoach";
 type Org = { id: string; name: string; funds: number };
 type Base = { id: string; name: string; is_headquarters: boolean };
 type Model = { id: string; name: string; boat: boolean | null; electric: boolean | null };
-type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; status: string; maintenance_until: string | null;
+type Vehicle = { fix_on_return?: boolean; id: string; call_sign: string; base_id: string; model_id: string; status: string; maintenance_until: string | null;
   odometer_km: number; tire_model_id: string | null; tire_wear_km: number; issue_open: boolean; body_damage: number; wear: number; service_km: number };
 type Tire = { id: string; brand: string; name: string; season: "estiva" | "invernale" | "4stagioni"; price: number; life_km: number; grip: number; sort: number };
 type PartType = { code: string; name: string; life_km: number; cost: number; minutes: number; kind: string; sort: number };
@@ -97,7 +97,7 @@ export default function Officina() {
     const [bs, ms, vs, ts, pt, st, rp] = await Promise.all([
       supabase.from("bases").select("id,name,is_headquarters").eq("org_id", o.id).order("built_at"),
       supabase.from("vehicle_models").select("id,name,boat,electric"),
-      supabase.from("vehicles").select("id,call_sign,base_id,model_id,status,maintenance_until,odometer_km,tire_model_id,tire_wear_km,issue_open,body_damage,wear,service_km")
+      supabase.from("vehicles").select("id,call_sign,base_id,model_id,status,maintenance_until,odometer_km,tire_model_id,tire_wear_km,issue_open,body_damage,wear,service_km,fix_on_return")
         .eq("org_id", o.id).order("call_sign"),
       supabase.from("tire_models").select("*").order("sort"),
       supabase.from("vehicle_part_types").select("*").order("sort"),
@@ -205,7 +205,13 @@ export default function Officina() {
   }
   async function fixAll(list: Vehicle[]) {
     const todo = list.filter((v) => v.status === "disponibile" && health(v).problems);
-    if (!todo.length) { setMsg({ ok: false, text: "Nessun mezzo fermo in sede da sistemare (quelli in servizio si fanno quando rientrano)." }); return; }
+    const away = list.filter((v) => v.status !== "disponibile" && health(v).problems && !v.fix_on_return);
+    if (!todo.length) {
+      if (!away.length) { setMsg({ ok: false, text: "Non c'è niente da sistemare." }); return; }
+      const { error } = await supabase.rpc("set_fix_on_return", { p_vehicles: away.map((v) => v.id), p_on: true });
+      setMsg(error ? { ok: false, text: shopError(error.message) } : { ok: true, text: `🔧 ${away.length} mezzi fuori sede o in officina: si sistemano da soli appena sono fermi in sede.` });
+      load(); return;
+    }
     const est = todo.reduce((t, v) => { const h = health(v);
       return t + h.iss.reduce((a, i) => a + i.cost, 0) + h.due.reduce((a, p) => a + (ptByCode[p.part_code]?.cost ?? 0), 0)
         + (Number(v.body_damage) > 0 ? Math.round(Number(v.body_damage) * 100) : 0) + (h.tireBad ? 120 : 0); }, 0);
@@ -230,9 +236,12 @@ export default function Officina() {
       jobs += ok; if (ok) done++;
       if (/Soldi/.test(lastErr)) break;
     }
+    // tutto quello che resta (lavori successivi, mezzi in servizio) lo finisce il server appena il mezzo è fermo in sede
+    const rest = [...todo.filter((v) => { const h = health(v); return [h.iss.length > 0, h.serviceDue, h.due.length > 0, h.tireBad, Number(v.body_damage) > 0].filter(Boolean).length > 1; }), ...away];
+    if (rest.length) await supabase.rpc("set_fix_on_return", { p_vehicles: rest.map((v) => v.id), p_on: true });
     setBusy(false); setProgress(null);
     setMsg({ ok: !lastErr || done > 0, text: `✅ ${jobs} lavori fatti su ${done} mezzi.`
-      + (later ? ` ${later} mezzi hanno ancora lavori da fare: quando escono dall'officina premi di nuovo «Sistema tutto».` : "")
+      + (rest.length ? ` ${rest.length} mezzi (in servizio o con altri lavori) si finiscono da soli appena sono fermi in sede.` : "")
       + (noTires ? ` ${noTires} mezzi aspettano gomme: comprale nella scheda 🛞 Gomme.` : "")
       + (lastErr ? ` Ultimo problema: ${lastErr}` : "") });
     load();
@@ -382,7 +391,17 @@ export default function Officina() {
                                 </span>
                               </button>
                               {h.problems && <div style={{ fontSize: 12, color: h.iss.length ? "#991B1B" : "#92400E", marginTop: 4 }}>❗ Da sistemare: {h.reasons.join(" · ")}</div>}
-                              {!free && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{v.status === "manutenzione" ? `🔧 In officina${v.maintenance_until ? ` fino alle ${new Date(v.maintenance_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}` : v.status === "in_servizio" ? "🚨 In servizio: i lavori si fanno quando rientra" : "Non disponibile"}</div>}
+                              {!free && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{v.status === "manutenzione" ? `🔧 In officina${v.maintenance_until ? ` fino alle ${new Date(v.maintenance_until).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}` : v.status === "in_servizio" ? (v.fix_on_return ? "🚨 In servizio: si sistema da solo appena rientra" : "🚨 In servizio")  : "Non disponibile"}</div>}
+                              {h.problems && !free && (
+                                <button disabled={busy} onClick={async () => {
+                                    const on = !v.fix_on_return;
+                                    const { error } = await supabase.rpc("set_fix_on_return", { p_vehicles: [v.id], p_on: on });
+                                    setMsg(error ? { ok: false, text: shopError(error.message) } : { ok: true, text: on ? `🔧 ${v.call_sign} si sistema da solo appena rientra in sede.` : `${v.call_sign}: lavori al rientro annullati.` });
+                                    load(); }}
+                                        style={{ ...btn, width: "100%", marginTop: 6, background: v.fix_on_return ? "#15803D" : "#0F766E", opacity: busy ? 0.4 : 1 }}>
+                                  {v.fix_on_return ? "✅ Si sistema al rientro · tocca per annullare" : "🔧 Sistema appena rientra in sede"}
+                                </button>
+                              )}
                               {h.iss.map((i) => (
                                 <div key={i.id} style={{ marginTop: 8, background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "6px 8px", fontSize: 13 }}>
                                   {KIND_ICON[i.kind] ?? "⚠️"} <strong>{i.title}</strong> · il mezzo è fermo
