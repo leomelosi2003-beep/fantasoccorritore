@@ -19,6 +19,67 @@ const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFa
 const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 12 };
 const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
 
+// Ritaglio del banner: trascini la foto e regoli lo zoom dentro una cornice 3:1 (la stessa forma del banner nel profilo)
+function BannerCropper({ src, onDone, onCancel }: { src: string; onDone: (b: Blob) => void; onCancel: () => void }) {
+  const frame = useRef<HTMLDivElement | null>(null);
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  const [fw, setFw] = useState(600);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  useEffect(() => { const i = new Image(); i.onload = () => setImg(i); i.src = src; }, [src]);
+  useEffect(() => {
+    const f = () => setFw(frame.current?.clientWidth ?? 600); f();
+    window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
+  }, []);
+  const fh = fw / 3;
+  const base = img ? Math.max(fw / img.naturalWidth, fh / img.naturalHeight) : 1;
+  const sc = base * zoom;
+  const iw = (img?.naturalWidth ?? 0) * sc, ih = (img?.naturalHeight ?? 0) * sc;
+  const clamp = (x: number, y: number) => ({ x: Math.min(0, Math.max(fw - iw, x)), y: Math.min(0, Math.max(fh - ih, y)) });
+  // all'inizio e quando cambia lo zoom resta centrata
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    if (!img) return;
+    const prev = zoomRef.current; zoomRef.current = zoom;
+    setPos((p) => {
+      if (prev === zoom && p.x === 0 && p.y === 0) return clamp((fw - iw) / 2, (fh - ih) / 2);
+      const k = zoom / prev, cx = fw / 2, cy = fh / 2;
+      return clamp(cx - (cx - p.x) * k, cy - (cy - p.y) * k);
+    });
+  }, [img, zoom, fw]); // eslint-disable-line react-hooks/exhaustive-deps
+  function done() {
+    if (!img) return;
+    const c = document.createElement("canvas"); c.width = 1500; c.height = 500;
+    c.getContext("2d")!.drawImage(img, -pos.x / sc, -pos.y / sc, fw / sc, fh / sc, 0, 0, 1500, 500);
+    c.toBlob((b) => b && onDone(b), "image/jpeg", 0.88);
+  }
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.8)", zIndex: 3000, display: "grid", placeItems: "center", padding: 12 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 14, width: "min(960px, 100%)", boxSizing: "border-box" }}>
+        <strong style={{ fontSize: 17, color: "#13294B" }}>✂️ Ritaglia il banner</strong>
+        <div style={{ fontSize: 13, color: "#64748B", margin: "2px 0 10px" }}>Trascina la foto per spostarla e usa lo zoom: quello che vedi nella cornice è il banner.</div>
+        <div ref={frame} style={{ position: "relative", width: "100%", height: fh, overflow: "hidden", borderRadius: 10, background: "#0f172a", touchAction: "none", cursor: "grab", userSelect: "none" }}
+             onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y }; }}
+             onPointerMove={(e) => { const d = drag.current; if (d) setPos(clamp(d.px + e.clientX - d.x, d.py + e.clientY - d.y)); }}
+             onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
+             onWheel={(e) => setZoom((z) => Math.min(4, Math.max(1, z * (e.deltaY < 0 ? 1.08 : 0.93))))}>
+          {img && <img src={src} alt="" draggable={false} style={{ position: "absolute", left: pos.x, top: pos.y, width: iw, height: ih, maxWidth: "none", pointerEvents: "none" }} />}
+          <div style={{ position: "absolute", inset: 0, boxShadow: "inset 0 0 0 3px rgba(255,255,255,.85)", borderRadius: 10, pointerEvents: "none" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          <span>🔍</span>
+          <input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(e) => setZoom(+e.target.value)} style={{ flex: 1 }} />
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer" }}>Annulla</button>
+          <button onClick={done} style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "#16A34A", color: "#fff", fontWeight: 800, cursor: "pointer" }}>✂️ Usa questo ritaglio</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 async function bannerBlob(file: File): Promise<Blob> {
   const img = await createImageBitmap(file);
   const w = 1500, h = 500, r = Math.max(w / img.width, h / img.height), sw = w / r, sh = h / r;
@@ -38,6 +99,7 @@ export default function Profilo() {
   const [banner, setBanner] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
@@ -61,11 +123,11 @@ export default function Profilo() {
     if (error) { setErr(error.message); return; }
     setEdit(false); load();
   }
-  async function upload(file: File) {
+  async function upload(fileOrBlob: File | Blob) {
     if (!p) return;
     setBusy(true); setErr(null);
     try {
-      const blob = await bannerBlob(file);
+      const blob = fileOrBlob instanceof File ? await bannerBlob(fileOrBlob) : fileOrBlob;
       const path = `${p.id}/profilo-banner-${Date.now()}.jpg`;
       const { error } = await supabase.storage.from("org-logos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
       if (error) throw error;
@@ -89,7 +151,9 @@ export default function Profilo() {
   return (
     <main style={shell}>
       {/* intestazione */}
-      <div style={{ position: "relative", height: 210, background: shown ? `center/cover url("${shown}")` : `linear-gradient(120deg, ${c.main}, ${c.main} 55%, ${c.acc})` }}>
+      {cropSrc && <BannerCropper src={cropSrc} onCancel={() => { URL.revokeObjectURL(cropSrc); setCropSrc(null); }}
+                                 onDone={(b) => { URL.revokeObjectURL(cropSrc); setCropSrc(null); upload(b); }} />}
+      <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto", aspectRatio: "3 / 1", minHeight: 150, borderRadius: "0 0 18px 18px", overflow: "hidden", background: shown ? `center/cover url("${shown}")` : `linear-gradient(120deg, ${c.main}, ${c.main} 55%, ${c.acc})` }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.55))" }} />
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 8, background: `repeating-linear-gradient(90deg, ${c.main} 0 24px, ${c.acc} 24px 48px)` }} />
         <div style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 8 }}>
@@ -119,11 +183,11 @@ export default function Profilo() {
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button disabled={busy} onClick={() => fileRef.current?.click()} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer" }}>🖼️ Scegli il banner</button>
               {banner && <button onClick={() => setBanner(null)} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #FCA5A5", background: "#fff", color: "#B91C1C", fontWeight: 700, cursor: "pointer" }}>Togli banner</button>}
-              <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) upload(f); }} />
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCropSrc(URL.createObjectURL(f)); }} />
             </div>
             <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 400))} rows={3} placeholder="Presentati: chi siete, dove operate, il vostro motto…"
                       style={{ width: "100%", marginTop: 8, padding: 10, borderRadius: 10, border: "1px solid #CBD5E1", fontSize: 15, boxSizing: "border-box", fontFamily: "inherit" }} />
-            <div style={{ fontSize: 12, color: "#64748B" }}>{bio.length}/400 · Il banner viene ritagliato a 1500×500.</div>
+            <div style={{ fontSize: 12, color: "#64748B" }}>{bio.length}/400 · Dopo aver scelto la foto la ritagli tu (forma 3:1, come appare nel profilo).</div>
             {err && <div style={{ color: "#B91C1C", marginTop: 6 }}>{err}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button disabled={busy} onClick={saveProfile} style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "#16A34A", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{busy ? "Attendi…" : "💾 Salva"}</button>
