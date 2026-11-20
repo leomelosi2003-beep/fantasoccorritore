@@ -732,6 +732,14 @@ export default function GameMap() {
   const [mv, setMv] = useState<{ z: number; b: L.LatLngBounds } | null>(null);
   const far = !!mv && mv.z < FAR_ZOOM;
   const inView = (lat: number, lng: number) => !mv || mv.b.contains([lat, lng]);
+  // un solo C-130H per volo: i mezzi sullo stesso volo (stessi aeroporti) mostrano un aereo solo
+  const planeSeen = new Set<string>();
+  const onPlaneAlready = (route: RoutePoint[], pos: { text: string; leg: number }) => {
+    if (!pos.text.startsWith("✈️ In volo")) return false;
+    const k = `${route[pos.leg]?.label}>${route[pos.leg + 1]?.label}`;
+    if (planeSeen.has(k)) return true;
+    planeSeen.add(k); return false;
+  };
   const zoomTo = (lat: number, lng: number) => mapRef.current?.flyTo([lat, lng], 12, { duration: 0.6 });
   const [located, setLocated] = useState<{ vehicle: string; until: number } | null>(null);
   // percorso blu: solo del mezzo selezionato (tocco sul mezzo o "Localizza")
@@ -1956,6 +1964,7 @@ export default function GameMap() {
             { lat: a.lat, lng: a.lng, t: a.completes_at, label: "Sul posto" },
           ];
           const pos = alongRoute(route, now);
+          if (onPlaneAlready(route, pos)) return null;
           return (
             <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100} small={far}
                           makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
@@ -2051,7 +2060,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} small={far} mine
+            {!onScene(a, now) && !onPlaneAlready(route, pos) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} small={far} mine
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
