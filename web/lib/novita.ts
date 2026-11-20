@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20k", date: "20 novembre 2026", title: "🖌️ Editor livrea rinnovato",
+    items: ["14 forme (anche triangolo, rombo, stella, cuore, chevron, freccia, onda e sagomatura), sfumature a due colori o verso il trasparente, specchia, pannello Livelli e zoom. Dal PC anche le scorciatoie da tastiera.",
+            "La livrea si applica a tutti i mezzi del modello, solo ad alcune sedi o solo ad alcuni mezzi. Si personalizzano solo i mezzi che hai comprato.",
+            "Chi è in un'alleanza ha il logo dell'alleanza obbligatorio sulla livrea: si sposta e si ridimensiona, ma non si toglie."],
+  },
+  {
     id: "2026-11-20j", date: "20 novembre 2026", title: "🌊 Presidi su moto d'acqua e barche",
     items: ["Sulla moto d'acqua B-Jetto ci stanno solo DAE, borsoni e collari: niente cardiomonitor, massaggiatore, cucchiaio, KED, materasso, steccobende e tavole spinali.",
             "Sulle barche niente KED. Quelli già montati sono tornati nel tuo magazzino presidi, non hai perso niente."],
