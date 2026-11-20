@@ -11,7 +11,8 @@ export const NOVITA: Novita[] = [
   {
     id: "2026-11-20h", date: "20 novembre 2026", title: "🖌️ Editor livrea",
     items: ["Nel menu, sotto La mia associazione, c'è l'«Editor livrea»: disegna la fiancata dei tuoi mezzi con strisce, cerchi, linee, pennello, scacchi, testo e i tuoi loghi o foto (max 5).",
-            "Scegli a quali sedi va ogni livrea e copia un lavoro già fatto anche su un altro modello. Tutti i giocatori vedono i tuoi mezzi con la tua livrea. Consigliato dal PC, ma funziona anche dal telefono."],
+            "Scegli a quali sedi va ogni livrea e copia un lavoro già fatto anche su un altro modello. Tutti i giocatori vedono i tuoi mezzi con la tua livrea. Consigliato dal PC, ma funziona anche dal telefono.",
+            "Ci sono 8 livree pronte da cui partire. Vetri, cerchioni, fanali e gomme non si colorano: si dipinge solo la carrozzeria."],
   },
   {
     id: "2026-11-20g", date: "20 novembre 2026", title: "🚑 Due mezzi nuovi: X-Maxion e B-Jetto",

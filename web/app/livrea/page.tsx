@@ -31,6 +31,24 @@ const ERR: Record<string, string> = {
 };
 const errText = (m: string) => Object.entries(ERR).find(([k]) => m.includes(k))?.[1] ?? friendlyError(m);
 
+// ---------- livree pronte da cui partire (posizioni in proporzione al mezzo) ----------
+const R = (W: number, H: number, x: number, y: number, w: number, h: number, fill: string, extra: Partial<Item> = {}): Item =>
+  ({ id: uid(), t: "rect", x: x * W, y: y * H, w: w * W, h: h * H, r: 0, fill, stroke: "#000", sw: 0, op: 1, ...extra });
+const CK = (W: number, H: number, y: number, h: number, a: string, b: string): Item =>
+  ({ id: uid(), t: "checker", x: 0, y: y * H, w: W, h: h * H, r: 0, fill: a, c2: b, stroke: "#000", sw: 0, op: 1 });
+const PRESETS: { name: string; make: (W: number, H: number) => Item[] }[] = [
+  { name: "🟧 Classica arancio (118)", make: (W, H) => [R(W, H, 0, 0.52, 1, 0.075, "#F97316"), CK(W, H, 0.72, 0.05, "#F97316", "#FACC15"), CK(W, H, 0.16, 0.035, "#F97316", "#FACC15")] },
+  { name: "🟦 Blu e gialla", make: (W, H) => [R(W, H, 0, 0.52, 1, 0.075, "#1E3A8A"), CK(W, H, 0.72, 0.05, "#1E3A8A", "#FACC15"), CK(W, H, 0.16, 0.035, "#FACC15", "#1E3A8A")] },
+  { name: "🟥 Rossa e bianca", make: (W, H) => [R(W, H, 0, 0.52, 1, 0.075, "#DC2626"), CK(W, H, 0.72, 0.05, "#DC2626", "#FFFFFF"), R(W, H, 0, 0.17, 1, 0.025, "#DC2626")] },
+  { name: "🟩 Verde e gialla", make: (W, H) => [R(W, H, 0, 0.52, 1, 0.075, "#16A34A"), CK(W, H, 0.72, 0.05, "#16A34A", "#FACC15"), CK(W, H, 0.16, 0.035, "#16A34A", "#FACC15")] },
+  { name: "🏁 Scacchi grandi (Battenburg)", make: (W, H) => [CK(W, H, 0.5, 0.2, "#FACC15", "#16A34A"), R(W, H, 0, 0.16, 1, 0.03, "#16A34A")] },
+  { name: "⚡ Sportiva a righe oblique", make: (W, H) => [R(W, H, 0, 0.58, 1, 0.06, "#1D4ED8"),
+      R(W, H, 0.55, 0.3, 0.06, 0.55, "#F97316", { r: 25 }), R(W, H, 0.63, 0.3, 0.03, 0.55, "#FACC15", { r: 25 }), R(W, H, 0.68, 0.3, 0.015, 0.55, "#1D4ED8", { r: 25 })] },
+  { name: "➖ Elegante a doppia linea", make: (W, H) => [R(W, H, 0, 0.56, 1, 0.02, "#13294B"), R(W, H, 0, 0.6, 1, 0.008, "#F59E0B")] },
+  { name: "🚨 Fascia larga con scritta", make: (W, H) => [R(W, H, 0, 0.5, 1, 0.13, "#F97316"),
+      { id: uid(), t: "text", x: W * 0.3, y: H * 0.515, w: W * 0.4, h: H * 0.1, r: 0, fill: "#FFFFFF", stroke: "#000", sw: 0, op: 1, text: "AMBULANZA", bold: true }] },
+];
+
 // ---------- immagine "bianca" del mezzo: tolgo i colori della livrea ufficiale, tengo ombre, vetri e ruote ----------
 async function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -62,6 +80,75 @@ function blankOf(img: HTMLImageElement): HTMLCanvasElement {
     p[i] = w0; p[i + 1] = w0; p[i + 2] = w0;                                    // ogni colore della livrea → bianco
   }
   g.putImageData(d, 0, 0);
+  return c;
+}
+
+// ---------- dove si può dipingere: solo la carrozzeria (niente vetri, cerchioni, fanali, gomme, pavimento) ----------
+function paintMaskOf(img: HTMLImageElement): HTMLCanvasElement {
+  const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
+  const W = c.width, H = c.height, N = W * H;
+  const p = g.getImageData(0, 0, W, H).data;
+  const mx = new Uint8Array(N), al = new Uint8Array(N), sat = new Float32Array(N), hue = new Float32Array(N);
+  const hist = new Array(256).fill(0); let nb = 0;
+  for (let k = 0, i = 0; k < N; k++, i += 4) {
+    const r = p[i], gg = p[i + 1], b = p[i + 2], M = Math.max(r, gg, b), m = Math.min(r, gg, b), d = M - m;
+    mx[k] = M; al[k] = p[i + 3]; sat[k] = M ? d / M : 0;
+    let h = 0; if (d) { if (M === r) h = ((gg - b) / d) % 6; else if (M === gg) h = (b - r) / d + 2; else h = (r - gg) / d + 4; h = (h * 60 + 360) % 360; }
+    hue[k] = h;
+    if (al[k] > 200 && M > 190 && sat[k] < 0.08) { hist[M]++; nb++; }
+  }
+  let w0 = 240, acc = 0; for (let v = 0; v < 256 && nb; v++) { acc += hist[v]; if (acc >= nb / 2) { w0 = v; break; } }
+  const cand = new Uint8Array(N), dark = new Uint8Array(N);
+  for (let k = 0; k < N; k++) {
+    const x = k % W, y = (k / W) | 0, h = hue[k], s = sat[k], M = mx[k];
+    const blueLight = y < 0.2 * H && h >= 190 && h <= 260, tail = (h < 12 || h > 345) && s > 0.5 && x > 0.93 * W;
+    const liv = al[k] > 0 && !blueLight && !tail && ((s >= 0.15 && M >= 95) || (s >= 0.45 && M >= 45));
+    cand[k] = al[k] > 200 && (liv || (s < 0.15 && M >= 0.62 * w0)) ? 1 : 0;
+    dark[k] = M < 80 && al[k] > 100 ? 1 : 0;
+  }
+  // componenti connesse (4 vicini) di una maschera dentro un rettangolo di righe
+  const label = (mask: Uint8Array, y0: number) => {
+    const lab = new Int32Array(N); const comps: { n: number; x0: number; x1: number; y0: number; y1: number; edge: boolean }[] = [{ n: 0, x0: 0, x1: 0, y0: 0, y1: 0, edge: false }];
+    const st: number[] = [];
+    for (let k = y0 * W; k < N; k++) {
+      if (!mask[k] || lab[k]) continue;
+      const id = comps.length; const cp = { n: 0, x0: W, x1: 0, y0: H, y1: 0, edge: false }; comps.push(cp);
+      lab[k] = id; st.push(k);
+      while (st.length) {
+        const q = st.pop()!; const x = q % W, y = (q / W) | 0;
+        cp.n++; if (x < cp.x0) cp.x0 = x; if (x > cp.x1) cp.x1 = x; if (y < cp.y0) cp.y0 = y; if (y > cp.y1) cp.y1 = y;
+        if (x === 0 || x === W - 1 || y === y0 || y === H - 1) cp.edge = true;
+        const nb4 = [x > 0 ? q - 1 : -1, x < W - 1 ? q + 1 : -1, y > y0 ? q - W : -1, y < H - 1 ? q + W : -1];
+        for (const t of nb4) if (t >= 0 && mask[t] && !lab[t]) { lab[t] = id; st.push(t); }
+      }
+    }
+    return { lab, comps };
+  };
+  // cerchioni: zone chiare chiuse dentro le gomme, tonde, nella metà bassa
+  const y0 = Math.floor(0.45 * H);
+  const notDark = new Uint8Array(N); for (let k = y0 * W; k < N; k++) notDark[k] = dark[k] ? 0 : 1;
+  const w = label(notDark, y0);
+  const wheelIds = new Set<number>();
+  w.comps.forEach((cp, id) => { if (!id || cp.edge) return; const hh = cp.y1 - cp.y0 + 1, ww = cp.x1 - cp.x0 + 1; if (ww / hh >= 0.6 && ww / hh <= 1.7 && hh >= 0.08 * H) wheelIds.add(id); });
+  if (wheelIds.size) for (let k = y0 * W; k < N; k++) if (wheelIds.has(w.lab[k])) {
+    const x = k % W, y = (k / W) | 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < W && yy >= 0 && yy < H) cand[yy * W + xx] = 0; }
+  }
+  // sfondo rimasto sotto la carrozzeria: dal fondo, saltata l'ombra a terra, si toglie il chiaro fino al primo scuro
+  for (let x = 0; x < W; x++) {
+    let phase = 0;
+    for (let y = H - 1; y >= Math.floor(H * 0.78); y--) {
+      const k = y * W + x; if (al[k] < 10) continue;
+      if (!phase) { if (cand[k]) { phase = 1; cand[k] = 0; } else if (y < H * 0.92) break; }
+      else if (cand[k]) cand[k] = 0; else break;
+    }
+  }
+  // solo le zone grandi (via fanali, riflessi, maniglie)
+  const b = label(cand, 0);
+  const out = g.createImageData(W, H);
+  for (let k = 0; k < N; k++) if (cand[k] && b.comps[b.lab[k]].n >= 0.004 * N) out.data[k * 4 + 3] = 255;
+  g.putImageData(out, 0, 0);
   return c;
 }
 
@@ -113,11 +200,11 @@ function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
   }
 }
 /** livrea finale: le forme stanno solo sulla sagoma, e vetri/ruote/ombre restano visibili sopra (moltiplica) */
-function compose(blank: HTMLCanvasElement, items: Item[]): HTMLCanvasElement {
+function compose(blank: HTMLCanvasElement, items: Item[], paint?: HTMLCanvasElement | null): HTMLCanvasElement {
   const W = blank.width, H = blank.height;
   const d = document.createElement("canvas"); d.width = W; d.height = H;
   const dg = d.getContext("2d")!; drawItems(dg, items);
-  dg.globalCompositeOperation = "destination-in"; dg.drawImage(blank, 0, 0);
+  dg.globalCompositeOperation = "destination-in"; dg.drawImage(paint ?? blank, 0, 0);
   const o = document.createElement("canvas"); o.width = W; o.height = H;
   const og = o.getContext("2d")!;
   og.drawImage(blank, 0, 0);
@@ -150,6 +237,7 @@ export default function LiveryEditor() {
   const [mode, setMode] = useState<"select" | "brush">("select");
   const [brush, setBrush] = useState({ color: "#1D4ED8", size: 10 });
   const [blank, setBlank] = useState<HTMLCanvasElement | null>(null);
+  const [paint, setPaint] = useState<HTMLCanvasElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tick, setTick] = useState(0);
@@ -190,7 +278,7 @@ export default function LiveryEditor() {
   useEffect(() => {
     if (!model?.image_url) return;
     let ok = true;
-    loadImg(model.image_url).then((img) => { if (ok) setBlank(blankOf(img)); }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
+    loadImg(model.image_url).then((img) => { if (ok) { setPaint(paintMaskOf(img)); setBlank(blankOf(img)); } }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
     return () => { ok = false; };
   }, [model?.image_url]);
 
@@ -206,8 +294,8 @@ export default function LiveryEditor() {
     const c = canvasRef.current; if (!c || !blank) return;
     c.width = W; c.height = H;
     const g = c.getContext("2d")!; g.clearRect(0, 0, W, H);
-    g.drawImage(compose(blank, items), 0, 0);
-  }, [blank, items, tick, W, H]);
+    g.drawImage(compose(blank, items, paint), 0, 0);
+  }, [blank, paint, items, tick, W, H]);
 
   const myLvs = useMemo(() => lvs.filter((l) => l.model_id === modelId), [lvs, modelId]);
 
@@ -327,7 +415,7 @@ export default function LiveryEditor() {
     if (!allBases && !pick.length) { setMsg({ ok: false, text: "Scegli almeno una sede (o «Tutte le sedi»)." }); return; }
     setBusy(true); setMsg(null);
     try {
-      const big = compose(blank, items);
+      const big = compose(blank, items, paint);
       const small = document.createElement("canvas"); small.width = 160; small.height = Math.round((H * 160) / W);
       const sg = small.getContext("2d")!; sg.imageSmoothingQuality = "high"; sg.drawImage(big, 0, 0, small.width, small.height);
       const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("immagine non creata"))), "image/png"));
@@ -393,6 +481,14 @@ export default function LiveryEditor() {
               <select value={cur?.id ?? ""} onChange={(e) => openLivery(myLvs.find((l) => l.id === e.target.value) ?? null)} style={{ width: "100%", padding: 8, borderRadius: 8 }}>
                 <option value="">➕ Nuova livrea</option>
                 {myLvs.map((l) => <option key={l.id} value={l.id}>{l.name} {l.base_ids ? `(${l.base_ids.length} sedi)` : "(tutte le sedi)"}</option>)}
+              </select>
+            </div>
+            <div style={{ minWidth: 220, flex: 1 }}>
+              <span style={lbl}>✨ Parti da una livrea pronta</span>
+              <select value="" onChange={(e) => { const pr = PRESETS[+e.target.value]; if (pr) { commit(pr.make(W, H)); setSel(null); setMsg({ ok: true, text: `Livrea «${pr.name.replace(/^\S+\s/, "")}» pronta: cambiala come vuoi e premi Salva.` }); } }}
+                      style={{ width: "100%", padding: 8, borderRadius: 8 }}>
+                <option value="">Scegli una base…</option>
+                {PRESETS.map((pr, i) => <option key={pr.name} value={i}>{pr.name}</option>)}
               </select>
             </div>
             <div style={{ minWidth: 220, flex: 1 }}>
