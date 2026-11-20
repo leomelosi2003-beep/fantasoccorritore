@@ -123,7 +123,7 @@ export default function Classifica() {
               <FactionEmblem type={r.type} size={34} logo={r.logo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {r.name}{badges(r.org_id) && <span title="Titoli vinti nelle stagioni passate"> {badges(r.org_id)}</span>}
+                  <a href={`/profili/${r.org_id}`} style={{ color: "inherit", textDecoration: "none" }}>{r.name}</a>{badges(r.org_id) && <span title="Titoli vinti nelle stagioni passate"> {badges(r.org_id)}</span>}
                   {r.org_id === me && <span style={{ color: "#B45309" }}> (tu)</span>}
                 </div>
                 <div style={{ fontSize: 12, color: "#777" }}>

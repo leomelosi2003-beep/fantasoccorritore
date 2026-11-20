@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20i", date: "20 novembre 2026", title: "🪪 Profili delle associazioni",
+    items: ["Nel menu (Altre associazioni) ci sono i profili di tutte le associazioni: colori, livree, sedi con la migliore, mezzi per tipo, volontari e leggendari. Ci arrivi anche toccando un nome in Classifica.",
+            "Nel tuo profilo premi «✏️ Banner e presentazione» per mettere una foto di copertina e due righe su di voi."],
+  },
+  {
     id: "2026-11-20h", date: "20 novembre 2026", title: "🖌️ Editor livrea",
     items: ["Nel menu, sotto La mia associazione, c'è l'«Editor livrea»: disegna la fiancata dei tuoi mezzi con strisce, cerchi, linee, pennello, scacchi, testo e i tuoi loghi o foto (max 5).",
             "Scegli a quali sedi va ogni livrea e copia un lavoro già fatto anche su un altro modello. Tutti i giocatori vedono i tuoi mezzi con la tua livrea. Consigliato dal PC, ma funziona anche dal telefono."],

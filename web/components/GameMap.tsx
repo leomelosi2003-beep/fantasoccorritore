@@ -1368,6 +1368,7 @@ export default function GameMap() {
                 ["💼", "Offerte e acquisti", "#1E3A8A", "/offerte"],
               ]],
               ["Altre associazioni", [
+                ["🪪", "Profili delle associazioni", "#0F766E", "/profili"],
                 ["📢", "Richieste di personale", "#DC2626", "/personale"],
                 ["🤝", "Alleanza", "#15803D", "/alleanza"],
                 ["🔗", "Gemellaggio", "#0E7490", "/gemellaggio"],
