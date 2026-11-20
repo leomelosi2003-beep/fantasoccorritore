@@ -46,11 +46,19 @@ export default function LiveryEditor() {
   const [pickV, setPickV] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [selId, setSelId] = useState<string | null>(null);
-  const [mode, setMode] = useState<"select" | "brush" | "pick">("select");
+  const [mode, setMode] = useState<"select" | "brush" | "pick" | "pan">("select");
   const [brush, setBrush] = useState({ color: "#1D4ED8", size: 10 });
   const [shapesOpen, setShapesOpen] = useState(false);
   const [side, setSide] = useState<"props" | "layers">("props");
-  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState({ z: 1, x: 0, y: 0 });          // zoom e spostamento della vista
+  const [vp, setVp] = useState({ w: 800, h: 360 });               // misure del riquadro
+  const [full, setFull] = useState(false);
+  const [bg, setBg] = useState<"chess" | "light" | "dark">("chess");
+  const vpRef = useRef<HTMLDivElement | null>(null);
+  const ptrs = useRef(new Map<number, { x: number; y: number }>());
+  const panRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const pinchRef = useRef<{ d: number; cx: number; cy: number; z: number; x: number; y: number } | null>(null);
+  const space = useRef(false);
   const [blank, setBlank] = useState<HTMLCanvasElement | null>(null);
   const [paint, setPaint] = useState<HTMLCanvasElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +73,33 @@ export default function LiveryEditor() {
 
   const W = blank?.width ?? 900, H = blank?.height ?? 400;
   const model = models.find((m) => m.id === modelId) ?? null;
+  const fit = Math.min(vp.w / W, vp.h / H);                      // a zoom 1 il mezzo entra tutto
+  const fitView = useCallback(() => setView({ z: 1, x: (vp.w - W * fit) / 2, y: (vp.h - H * fit) / 2 }), [vp.w, vp.h, W, H, fit]);
+  useEffect(() => { fitView(); }, [fitView]);
+  useEffect(() => {
+    const f = () => {
+      const w = vpRef.current?.clientWidth ?? 800;
+      const h = full ? window.innerHeight - 70 : Math.min(window.innerHeight * 0.66, Math.max(240, (w * H) / W + 24));
+      setVp({ w, h });
+    };
+    f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
+  }, [full, W, H, wide]);
+  const zoomAt = useCallback((factor: number, cx?: number, cy?: number) => setView((v) => {
+    const z = Math.min(10, Math.max(1, v.z * factor));
+    const px = cx ?? vp.w / 2, py = cy ?? vp.h / 2;
+    return { z, x: px - ((px - v.x) / v.z) * z, y: py - ((py - v.y) / v.z) * z };
+  }), [vp.w, vp.h]);
+  // rotellina = zoom sul punto del mouse (senza far scorrere la pagina)
+  useEffect(() => {
+    const el = vpRef.current; if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomAt]);
   const selected = items.find((i) => i.id === selId) ?? null;
   const myVehs = useMemo(() => vehs.filter((v) => v.model_id === modelId), [vehs, modelId]);
   const myLvs = useMemo(() => lvs.filter((l) => l.model_id === modelId), [lvs, modelId]);
@@ -209,7 +244,7 @@ export default function LiveryEditor() {
     return [((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H] as [number, number];
   };
   function down(e: RPE<SVGSVGElement>) {
-    if (!blank) return;
+    if (!blank || mode === "pan" || space.current || ptrs.current.size > 1) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const [x, y] = toImg(e);
     if (mode === "pick") {
@@ -235,7 +270,7 @@ export default function LiveryEditor() {
     if (hit) { drag.current = { kind: "move", id: hit.id, sx: x, sy: y, orig: { ...hit, pts: hit.pts?.map((p) => [...p] as [number, number]) } }; undo.current.push(items); redo.current = []; }
   }
   function move(e: RPE<SVGSVGElement>) {
-    const d = drag.current; if (!d) return;
+    const d = drag.current; if (!d || pinchRef.current) return;
     const [x, y] = toImg(e); const dx = x - d.sx, dy = y - d.sy;
     setItems((list) => list.map((it) => {
       if (it.id !== d.id) return it;
@@ -276,6 +311,10 @@ export default function LiveryEditor() {
     const onKey = (e: KeyboardEvent) => {
       const tg = e.target as HTMLElement; if (tg && /input|textarea|select/i.test(tg.tagName)) return;
       const k = e.key.toLowerCase();
+      if (k === " ") { space.current = true; e.preventDefault(); return; }
+      if (k === "+" || k === "=") { zoomAt(1.25); return; }
+      if (k === "-") { zoomAt(0.8); return; }
+      if (k === "0") { fitView(); return; }
       if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
       if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); doRedo(); return; }
       if (!selected) return;
@@ -286,7 +325,9 @@ export default function LiveryEditor() {
       if (mv[k]) { e.preventDefault(); const [dx, dy] = mv[k]; patch(selected.id, { x: selected.x + dx, y: selected.y + dy, pts: selected.pts?.map(([x, y]) => [x + dx, y + dy] as [number, number]) }); }
       if (k === "escape") setSelId(null);
     };
-    window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
+    const onUp = (e: KeyboardEvent) => { if (e.key === " ") space.current = false; };
+    window.addEventListener("keydown", onKey); window.addEventListener("keyup", onUp);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onUp); };
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- salva ----------
@@ -337,7 +378,8 @@ export default function LiveryEditor() {
   }
 
   const sb = selected ? bbox(selected) : null;
-  const ink = Math.max(2, W / 300);
+  const ink = 1.6 / (fit * view.z);                // linee e maniglie sempre della stessa grandezza a schermo
+  const handleR = 9 / (fit * view.z);
   const swatches = (onPick: (c: string) => void, current?: string) => (
     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
       {used.map((c) => <button key={c} title={c} onClick={() => onPick(c)}
@@ -365,13 +407,38 @@ export default function LiveryEditor() {
         </div>
         {swatches((c) => patch(selected.id, { fill: c }), selected.fill)}
       </div>}
-      {isFillable && selected.fill !== "none" && <div style={{ marginBottom: 8, background: "#F8FAFC", borderRadius: 10, padding: 8 }}>
-        <label style={{ fontSize: 13, fontWeight: 700 }}><input type="checkbox" checked={!!(selected.g2 || selected.gfade)} onChange={(e) => patch(selected.id, e.target.checked ? { g2: "#FACC15", gdir: "h", gfade: false } : { g2: undefined, gfade: false })} /> 🌈 Sfumatura</label>
-        {(selected.g2 || selected.gfade) && <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-          {!selected.gfade && <input type="color" value={selected.g2 ?? "#ffffff"} onChange={(e) => live(selected.id, { g2: e.target.value })} title="Secondo colore" />}
-          {(["h", "v", "r"] as const).map((d) => <button key={d} style={{ ...tool((selected.gdir ?? "h") === d), padding: "4px 8px" }} onClick={() => patch(selected.id, { gdir: d })}>{d === "h" ? "→" : d === "v" ? "↓" : "◎"}</button>)}
-          <label style={{ fontSize: 12.5 }}><input type="checkbox" checked={!!selected.gfade} onChange={(e) => patch(selected.id, { gfade: e.target.checked, g2: e.target.checked ? undefined : "#FACC15" })} /> verso trasparente</label>
-        </div>}
+      {isFillable && selected.fill !== "none" && (() => {
+        const kind = selected.gfade ? "fade" : selected.g2 ? "grad" : "solid";
+        return (
+        <div style={{ marginBottom: 8, background: "#F8FAFC", borderRadius: 10, padding: 8 }}>
+          <span style={lbl}>Riempimento</span>
+          <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+            <button style={{ ...tool(kind === "solid"), flex: 1, padding: "5px 4px", fontSize: 12.5 }} onClick={() => patch(selected.id, { g2: undefined, g3: undefined, gfade: false })}>Colore unico</button>
+            <button style={{ ...tool(kind === "grad"), flex: 1, padding: "5px 4px", fontSize: 12.5 }} onClick={() => patch(selected.id, { g2: selected.g2 ?? "#FACC15", gfade: false, gdir: selected.gdir === "r" ? "r" : "h", gang: selected.gang ?? 0 })}>🌈 Gradiente</button>
+            <button style={{ ...tool(kind === "fade"), flex: 1, padding: "5px 4px", fontSize: 12.5 }} onClick={() => patch(selected.id, { gfade: true, g2: undefined, g3: undefined, gang: selected.gang ?? 0 })}>Sfuma</button>
+          </div>
+          {kind !== "solid" && <>
+            <div style={{ height: 22, borderRadius: 6, border: "1px solid #CBD5E1", marginBottom: 6,
+              background: selected.gdir === "r" ? `radial-gradient(${selected.fill}, ${selected.g3 && kind === "grad" ? selected.g3 + "," : ""} ${kind === "fade" ? "transparent" : selected.g2})`
+                : `linear-gradient(${90 + (selected.gang ?? 0)}deg, ${selected.fill}, ${selected.g3 && kind === "grad" ? selected.g3 + "," : ""} ${kind === "fade" ? "transparent" : selected.g2})` }} />
+            {kind === "grad" && <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12 }}>Da</span><input type="color" value={selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
+              {selected.g3 ? <><span style={{ fontSize: 12 }}>poi</span><input type="color" value={selected.g3} onChange={(e) => live(selected.id, { g3: e.target.value })} />
+                <button style={{ ...tool(), padding: "2px 6px", fontSize: 12 }} onClick={() => patch(selected.id, { g3: undefined })}>✕</button></>
+                : <button style={{ ...tool(), padding: "2px 7px", fontSize: 12 }} onClick={() => patch(selected.id, { g3: "#FFFFFF" })}>+ colore in mezzo</button>}
+              <span style={{ fontSize: 12 }}>a</span><input type="color" value={selected.g2 ?? "#ffffff"} onChange={(e) => live(selected.id, { g2: e.target.value })} />
+              <button style={{ ...tool(), padding: "2px 7px", fontSize: 12 }} title="Inverti" onClick={() => patch(selected.id, { fill: selected.g2 ?? selected.fill, g2: selected.fill })}>⇄</button>
+            </div>}
+            <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+              {([["→", 0], ["↘", 45], ["↓", 90], ["↙", 135], ["←", 180], ["↑", 270]] as const).map(([ic, a]) => (
+                <button key={a} style={{ ...tool(selected.gdir !== "r" && (selected.gang ?? 0) === a), padding: "3px 7px" }} onClick={() => patch(selected.id, { gdir: "h", gang: a })}>{ic}</button>))}
+              <button style={{ ...tool(selected.gdir === "r"), padding: "3px 7px" }} onClick={() => patch(selected.id, { gdir: "r" })} title="Dal centro">◎</button>
+            </div>
+            {selected.gdir !== "r" && <><span style={{ ...lbl, marginTop: 6 }}>Angolo {Math.round(selected.gang ?? 0)}°</span>
+              <input type="range" min={0} max={359} value={selected.gang ?? 0} onChange={(e) => live(selected.id, { gang: +e.target.value, gdir: "h" })} style={{ width: "100%" }} /></>}
+          </>}
+        </div>);
+      })()}
       </div>}
       {selected.t !== "image" && selected.t !== "checker" && <div style={{ marginBottom: 8 }}>
         <span style={lbl}>{["line", "path"].includes(selected.t) ? "Colore linea" : "Bordo"} · spessore {Math.round(selected.sw)}</span>
@@ -479,9 +546,12 @@ export default function LiveryEditor() {
           <button style={tool()} onClick={doUndo} title="Annulla">↶</button>
           <button style={tool()} onClick={doRedo} title="Ripeti">↷</button>
           <span style={{ flex: 1 }} />
-          <button style={tool()} onClick={() => setZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)))}>−</button>
-          <span style={{ fontSize: 12.5, minWidth: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-          <button style={tool()} onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}>+</button>
+          <button style={tool(mode === "pan")} onClick={() => setMode(mode === "pan" ? "select" : "pan")} title="Sposta la vista (anche: tieni premuto Spazio, o due dita)">✋</button>
+          <button style={tool()} onClick={() => zoomAt(0.8)} title="Riduci (−)">−</button>
+          <span style={{ fontSize: 12.5, minWidth: 44, textAlign: "center", fontWeight: 700 }}>{Math.round(view.z * 100)}%</span>
+          <button style={tool()} onClick={() => zoomAt(1.25)} title="Ingrandisci (+)">+</button>
+          <button style={tool()} onClick={fitView} title="Adatta (0)">⤢</button>
+          <button style={tool(full)} onClick={() => setFull(!full)} title="Schermo intero">{full ? "🗗" : "⛶"}</button>
           {(mode === "brush" || mode === "pick") && <div style={{ width: "100%", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #EEF2F7", paddingTop: 6 }}>
             <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} />
             <span style={{ fontSize: 12, color: "#475569" }}>Spessore</span>
@@ -492,19 +562,76 @@ export default function LiveryEditor() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: wide ? "minmax(0, 1fr) 320px" : "1fr", gap: 10, alignItems: "start" }}>
-          {/* tela */}
-          <div style={{ ...box, padding: 8, overflow: "auto", background: "repeating-conic-gradient(#e8edf3 0% 25%, #fff 0% 50%) 50% / 22px 22px" }} onClick={() => setShapesOpen(false)}>
-            <div style={{ position: "relative", width: `${zoom * 100}%`, aspectRatio: `${W} / ${H}` }}>
-              <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-              <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", touchAction: "none", cursor: mode === "brush" ? "crosshair" : mode === "pick" ? "copy" : "default" }}
-                   onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-                <rect x={0} y={0} width={W} height={H} fill="transparent" />
-                {sb && selected && mode === "select" && <>
-                  <rect x={sb.x} y={sb.y} width={Math.max(1, sb.w)} height={Math.max(1, sb.h)} fill="none" stroke={selected.ally ? "#059669" : "#2563EB"} strokeWidth={ink} strokeDasharray={`${ink * 4} ${ink * 3}`} pointerEvents="none" />
-                  <circle data-h="1" cx={selected.t === "line" ? selected.x + selected.w : sb.x + sb.w} cy={selected.t === "line" ? selected.y + selected.h : sb.y + sb.h}
-                          r={Math.max(12, W / 60)} fill="#2563EB" stroke="#fff" strokeWidth={ink} style={{ cursor: "nwse-resize" }} />
-                </>}
-              </svg>
+          {/* tela: rotellina o due dita per lo zoom, ✋/Spazio/due dita per spostare la vista */}
+          <div style={full ? { position: "fixed", inset: 0, zIndex: 60, background: "#0F172A", padding: 0 } : { ...box, padding: 0, overflow: "hidden" }}>
+            {full && <div style={{ display: "flex", gap: 6, padding: 8, alignItems: "center", flexWrap: "wrap", background: "#13294B" }}>
+              <button style={tool(mode === "select")} onClick={() => setMode("select")}>👆</button>
+              <button style={tool(mode === "pan")} onClick={() => setMode(mode === "pan" ? "select" : "pan")}>✋</button>
+              <button style={tool(mode === "brush")} onClick={() => { setMode("brush"); setSelId(null); }}>🖌️</button>
+              <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} />
+              <input type="range" min={1} max={60} value={brush.size} onChange={(e) => setBrush({ ...brush, size: +e.target.value })} style={{ width: 90 }} />
+              <button style={tool()} onClick={doUndo}>↶</button><button style={tool()} onClick={doRedo}>↷</button>
+              <span style={{ flex: 1 }} />
+              <button style={tool()} onClick={() => zoomAt(0.8)}>−</button>
+              <span style={{ color: "#fff", fontWeight: 800, minWidth: 48, textAlign: "center" }}>{Math.round(view.z * 100)}%</span>
+              <button style={tool()} onClick={() => zoomAt(1.25)}>+</button>
+              <button style={tool()} onClick={fitView}>⤢</button>
+              <button style={{ ...tool(), background: "#16A34A", color: "#fff" }} onClick={() => setFull(false)}>✓ Fine</button>
+            </div>}
+            <div ref={vpRef} onClick={() => setShapesOpen(false)}
+                 style={{ position: "relative", width: "100%", height: vp.h, overflow: "hidden", touchAction: "none", cursor: mode === "pan" ? "grab" : undefined,
+                   background: bg === "dark" ? "#1E293B" : bg === "light" ? "#F8FAFC" : "repeating-conic-gradient(#e8edf3 0% 25%, #fff 0% 50%) 50% / 22px 22px" }}
+                 onPointerDownCapture={(e) => {
+                   const r = vpRef.current!.getBoundingClientRect();
+                   ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                   if (ptrs.current.size === 2) {                       // due dita: zoom e spostamento
+                     drag.current = null;
+                     const [a, b] = Array.from(ptrs.current.values());
+                     pinchRef.current = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top, z: view.z, x: view.x, y: view.y };
+                     e.stopPropagation(); return;
+                   }
+                   if (mode === "pan" || space.current || e.button === 1) {
+                     panRef.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+                     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                     e.stopPropagation(); e.preventDefault();
+                   }
+                 }}
+                 onPointerMove={(e) => {
+                   if (ptrs.current.has(e.pointerId)) ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                   const pc = pinchRef.current;
+                   if (pc && ptrs.current.size >= 2) {
+                     const r = vpRef.current!.getBoundingClientRect();
+                     const [a, b] = Array.from(ptrs.current.values());
+                     const z = Math.min(10, Math.max(1, pc.z * (Math.hypot(a.x - b.x, a.y - b.y) / pc.d)));
+                     const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
+                     setView({ z, x: cx - ((pc.cx - pc.x) / pc.z) * z, y: cy - ((pc.cy - pc.y) / pc.z) * z });
+                     return;
+                   }
+                   const p = panRef.current;
+                   if (p) setView((v) => ({ ...v, x: p.vx + e.clientX - p.x, y: p.vy + e.clientY - p.y }));
+                 }}
+                 onPointerUp={(e) => { ptrs.current.delete(e.pointerId); if (ptrs.current.size < 2) pinchRef.current = null; panRef.current = null; }}
+                 onPointerCancel={(e) => { ptrs.current.delete(e.pointerId); pinchRef.current = null; panRef.current = null; }}>
+              <div style={{ position: "absolute", left: 0, top: 0, width: W * fit, height: H * fit, transformOrigin: "0 0", transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
+                <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: view.z > 2.5 ? "pixelated" : "auto" }} />
+                <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", cursor: mode === "brush" ? "crosshair" : mode === "pick" ? "copy" : mode === "pan" ? "grab" : "default" }}
+                     onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+                  <rect x={0} y={0} width={W} height={H} fill="transparent" />
+                  {sb && selected && mode === "select" && <>
+                    <rect x={sb.x} y={sb.y} width={Math.max(1, sb.w)} height={Math.max(1, sb.h)} fill="none" stroke={selected.ally ? "#059669" : "#2563EB"} strokeWidth={ink} strokeDasharray={`${ink * 4} ${ink * 3}`} pointerEvents="none" />
+                    <circle data-h="1" cx={selected.t === "line" ? selected.x + selected.w : sb.x + sb.w} cy={selected.t === "line" ? selected.y + selected.h : sb.y + sb.h}
+                            r={handleR} fill="#2563EB" stroke="#fff" strokeWidth={ink} style={{ cursor: "nwse-resize" }} />
+                  </>}
+                </svg>
+              </div>
+              {/* sfondo e aiuto */}
+              <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 4, background: "rgba(255,255,255,.9)", borderRadius: 8, padding: 3 }}>
+                {([["chess", "▦"], ["light", "☀️"], ["dark", "🌙"]] as const).map(([k, ic]) => (
+                  <button key={k} onClick={() => setBg(k)} title="Sfondo" style={{ ...tool(bg === k), padding: "2px 7px", fontSize: 12 }}>{ic}</button>))}
+              </div>
+              {view.z === 1 && <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 11.5, color: "#475569", background: "rgba(255,255,255,.85)", borderRadius: 6, padding: "2px 7px" }}>
+                {wide ? "🖱️ Rotellina = zoom · Spazio + trascina = sposta" : "🤏 Due dita = zoom e sposta"}
+              </div>}
             </div>
           </div>
 

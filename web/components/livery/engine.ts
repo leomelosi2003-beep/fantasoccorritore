@@ -6,6 +6,7 @@ export type Item = {
   fill: string; stroke: string; sw: number; op: number;
   text?: string; bold?: boolean; src?: string; pts?: [number, number][]; c2?: string;
   g2?: string; gdir?: "h" | "v" | "r"; gfade?: boolean;   // sfumatura: secondo colore, direzione, verso il trasparente
+  gang?: number; g3?: string;                             // gradiente: angolo (gradi) e colore centrale
   flip?: boolean;                                         // specchiata
   ally?: boolean;                                         // logo dell'alleanza (obbligatorio)
 };
@@ -176,10 +177,16 @@ function shapePath(g: CanvasRenderingContext2D, t: Kind, w: number, h: number) {
 function fillOf(g: CanvasRenderingContext2D, it: Item, w: number, h: number): string | CanvasGradient {
   if (!it.g2 && !it.gfade) return it.fill;
   const end = it.gfade ? it.fill + "00" : (it.g2 ?? "#ffffff");
-  const gr = it.gdir === "v" ? g.createLinearGradient(0, -h / 2, 0, h / 2)
-    : it.gdir === "r" ? g.createRadialGradient(0, 0, 0, 0, 0, Math.max(w, h) / 2)
-    : g.createLinearGradient(-w / 2, 0, w / 2, 0);
-  gr.addColorStop(0, it.fill); gr.addColorStop(1, end);
+  let gr: CanvasGradient;
+  if (it.gdir === "r") gr = g.createRadialGradient(0, 0, 0, 0, 0, Math.max(w, h) / 2);
+  else {
+    const a = ((it.gang ?? (it.gdir === "v" ? 90 : 0)) * Math.PI) / 180;
+    const dx = (Math.cos(a) * w) / 2, dy = (Math.sin(a) * h) / 2;
+    gr = g.createLinearGradient(-dx, -dy, dx, dy);
+  }
+  gr.addColorStop(0, it.fill);
+  if (it.g3 && !it.gfade) gr.addColorStop(0.5, it.g3);
+  gr.addColorStop(1, end);
   return gr;
 }
 export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {

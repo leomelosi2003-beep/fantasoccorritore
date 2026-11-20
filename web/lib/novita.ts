@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21a", date: "21 novembre 2026", title: "🔍 Editor livrea: zoom e gradienti",
+    items: ["Zoom fino al 1000% per i dettagli: rotellina del mouse (zooma dove punti), due dita sul telefono, oppure − / + / ⤢. Per spostare la vista: ✋, Spazio + trascina o due dita. C'è anche lo schermo intero ⛶ e lo sfondo chiaro, scuro o a scacchi.",
+            "Gradienti da un colore all'altro con angolo a scelta, colore in mezzo opzionale, dal centro o verso il trasparente, con anteprima."],
+  },
+  {
     id: "2026-11-20k", date: "20 novembre 2026", title: "🖌️ Editor livrea rinnovato",
     items: ["14 forme (anche triangolo, rombo, stella, cuore, chevron, freccia, onda e sagomatura), sfumature a due colori o verso il trasparente, specchia, pannello Livelli e zoom. Dal PC anche le scorciatoie da tastiera.",
             "La livrea si applica a tutti i mezzi del modello, solo ad alcune sedi o solo ad alcuni mezzi. Si personalizzano solo i mezzi che hai comprato.",
