@@ -17,6 +17,7 @@ export type SceneData = {
   hospital?: { name: string; lat: number; lng: number } | null;
   shuttle?: { scene: number; hosp: number; travel: number };   // solo per la scena di prova
   venue?: string | null; fire?: { severity: number; intensity: number; base_radius?: number } | null;   // incendi boschivi
+  patients?: { injured: number; transported: number } | null;   // feriti della maxi (dal server)
   event_id?: string | null; event_kind?: string | null; slots?: number | null; show_at?: string | null; inc_every?: number;    // grandi eventi veri
 };
 export function evKindOf(k?: string | null): string { return k === "calcio" ? "ev-stadio" : k === "basket" || k === "teatro" ? "ev-arena" : "ev-concerto"; }
@@ -333,7 +334,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
     const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + ((data.title || "").replace(/^.*?PROTEZIONE CIVILE:\s*/i, "").split(" — ")[0] || PC_TITLES[kind] || "Protezione civile") : EV ? "🎤 " + data.title : data.title, hi: "", at: performance.now() }];
     const seen = new Map<string, string>();
-    const injured = 24 + (seed % 46);
+    let injured = data.patients?.injured ?? 24 + (seed % 46);
 
     function resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1367,6 +1368,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         ctx.fillStyle = pcCol; ctx.fillText(pcStat, 14, 75);
       } else {
       ctx.fillText(`MEZZI ${onSite + coming} · SUL POSTO ${onSite} · IN ARRIVO ${coming} · PMA ${pmaOn ? "ATTIVO" : "NO"}${hasPma ? "" : ` · VERSO/IN OSPEDALE ${away}`} · VVF ${vvf.length} · ESTRICATI ${extricated}/${patients.filter((q) => q.trapped).length}`, 14, 58);
+      if (d.patients) { injured = d.patients.injured; transported = Math.min(injured, d.patients.transported); }   // il conto vero è sul server
       const remaining = Math.max(0, injured - transported); const red = Math.round(remaining * 0.15), yel = Math.round(remaining * 0.35), grn = remaining - red - yel;
       const left = Math.max(0, injured - transported);
       ctx.fillText(`FERITI ${left} · TRASPORTATI ${Math.min(injured, transported)} ·`, 14, 75);

@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20c", date: "20 novembre 2026", title: "🆘 Maxi emergenze: si finisce coi feriti",
+    items: ["Ogni maxi emergenza ha i suoi feriti: le ambulanze sul posto li portano al PMA (un ferito al minuto) o fanno la spola con l'ospedale.",
+            "Se all'ora di fine restano feriti, la maxi e i mezzi sul posto restano 15 minuti in più, e così via finché non sono stati trasportati tutti. Nella scena dal vivo il conto è quello vero."],
+  },
+  {
     id: "2026-11-20b", date: "20 novembre 2026", title: "🔧 Officina: si sistema al rientro",
     items: ["In Officina, sui mezzi in servizio o già in officina, c'è «🔧 Sistema appena rientra in sede»: appena il mezzo è fermo in sede si fanno da soli guasti, revisione, pezzi, gomme (dal magazzino) e carrozzeria, uno dopo l'altro.",
             "Anche «✅ Sistema tutto» ora finisce da solo i lavori che restano, senza doverlo ripremere."],
