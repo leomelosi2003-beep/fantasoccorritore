@@ -1054,6 +1054,7 @@ export default function GameMap() {
         const vis = !box || box.contains([p.lat, p.lng]) || box.contains([q.lat, q.lng])
           || box.intersects(L.latLngBounds([p.lat, p.lng], [q.lat, q.lng]));
         if (!mine && (!vis || far)) { ahead++; continue; }
+        if (!mine && new Date(p.t).getTime() > tNow + 120_000) continue;   // degli altri basta il tratto che stanno facendo adesso
         fetchLeg(p, q, (vis ? 0 : 4) + (mine ? 0 : 1) + Math.min(2, ahead++));
       }
     }

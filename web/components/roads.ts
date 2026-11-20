@@ -1,3 +1,4 @@
+import { supabase } from "@/lib/supabase";
 // Percorsi su strada vera (OpenStreetMap: Valhalla con strade principali, OSRM di riserva) con cache in memoria e nel browser.
 export type LatLng = [number, number];
 export type Leg = { pts: LatLng[]; cum: number[] }; // punti e distanza cumulata (metri)
@@ -69,7 +70,6 @@ let srv = 0;
 
 type Job = { k: string; a: { lat: number; lng: number }; b: { lat: number; lng: number }; prio: number; done: (() => void)[] };
 const jobs = new Map<string, Job>();
-let running = false;
 
 // Polilinea codificata di Valhalla (precisione 6)
 function decode6(str: string): LatLng[] {
@@ -144,19 +144,44 @@ async function download(a: { lat: number; lng: number }, b: { lat: number; lng: 
   return null;
 }
 
-// Scarica i tratti uno alla volta, prima quelli più urgenti (il tratto che il mezzo sta percorrendo adesso)
+// Strade condivise sul nostro server: un percorso scaricato da un giocatore serve a tutti gli altri
+const asked = new Set<string>();
+async function fromShared() {
+  const keys = Array.from(jobs.values()).sort((x, y) => x.prio - y.prio).map((j) => j.k).filter((k) => !asked.has(k)).slice(0, 80);
+  if (!keys.length) return;
+  keys.forEach((k) => asked.add(k));
+  try {
+    const { data } = await supabase.rpc("roads_get", { p_keys: keys });
+    for (const r of (data ?? []) as { k: string; pts: LatLng[] }[]) {
+      const job = jobs.get(r.k);
+      if (!Array.isArray(r.pts) || r.pts.length < 2) continue;
+      mem.set(r.k, makeLeg(r.pts)); saveStore(r.k, r.pts);
+      if (job) { jobs.delete(r.k); job.done.forEach((f) => f()); }
+    }
+    if (data?.length) roadsArrived();
+  } catch { /* si scarica da internet */ }
+}
+
+// Scarica i tratti, prima quelli più urgenti (il tratto che il mezzo sta percorrendo adesso). Due alla volta.
+let workers = 0;
 async function worker() {
-  if (running) return;
-  running = true;
-  while (jobs.size) {
-    const job = Array.from(jobs.values()).sort((x, y) => x.prio - y.prio)[0];
-    jobs.delete(job.k);
-    const pts = await download(job.a, job.b);
-    if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); roadsArrived(); } else mem.set(job.k, Date.now());
-    job.done.forEach((f) => f());
-    await new Promise((res) => setTimeout(res, Date.now() - valhallaOff > 120_000 ? 700 : 300));   // il server gratuito chiede poche richieste al secondo
-  }
-  running = false;
+  if (workers >= 2) return;
+  workers++;
+  try {
+    while (jobs.size) {
+      await fromShared();
+      if (!jobs.size) break;
+      const job = Array.from(jobs.values()).sort((x, y) => x.prio - y.prio)[0];
+      jobs.delete(job.k);
+      const pts = await download(job.a, job.b);
+      if (pts) {
+        mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); roadsArrived();
+        supabase.rpc("road_put", { p_k: job.k, p_pts: pts }).then(() => {}, () => {});
+      } else mem.set(job.k, Date.now());
+      job.done.forEach((f) => f());
+      await new Promise((res) => setTimeout(res, Date.now() - valhallaOff > 120_000 ? 700 : 300));   // il server gratuito chiede poche richieste al secondo
+    }
+  } finally { workers--; }
 }
 
 // Chi disegna la mappa si iscrive qui: viene avvisato al massimo ogni 3 s che sono arrivate strade nuove
@@ -182,7 +207,7 @@ export function fetchLeg(a: { lat: number; lng: number }, b: { lat: number; lng:
     const j = jobs.get(k);
     if (j) { j.prio = Math.min(j.prio, prio); j.done.push(res); }
     else { mem.set(k, "loading"); jobs.set(k, { k, a, b, prio, done: [res] }); }
-    worker();
+    worker(); worker();
   });
 }
 
