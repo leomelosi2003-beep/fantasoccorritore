@@ -128,6 +128,7 @@ export const HELP: Record<string, Help> = {
   "/fatturato": { title: "Fatturato sedi", sub: "Quanto rende ogni sede", steps: [["🏢", "Confronta le sedi: tieni quelle che rendono e migliora quelle ferme."]] },
   "/statistiche": { title: "Statistiche", sub: "I tuoi numeri giorno per giorno", steps: [["📈", "Servizi fatti, incassi e tempi di arrivo degli ultimi giorni."]] },
   "/password": { title: "Cambia password", sub: "Scegli una nuova password per il tuo account", steps: [["🔑", "Scrivi due volte la nuova password e salva: dal prossimo accesso usi quella."]] },
+  "/livrea": { title: "Editor livrea", sub: "Disegna la livrea dei tuoi mezzi", steps: [["🎨", "Scegli il modello, aggiungi strisce, scacchi, testo o il tuo logo e trascinali sul mezzo."], ["🏠", "Scegli a quali sedi va la livrea, poi «Salva e applica»: tutti vedranno i tuoi mezzi così."], ["📋", "Con «Copia un mio lavoro» riparti da una livrea che hai già fatto, anche di un altro modello."]] },
   "/notizie": { title: "Notizie", sub: "Cosa succede nel mondo del gioco", steps: [["📰", "Maxi emergenze, incendi, record e novità delle altre associazioni."]] },
   "/novita": { title: "Novità del gioco", sub: "Gli ultimi aggiornamenti", steps: [["🆕", "Ogni volta che il gioco cambia trovi qui un riassunto semplice."]] },
   "/trasferimenti": { title: "Trasferimenti", sub: "Viaggi da un ospedale all'altro", steps: [["🔁", "Li fanno solo i mezzi a passo lungo: pagano 4.000 € più 130 € al km."], ["🩺", "I trasferimenti urgenti vogliono un medico a bordo."]] },

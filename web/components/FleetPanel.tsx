@@ -1,5 +1,6 @@
 "use client";
 
+import { useLiveries, vehicleImg } from "@/lib/liveries";
 import { useEffect, useState } from "react";
 import { gameConfirm } from "@/lib/confirm";
 import { supabase, livery } from "@/lib/supabase";
@@ -38,6 +39,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
   jobs: Job[]; now: number; refreshKey: number; onChanged: (msg: string) => void; orgType?: string;
   onLocate?: (vehicleId: string) => void;
 }) {
+  useLiveries();
   const [open, setOpen] = useState(false);
   // manutenzione a tutti i mezzi fermi in sede
   const [mq, setMq] = useState<{ vehicles: number; cost: number } | null>(null);
@@ -168,7 +170,7 @@ export default function FleetPanel({ jobs, now, refreshKey, onChanged, orgType, 
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
               {v.vehicle_image
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={(livery(v.vehicle_image, v.lent_from ? null : orgType) ?? "").replace(/\.png$/, "-map.png")} alt="" style={{ width: 46, height: "auto", flexShrink: 0 }} />
+                ? <img src={(vehicleImg(v.id, livery(v.vehicle_image, v.lent_from ? null : orgType)) ?? "").replace(/\.png$/, "-map.png")} alt="" style={{ width: 46, height: "auto", flexShrink: 0 }} />
                 : <span style={{ fontSize: 24 }}>🚑</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>

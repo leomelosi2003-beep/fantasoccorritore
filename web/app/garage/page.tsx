@@ -1,5 +1,6 @@
 "use client";
 
+import { useLiveries, vehicleImg } from "@/lib/liveries";
 import { useCallback, useEffect, useRef, useMemo, useState, type CSSProperties } from "react";
 import { AllyChip, useMyAllianceBadge } from "@/components/AllianceExtras";
 import { gameConfirm } from "@/lib/confirm";
@@ -133,6 +134,7 @@ function Pill({ cert }: { cert: Cert }) {
 }
 
 export default function Garage() {
+  useLiveries();
   const router = useRouter();
   const [org, setOrg] = useState<Organization | null>(null);
   const ally = useMyAllianceBadge(org?.id);
@@ -979,7 +981,7 @@ export default function Garage() {
               const cost = Math.round(v.wear * v.value_score * 2);
               return (
                 <div key={v.id} style={box}>
-                  <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={livery(m?.image_url, org.type)} stripe={stripe} height={80} /></div>
+                  <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={vehicleImg(v.id, livery(m?.image_url, org.type))} stripe={stripe} height={80} /></div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                     <strong style={{ fontSize: 17 }}>
                       {needsCare(v) && <span title="Da sistemare in Officina" style={{ background: v.issue_open ? "#DC2626" : "#FACC15", color: v.issue_open ? "#fff" : "#111", borderRadius: 999, padding: "0 7px", marginRight: 4, fontWeight: 900 }}>!</span>}

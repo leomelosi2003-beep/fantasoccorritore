@@ -22,6 +22,7 @@ import { playSound, soundOn, setSoundOn } from "@/lib/sound";
 import { getPerfMode, setPerfMode, autoLiteRemembered, rememberAutoLite, applyLite, watchFps, type PerfMode } from "@/lib/perf";
 import { shuttleState, shuttleTravelS, distKm } from "@/lib/maxiShuttle";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
+import { useLiveries, vehicleImg } from "@/lib/liveries";
 import { fetchLeg, getLeg, legKey, onRoadsLoaded, pointAt, slice, type LatLng } from "@/components/roads";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
@@ -598,6 +599,7 @@ function ViewWatcher({ onView }: { onView: (v: { z: number; b: L.LatLngBounds })
 }
 
 export default function GameMap() {
+  useLiveries();   // livree personalizzate dei mezzi (di tutti)
   const router = useRouter();
   const [missions, setMissions] = useState<MissionPin[]>([]);
   const [fires, setFires] = useState<{ mission_id: string; lat: number; lng: number; severity: number; intensity: number; radius_m: number }[]>([]);
@@ -1357,6 +1359,7 @@ export default function GameMap() {
                 ["🔧", "Officina", "#7C3AED", "/officina"],
                 ["👥", "Squadra", "#1E3A8A", "/squadra"],
                 ["🏠", "Sedi", "#9333EA", "/sedi"],
+                ["🖌️", "Editor livrea", "#0EA5E9", "/livrea"],
                 ["🎨", "Associazione", "#DB2777", "/associazione"],
               ]],
               ["Mercato", [
@@ -1588,7 +1591,7 @@ export default function GameMap() {
         {boats.filter((b) => b.moor_lat != null && b.moor_lng != null && b.status !== "manutenzione" && b.status !== "fuori_servizio"
             // la barca ferma all'ormeggio si vede sempre, tranne quando è in giro (allora la mostra il livello delle barche in movimento)
             && !assignments.some((x) => x.vehicle_id === b.id && now < new Date(x.route_ends_at).getTime())).map((b) => (
-          <Marker key={`boat-${b.id}`} position={[b.moor_lat!, b.moor_lng!]} icon={boatIcon(livery(b.vehicle_image, org?.type))}>
+          <Marker key={`boat-${b.id}`} position={[b.moor_lat!, b.moor_lng!]} icon={boatIcon(vehicleImg(b.id, livery(b.vehicle_image, org?.type)))}>
             <Popup>
               <strong>⛵ {b.call_sign}</strong><br />Ormeggiata, pronta per i servizi in mare (entro 40 km).
               <div style={{ marginTop: 8 }}>
@@ -1967,8 +1970,8 @@ export default function GameMap() {
           const pos = alongRoute(route, now);
           if (onPlaneAlready(route, pos)) return null;
           return (
-            <MovingMarker key={`o-${a.id}`} route={route} code={a.code} zIndexOffset={-100} small={far}
-                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, livery(a.vehicle_image, a.org_type), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
+            <MovingMarker key={`o-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} zIndexOffset={-100} small={far}
+                          makeIcon={(sc, fr) => otherAmbulanceIcon(sc, vehicleImg(a.vehicle_id, livery(a.vehicle_image, a.org_type)), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
                   <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>
@@ -2004,7 +2007,7 @@ export default function GameMap() {
               const pos = alongRoute(r, now);
               const ahead = alongRoute(r, now + 3000);
               const path = a.mine && routeFor === a.vehicle_id ? remainingPath(r, pos.leg, pos.f) : [];
-              const img = livery(a.vehicle_image, a.org_type) ?? "/vehicles/b-marlin.png";
+              const img = vehicleImg(a.vehicle_id, livery(a.vehicle_image, a.org_type)) ?? "/vehicles/b-marlin.png";
               return (
                 <Fragment key={`boat-${a.id}`}>
                   {a.mine && routeFor === a.vehicle_id && path.map((seg, i) => (
@@ -2061,8 +2064,8 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && !onPlaneAlready(route, pos) && <MovingMarker key={`m-${a.id}`} route={route} code={a.code} small={far} mine
-                          makeIcon={(sc, fr) => ambulanceIcon(sc, livery(a.vehicle_image, org?.type), fr, pairAt(a.base_lat, a.base_lng))}>
+            {!onScene(a, now) && !onPlaneAlready(route, pos) && <MovingMarker key={`m-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} small={far} mine
+                          makeIcon={(sc, fr) => ambulanceIcon(sc, vehicleImg(a.vehicle_id, livery(a.vehicle_image, org?.type)), fr, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
                   <div className="fs-amb-bar" style={{ background: CODE_COLOR[a.code] }}>

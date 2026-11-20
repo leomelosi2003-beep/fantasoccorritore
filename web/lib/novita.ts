@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20h", date: "20 novembre 2026", title: "🖌️ Editor livrea",
+    items: ["Nel menu, sotto La mia associazione, c'è l'«Editor livrea»: disegna la fiancata dei tuoi mezzi con strisce, cerchi, linee, pennello, scacchi, testo e i tuoi loghi o foto (max 5).",
+            "Scegli a quali sedi va ogni livrea e copia un lavoro già fatto anche su un altro modello. Tutti i giocatori vedono i tuoi mezzi con la tua livrea. Consigliato dal PC, ma funziona anche dal telefono."],
+  },
+  {
     id: "2026-11-20g", date: "20 novembre 2026", title: "🚑 Due mezzi nuovi: X-Maxion e B-Jetto",
     items: ["🔁 X-Maxion (46.000 €): ambulanza a doppio uso, fa sia le emergenze sia i trasferimenti (anche urgenti col medico) senza cambiare uso. Agile in città.",
             "🌊 B-Jetto (28.000 €): moto d'acqua di soccorso con barella galleggiante, la più veloce in mare. Ci stanno solo 2 persone: 1 bagnino + 1 soccorritore."],
