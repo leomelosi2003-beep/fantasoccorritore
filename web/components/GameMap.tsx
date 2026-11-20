@@ -323,6 +323,27 @@ function dotIcon(code: string, mine: boolean) {
       html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:50%;background:${(CODE_COLOR as Record<string, string>)[code] ?? "#64748B"};border:${mine ? 2 : 1}px solid ${mine ? "#fff" : "rgba(255,255,255,.8)"};box-shadow:0 0 0 1px rgba(0,0,0,.45)${mine ? ",0 0 6px rgba(37,99,235,.8)" : ""}"></span>` }); }
   return dotIcons[k];
 }
+// C-130H visto dall'alto (muso a destra), girato nella direzione del volo
+function planeIcon(deg: number, small: boolean) {
+  const w = small ? 30 : 46;
+  return memoIcon(`plane|${deg}|${small}`, () => L.divIcon({
+    className: "",
+    html: `<div title="In volo sul C-130H" style="width:${w}px;height:${w}px;transform:rotate(${-deg}deg);filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">
+      <svg viewBox="0 0 64 64" width="${w}" height="${w}">
+        <path d="M6 30 L50 29 Q60 30 61 32 Q60 34 50 35 L6 34 Q3 32 6 30Z" fill="#6B7A5A" stroke="#2F3A28" stroke-width="1"/>
+        <path d="M28 31 L22 4 L29 4 L38 31Z M28 33 L22 60 L29 60 L38 33Z" fill="#7C8B69" stroke="#2F3A28" stroke-width="1"/>
+        <path d="M6 31 L2 20 L7 20 L12 31Z M6 33 L2 44 L7 44 L12 33Z" fill="#7C8B69" stroke="#2F3A28" stroke-width="1"/>
+        <rect x="27" y="10" width="6" height="3" rx="1" fill="#2F3A28"/><rect x="28" y="20" width="6" height="3" rx="1" fill="#2F3A28"/>
+        <rect x="27" y="51" width="6" height="3" rx="1" fill="#2F3A28"/><rect x="28" y="41" width="6" height="3" rx="1" fill="#2F3A28"/>
+        <circle cx="40" cy="32" r="2.2" fill="#fff"/><circle cx="40" cy="32" r="1.3" fill="#2563EB"/><circle cx="40" cy="32" r=".5" fill="#DC2626"/>
+      </svg></div>`,
+    iconSize: [w, w], iconAnchor: [w / 2, w / 2],
+  }));
+}
+const flying = (text: string) => text.startsWith("✈️ In volo");
+const flightDeg = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+  Math.round((Math.atan2(b.lat - a.lat, (b.lng - a.lng) * Math.cos((a.lat * Math.PI) / 180)) * 180) / Math.PI / 10) * 10;
+
 function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mine }: {
   route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode; small?: boolean; mine?: boolean;
   makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
@@ -332,8 +353,9 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mi
   const makeRef = useRef(makeIcon); makeRef.current = (sc: boolean, fr: boolean) => (small ? dotIcon(code, !!mine) : makeIcon(sc, fr));
   const [start] = useState(() => {
     const t = serverNow(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
-    return { pos: [p.lat, p.lng] as [number, number], key: `${!!small}|${!sirens(code, p)}|${ah.lng > p.lng}`,
-             icon: makeRef.current(!sirens(code, p), ah.lng > p.lng) };
+    const fl = flying(p.text);
+    return { pos: [p.lat, p.lng] as [number, number], key: fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}|${!sirens(code, p)}|${ah.lng > p.lng}`,
+             icon: fl ? planeIcon(flightDeg(p, ah), !!small) : makeRef.current(!sirens(code, p), ah.lng > p.lng) };
   });
   const keyRef = useRef(start.key);
   useEffect(() => {
@@ -343,8 +365,9 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mi
       const p = alongRoute(routeRef.current, t);
       const ah = alongRoute(routeRef.current, t + 4000);
       const facing = Math.abs(ah.lng - p.lng) < 1e-7 ? keyRef.current.endsWith("true") : ah.lng > p.lng;
-      const key = `${!!small}|${!sirens(code, p)}|${facing}`;
-      if (key !== keyRef.current) { keyRef.current = key; m.setIcon(makeRef.current(!sirens(code, p), facing)); }
+      const fl = flying(p.text);   // in volo sul C-130H: si vede l'aereo
+      const key = fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}|${!sirens(code, p)}|${facing}`;
+      if (key !== keyRef.current) { keyRef.current = key; m.setIcon(fl ? planeIcon(flightDeg(p, ah), !!small) : makeRef.current(!sirens(code, p), facing)); }
       m.getElement()?.classList.add("fs-mv");
       const next = alongRoute(routeRef.current, t + STEP_MS);
       m.setLatLng([next.lat, next.lng]);
