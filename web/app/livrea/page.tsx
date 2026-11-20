@@ -42,7 +42,7 @@ function blankOf(img: HTMLImageElement): HTMLCanvasElement {
   for (let i = 0; i < p.length; i += 4) {
     const r = p[i], gg = p[i + 1], b = p[i + 2];
     const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dl = mx - mn;
-    if (mx < 80 || dl / (mx || 1) < 0.35) continue;
+    if (mx < 60 || dl / (mx || 1) < 0.18) continue;
     let h = 0;
     if (mx === r) h = ((gg - b) / dl) % 6; else if (mx === gg) h = (b - r) / dl + 2; else h = (r - gg) / dl + 4;
     h = (h * 60 + 360) % 360;
