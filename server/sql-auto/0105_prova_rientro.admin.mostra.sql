@@ -1,0 +1,1 @@
+select 'CRON', status, left(coalesce(return_message,''),120), start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname='fix-on-return') order by start_time desc limit 3;
