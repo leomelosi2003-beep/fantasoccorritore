@@ -12,9 +12,16 @@ const MAX_STORED = 150;
 let store: Record<string, LatLng[]> | null = null;
 function loadStore(): Record<string, LatLng[]> {
   if (store) return store;
-  try { localStorage.removeItem("fs-roads-v2"); localStorage.removeItem("fs-roads-v3"); } catch {} // vecchio archivio, troppo grande
+  try { localStorage.removeItem("fs-roads-v2"); } catch {} // vecchio archivio, troppo grande
   try { store = JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { store = {}; }
   return store!;
+}
+// archivio di prima (OSRM): si usa ancora per i tratti già scaricati, così le ambulanze non vanno in linea retta
+let oldStore: Record<string, LatLng[]> | null = null;
+function loadOld(): Record<string, LatLng[]> {
+  if (oldStore) return oldStore;
+  try { oldStore = JSON.parse(localStorage.getItem("fs-roads-v3") ?? "{}"); } catch { oldStore = {}; }
+  return oldStore!;
 }
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function saveStore(k: string, pts: LatLng[]) {
@@ -88,7 +95,7 @@ async function valhalla(a: { lat: number; lng: number }, b: { lat: number; lng: 
   const q = { locations: [loc(a), loc(b)], costing: "auto", directions_type: "none",
     costing_options: { auto: { use_tracks: 0, use_living_streets: 0, service_penalty: 300, service_factor: 5, use_highways: 1, use_ferry: 0 } } };
   const ctl = new AbortController();
-  const to = setTimeout(() => ctl.abort(), 9000);
+  const to = setTimeout(() => ctl.abort(), 5000);
   try {
     const r = await fetch(`https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(q))}`, { signal: ctl.signal });
     if (r.status === 429 || r.status >= 500) { valhallaOff = Date.now(); return null; }
@@ -111,7 +118,7 @@ function thin(all: LatLng[]): LatLng[] {
 async function download(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<LatLng[] | null> {
   // prima le strade principali; se il server non risponde per un po' si usa OSRM
   if (Date.now() - valhallaOff > 120_000) {
-    const v = (await valhalla(a, b, true)) ?? (Date.now() - valhallaOff > 120_000 ? await valhalla(a, b, false) : null);
+    const v = await valhalla(a, b, true);
     if (v && v.length > 1) return thin(v);
   }
   for (let tries = 0; tries < SERVERS.length; tries++) {
@@ -147,7 +154,7 @@ async function worker() {
     const pts = await download(job.a, job.b);
     if (pts) { mem.set(job.k, makeLeg(pts)); saveStore(job.k, pts); roadsArrived(); } else mem.set(job.k, Date.now());
     job.done.forEach((f) => f());
-    await new Promise((res) => setTimeout(res, 1000));   // il server gratuito chiede al massimo ~1 richiesta al secondo
+    await new Promise((res) => setTimeout(res, Date.now() - valhallaOff > 120_000 ? 700 : 300));   // il server gratuito chiede poche richieste al secondo
   }
   running = false;
 }
@@ -169,7 +176,7 @@ export function fetchLeg(a: { lat: number; lng: number }, b: { lat: number; lng:
   if (typeof cur === "number" && Date.now() - cur < RETRY_MS) return Promise.resolve();
   // tratti cortissimi (dentro l'ospedale): linea dritta
   if (meters([a.lat, a.lng], [b.lat, b.lng]) < 250) { mem.set(k, makeLeg([[a.lat, a.lng], [b.lat, b.lng]])); return Promise.resolve(); }
-  const stored = loadStore()[k];
+  const stored = loadStore()[k] ?? loadOld()[k];
   if (stored) { mem.set(k, makeLeg(stored)); return Promise.resolve(); }
   return new Promise((res) => {
     const j = jobs.get(k);
