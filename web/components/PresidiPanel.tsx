@@ -14,6 +14,8 @@ const SLOT_NAMES: Record<string, string> = {
   collari: "Collari", cucchiaio: "Barella a cucchiaio", ked: "KED", materasso: "Materasso a depressione",
   spinale: "Tavola spinale", spinale_ped: "Tavola spinale pediatrica", steccobende: "Steccobende",
   maxi_pma: "🆘 Modulo PMA", maxi_logistica: "🆘 Modulo logistica", maxi_cinofila: "🆘 Modulo ricerca/cinofila", maxi_droni: "🆘 Modulo droni", maxi_pompa: "🆘 Modulo pompa idrovora",
+  maxi_fluviale: "🆘 Modulo soccorso fluviale", maxi_taglio: "🆘 Modulo taglio", maxi_radio: "🆘 Modulo sala radio",
+  maxi_accoglienza: "🆘 Modulo accoglienza", maxi_cucina: "🆘 Modulo cucina da campo", maxi_nbcr: "🆘 Modulo NBCR",
 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 const CATS: [string, string][] = [["monitor", "❤️ Monitor e DAE"], ["barella", "🛏️ Barelle"], ["massaggiatore", "💪 Massaggiatori"],

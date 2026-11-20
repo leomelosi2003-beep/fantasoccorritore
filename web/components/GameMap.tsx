@@ -759,7 +759,9 @@ export default function GameMap() {
   }, []);
 
   useEffect(() => {
-    if (!org?.id || Date.now() - fuelAt.current < 60_000) return;
+    if (!org?.id) return;
+    const loadFuel = () => {
+    if (document.hidden || Date.now() - fuelAt.current < 20_000) return;
     fuelAt.current = Date.now();
     Promise.all([
       supabase.from("organizations").select("fuel_stock").eq("id", org.id).maybeSingle(),
@@ -783,6 +785,14 @@ export default function GameMap() {
         empty: list.filter((v) => Number(v.fuel_liters ?? 0) < 5).length,
       });
     });
+    };
+    fuelAt.current = 0;   // a ogni cambio (fleetKey) rileggo subito
+    loadFuel();
+    // la barra si aggiorna da sola: i mezzi consumano e l'automatico fa il pieno dalla cisterna
+    const t = setInterval(loadFuel, 60_000);
+    const onVis = () => { if (!document.hidden) loadFuel(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
   }, [org?.id, fleetKey]);
 
   // appena un'ambulanza arriva sul posto la corsa si chiude: ricarico subito per vedere chi l'ha persa

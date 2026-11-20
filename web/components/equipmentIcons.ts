@@ -139,3 +139,9 @@ export function equipmentIconSvg(code: string, size = 64): string {
     `<rect x="8" y="8" width="48" height="48" rx="10" fill="#9CA3AF"/><text x="32" y="40" text-anchor="middle" font-size="22" fill="#fff">?</text>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">${inner}</svg>`;
 }
+EQUIPMENT_ICONS.kit_fluviale = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#0369A1"/><text x="32" y="44" text-anchor="middle" font-size="32">🚤</text>`;
+EQUIPMENT_ICONS.kit_taglio = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#65A30D"/><text x="32" y="44" text-anchor="middle" font-size="32">🪚</text>`;
+EQUIPMENT_ICONS.radio_campo = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#4F46E5"/><text x="32" y="44" text-anchor="middle" font-size="32">📡</text>`;
+EQUIPMENT_ICONS.modulo_accoglienza = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#CA8A04"/><text x="32" y="44" text-anchor="middle" font-size="32">🏕️</text>`;
+EQUIPMENT_ICONS.cucina_campo = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#EA580C"/><text x="32" y="44" text-anchor="middle" font-size="32">🍲</text>`;
+EQUIPMENT_ICONS.modulo_nbcr = `<rect x="4" y="4" width="56" height="56" rx="14" fill="#15803D"/><text x="32" y="44" text-anchor="middle" font-size="32">☣️</text>`;

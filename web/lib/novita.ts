@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-20a", date: "20 novembre 2026", title: "🦺 Protezione civile: tutti i moduli",
+    items: ["Nei presidi, tra i moduli maxi, ci sono 6 moduli nuovi: 🚤 soccorso fluviale, 🪚 motoseghe e taglio, 📡 sala radio, 🏕️ tende e brandine, 🍲 cucina da campo, ☣️ NBCR.",
+            "Nuovi interventi: tromba d'aria, terremoto, nube tossica e nevicata. Anche quelli di prima accettano più moduli (basta averne uno).",
+            "⛽ Gasolio: la barra sulla mappa si aggiorna da sola, la cisterna conta solo le tue sedi e il pieno non versa più gasolio nei mezzi elettrici."],
+  },
+  {
     id: "2026-11-18i", date: "18 novembre 2026", title: "🔑 Cambia password dal gioco",
     items: ["Nel menu, in Impostazioni, c'è «🔑 Cambia password»: puoi sceglierne una nuova senza uscire dal gioco."],
   },

@@ -45,7 +45,9 @@ export function pcKindOf(title: string): string {
   const t = title.toLowerCase();
   if (t.includes("anziano")) return "pc-anziano";
   if (t.includes("escursionista") || t.includes("fungaiolo") || t.includes("disperso")) return "pc-bosco";
-  if (t.includes("macerie") || t.includes("crollo")) return "pc-macerie";
+  if (t.includes("macerie") || t.includes("crollo") || t.includes("terremoto") || t.includes("nube tossica")) return "pc-macerie";
+  if (t.includes("tromba")) return "pc-frana";
+  if (t.includes("nevicata")) return "pc-gelo";
   if (t.includes("allagat")) return "pc-allagamento";
   if (t.includes("argine")) return "pc-argine";
   if (t.includes("frana")) return "pc-frana";
@@ -329,7 +331,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const evSaid = new Set<number>();
     let pcFound = false;
     const particles: { p: V3; v: V3; life: number; max: number; kind: Fx["kind"] }[] = [];
-    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + (PC_TITLES[kind] ?? "Protezione civile") : EV ? "🎤 " + data.title : data.title, hi: "", at: performance.now() }];
+    const captions: { text: string; hi: string; at: number }[] = [{ text: FIRE ? FIRE_TITLES[sev] : PC ? "🦺 " + ((data.title || "").replace(/^.*?PROTEZIONE CIVILE:\s*/i, "").split(" — ")[0] || PC_TITLES[kind] || "Protezione civile") : EV ? "🎤 " + data.title : data.title, hi: "", at: performance.now() }];
     const seen = new Map<string, string>();
     const injured = 24 + (seed % 46);
 
@@ -741,7 +743,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         if (p >= 1 && isMaxiV) {
           // mezzi maxi: ogni modulo caricato ha la sua attività
           const mods = veh.modules ?? []; const r0 = rear(end, park, 4.5); const ph = (hash(veh.id) % 100) / 10;
-          label = mods.length ? mods.map((md) => ({ unita_logistica: "LOGISTICA", unita_cinofila: "CINOFILA", unita_droni: "DRONI", pma_tenda: "PMA", pompa_idrovora: "POMPA" } as Record<string, string>)[md] ?? "").filter(Boolean).join(" · ") : "SUL POSTO";
+          label = mods.length ? mods.map((md) => ({ unita_logistica: "LOGISTICA", unita_cinofila: "CINOFILA", unita_droni: "DRONI", pma_tenda: "PMA", pompa_idrovora: "POMPA", kit_fluviale: "FLUVIALE", kit_taglio: "TAGLIO", radio_campo: "RADIO", modulo_accoglienza: "TENDE", cucina_campo: "CUCINA", modulo_nbcr: "NBCR" } as Record<string, string>)[md] ?? "").filter(Boolean).join(" · ") : "SUL POSTO";
           doorsOpen = true;
           if (!mods.length) people.push({ p: [r0[0], 0, r0[2] + 1], pose: "stand", col: crewCol });
           if (mods.includes("unita_logistica")) {
@@ -1379,7 +1381,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         ctx.fillText(`FINE INTERVENTO TRA ${Math.floor(rem / 3600)}h ${String(Math.floor((rem % 3600) / 60)).padStart(2, "0")}m`, 14, 92);
       }
       if (modsOn.size) {
-        const nm: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ LOGISTICA", unita_cinofila: "🐕 CINOFILA", unita_droni: "🛸 DRONI", pompa_idrovora: "💧 POMPA" };
+        const nm: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ LOGISTICA", unita_cinofila: "🐕 CINOFILA", unita_droni: "🛸 DRONI", pompa_idrovora: "💧 POMPA", kit_fluviale: "🚤 FLUVIALE", kit_taglio: "🪚 TAGLIO", radio_campo: "📡 RADIO", modulo_accoglienza: "🏕️ TENDE", cucina_campo: "🍲 CUCINA", modulo_nbcr: "☣️ NBCR" };
         ctx.fillStyle = "#FDE68A"; ctx.font = "700 11px ui-monospace,monospace";
         ctx.fillText("MODULI: " + [...modsOn].map((x) => nm[x] ?? x).join(" · "), 14, 109);
       }

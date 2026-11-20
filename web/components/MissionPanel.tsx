@@ -39,8 +39,10 @@ const REQ: Record<string, string> = {
   collare: "collari", ked: "KED", cucchiaio: "barella a cucchiaio", steccobende: "steccobende", emergenza: "borsoni",
 };
 // moduli dei mezzi maxi (protezione civile e maxi emergenze)
-const MODULE: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ Logistica", unita_cinofila: "🐕 Cinofila", unita_droni: "🛸 Droni", pompa_idrovora: "💧 Pompa idrovora" };
-const NEED: Record<string, string> = { pma: "⛺ PMA", logistica: "⚡ logistica", cinofila: "🐕 cinofila", droni: "🛸 droni", pompa: "💧 pompa idrovora" };
+const MODULE: Record<string, string> = { pma_tenda: "⛺ PMA", unita_logistica: "⚡ Logistica", unita_cinofila: "🐕 Cinofila", unita_droni: "🛸 Droni", pompa_idrovora: "💧 Pompa idrovora",
+  kit_fluviale: "🚤 Fluviale", kit_taglio: "🪚 Taglio", radio_campo: "📡 Radio", modulo_accoglienza: "🏕️ Tende", cucina_campo: "🍲 Cucina", modulo_nbcr: "☣️ NBCR" };
+const NEED: Record<string, string> = { pma: "⛺ PMA", logistica: "⚡ logistica", cinofila: "🐕 cinofila", droni: "🛸 droni", pompa: "💧 pompa idrovora",
+  fluviale: "🚤 soccorso fluviale", taglio: "🪚 attrezzi da taglio", radio: "📡 sala radio", accoglienza: "🏕️ tende e brandine", cucina: "🍲 cucina da campo", nbcr: "☣️ modulo NBCR" };
 const CODE: Record<string, { label: string; color: string }> = {
   nessuno: { label: "Ordinario", color: "#3B82F6" }, verde: { label: "Codice verde", color: "#16A34A" },
   giallo: { label: "Codice giallo", color: "#CA8A04" }, rosso: { label: "Codice rosso", color: "#DC2626" },

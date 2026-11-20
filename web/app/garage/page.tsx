@@ -17,7 +17,7 @@ type Builder = { id: string; name: string; cost: number; value_score: number; re
   durability: number; certification: Cert; bonus: Record<string, number>; logo_url: string | null; description: string | null };
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   effects: { reward_mult?: number; on?: string; fatigue_mult?: number }; description: string | null; image_url: string | null; sort: number; starter: boolean };
-type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean };
+type Base = { id: string; name: string; vehicle_capacity: number; is_headquarters: boolean; org_id?: string };
 type Vehicle = { id: string; call_sign: string; base_id: string; model_id: string; builder_id: string;
   certification: Cert; reliability: number; durability: number; value_score: number; wear: number;
   status: "disponibile" | "in_servizio" | "manutenzione" | "fuori_servizio"; maintenance_until: string | null; equipment: string[];
@@ -379,11 +379,17 @@ export default function Garage() {
     load();
   }
 
+  // capienza della cisterna: 1.000 L per ogni sede MIA (come sul server; le sedi del gemello non contano)
+  function fuelCap() {
+    return 1000 * Math.max(1, bases.filter((b) => !b.org_id || b.org_id === org?.id).length);
+  }
+
   // Benzinaio: compra gasolio per la cisterna dell'associazione
   async function buyFuel() {
-    if (!liters || liters < 1) return;
+    const qty = Math.min(Math.floor(liters || 0), Math.floor(fuelCap() - fuelStock));
+    if (qty < 1) return;
     setMsg(null);
-    const { data, error } = await supabase.rpc("buy_fuel", { p_liters: Math.floor(liters) });
+    const { data, error } = await supabase.rpc("buy_fuel", { p_liters: qty });
     if (error) { setMsg({ ok: false, text: garageError(error.message) }); return; }
     const r = data as { liters: number; cost: number };
     setMsg({ ok: true, text: `⛽ Comprati ${litri(r.liters)} di gasolio per ${euro(r.cost)}.` });
@@ -777,7 +783,7 @@ export default function Garage() {
 
         {/* Benzinaio */}
         {(() => {
-          const cap = 1000 * Math.max(1, bases.length);
+          const cap = fuelCap();
           const price = fuelPrice?.price_eur ?? 0;
           const room = Math.max(0, Math.floor(cap - fuelStock));
           const qtyL = Math.min(Math.max(0, Math.floor(liters || 0)), room);
