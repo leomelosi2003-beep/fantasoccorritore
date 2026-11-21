@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import { loadVehicleLiveries } from "@/lib/liveries";
-import { type Item, type Kind, type Design, uid, SHAPES, STICKERS, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
+import { type Item, type Kind, type Design, uid, SHAPES, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
 
 type Model = { id: string; name: string; image_url: string | null };
 type Livery = { id: string; model_id: string; name: string; design: Design; image_url: string | null; base_ids: string[] | null; vehicle_ids: string[] | null; updated_at: string };
@@ -63,6 +63,7 @@ export default function LiveryEditor() {
   const space = useRef(false);
   const [blank, setBlank] = useState<HTMLCanvasElement | null>(null);
   const [paint, setPaint] = useState<HTMLCanvasElement | null>(null);
+  const [glass, setGlass] = useState<HTMLCanvasElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tick, setTick] = useState(0);
@@ -140,7 +141,7 @@ export default function LiveryEditor() {
   useEffect(() => {
     if (!model?.image_url) return;
     let ok = true;
-    loadImg(model.image_url).then((img) => { if (ok) { setPaint(paintMaskOf(img)); setBlank(blankOf(img)); } }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
+    loadImg(model.image_url).then((img) => { if (ok) { setPaint(paintMaskOf(img)); setGlass(glassMaskOf(img)); setBlank(blankOf(img)); } }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
     return () => { ok = false; };
   }, [model?.image_url]);
 
@@ -154,8 +155,8 @@ export default function LiveryEditor() {
     const c = canvasRef.current; if (!c || !blank) return;
     c.width = W; c.height = H;
     const g = c.getContext("2d")!; g.clearRect(0, 0, W, H);
-    g.drawImage(compose(blank, items, paint), 0, 0);
-  }, [blank, paint, items, tick, W, H]);
+    g.drawImage(compose(blank, items, paint, glass), 0, 0);
+  }, [blank, paint, glass, items, tick, W, H]);
 
   // ---------- logo dell'alleanza: obbligatorio ----------
   const allyItem = useCallback((): Item | null => {
@@ -199,7 +200,7 @@ export default function LiveryEditor() {
   }
 
   // ---------- nuove forme ----------
-  function add(t: Kind) {
+  function add(t: Kind, onGlass = false) {
     const base: Item = { id: uid(), t, x: W * 0.4, y: H * 0.35, w: H * 0.25, h: H * 0.25, r: 0, fill: "#F97316", stroke: "#111827", sw: 0, op: 1 };
     const it: Item =
       t === "rect" ? { ...base, x: W * 0.05, y: H * 0.5, w: W * 0.9, h: H * 0.07 } :
@@ -211,7 +212,8 @@ export default function LiveryEditor() {
       t === "swoosh" ? { ...base, x: W * 0.15, y: H * 0.3, w: W * 0.7, h: H * 0.35, fill: "#F97316", g2: "#FACC15", gdir: "h" } :
       t === "chevron" || t === "arrow" ? { ...base, w: H * 0.3, h: H * 0.22, fill: "#FACC15" } :
       t === "text" ? { ...base, x: W * 0.3, y: H * 0.42, w: W * 0.4, h: H * 0.09, fill: "#1D4ED8", text: "AMBULANZA", bold: true } : base;
-    commit([...items, it]); setSelId(it.id); setMode("select"); setShapesOpen(false); setSide("props");
+    const fin = onGlass ? { ...it, glass: true, x: W * 0.3, y: H * 0.22, w: Math.min(it.w, H * 0.2), h: Math.min(it.h, H * 0.2), g2: undefined } : it;
+    commit([...items, fin]); setSelId(fin.id); setMode("select"); setShapesOpen(false); setSide("props");
   }
   function addSticker(k: string) {
     const st = STICKERS.find((x) => x.stk === k); if (!st) return;
@@ -346,7 +348,7 @@ export default function LiveryEditor() {
     const finalItems = withAlly(items);
     setBusy(true); setMsg(null);
     try {
-      const big = compose(blank, finalItems, paint);
+      const big = compose(blank, finalItems, paint, glass);
       const small = document.createElement("canvas"); small.width = 160; small.height = Math.round((H * 160) / W);
       const sg = small.getContext("2d")!; sg.imageSmoothingQuality = "high"; sg.drawImage(big, 0, 0, small.width, small.height);
       const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("immagine non creata"))), "image/png"));
@@ -441,7 +443,7 @@ export default function LiveryEditor() {
           style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
       </div>}
       {!selected.ally && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, marginBottom: 8, background: selected.glass ? "#E0F2FE" : "transparent", borderRadius: 8, padding: "4px 6px" }}>
-        <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo: sopra tutto, anche sui vetri
+        <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo sui vetri (non va sulla carrozzeria)
       </label>}
       {selected.t === "text" && !selected.ally && <div style={{ marginBottom: 8 }}><span style={lbl}>Testo</span>
         <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 40) })} style={{ ...sel, boxSizing: "border-box" }} />
@@ -590,7 +592,10 @@ export default function LiveryEditor() {
             {stkOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 84px)", gap: 6, zIndex: 20 }}>
               {STICKERS.map((s2) => <button key={s2.stk} onClick={() => addSticker(s2.stk)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
                 <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s2.icon}</span>{s2.name}</button>)}
-              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#64748B" }}>Gli adesivi si possono mettere anche sui vetri.</div>
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, fontWeight: 800, color: "#475569", marginTop: 4 }}>Forme come adesivo</div>
+              {SHAPES.filter((s2) => !["line", "checker"].includes(s2.t)).map((s2) => <button key={"g" + s2.t} onClick={() => { add(s2.t, true); setStkOpen(false); }} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 2px", fontSize: 11 }}>
+                <span style={{ fontSize: 17, lineHeight: 1.1 }}>{s2.icon}</span>{s2.name}</button>)}
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#64748B" }}>Gli adesivi stanno solo sui vetri.</div>
             </div>}
           </div>
           <button style={tool()} disabled={busy} onClick={() => fileRef.current?.click()}>🖼️ Foto</button>

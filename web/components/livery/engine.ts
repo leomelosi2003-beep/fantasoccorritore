@@ -32,7 +32,7 @@ export const STICKERS: { stk: string; icon: string; name: string; w: number; h: 
   { stk: "ecg", icon: "💓", name: "Cuore e battito", w: 1.2, h: 1, fill: "#DC2626", c2: "#FFFFFF" },
   { stk: "dae", icon: "⚡", name: "DAE a bordo", w: 1, h: 1, fill: "#16A34A", c2: "#FFFFFF" },
   { stk: "label", icon: "🏷️", name: "Etichetta", w: 3.2, h: 0.8, fill: "#F97316", c2: "#FFFFFF", text: "VOLONTARI DEL SOCCORSO" },
-  { stk: "glasstext", icon: "🪟", name: "Scritta sul vetro", w: 3.2, h: 0.7, fill: "#FFFFFF", c2: "#FFFFFF", text: "AMBULANZA" },
+  { stk: "glasstext", icon: "🪟", name: "Scritta", w: 3.2, h: 0.7, fill: "#FFFFFF", c2: "#FFFFFF", text: "AMBULANZA" },
   { stk: "dots", icon: "⬤", name: "Pallini riflettenti", w: 3, h: 0.5, fill: "#FACC15", c2: "#FACC15" },
 ];
 export const FILLABLE: Kind[] = ["rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh"];
@@ -159,6 +159,50 @@ export function paintMaskOf(img: HTMLImageElement): HTMLCanvasElement {
 }
 
 
+// ---------- vetri: dove si possono attaccare gli adesivi ----------
+/** zone scure e grandi nella parte alta del mezzo (finestrini e parabrezza). Se non ne trova (barche, pick-up), null. */
+export function glassMaskOf(img: HTMLImageElement): HTMLCanvasElement | null {
+  const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
+  const W = c.width, H = c.height, N = W * H, p = g.getImageData(0, 0, W, H).data;
+  const m = new Uint8Array(N);
+  for (let k = 0, i = 0; k < N; k++, i += 4) {
+    const M = Math.max(p[i], p[i + 1], p[i + 2]), mn = Math.min(p[i], p[i + 1], p[i + 2]);
+    m[k] = p[i + 3] > 200 && M < 150 && (M ? (M - mn) / M : 0) < 0.45 && k / W < 0.66 * H ? 1 : 0;
+  }
+  // componenti connesse: tengo quelle grandi, larghe, abbastanza piene e tutte nella parte alta
+  const lab = new Int32Array(N); const keep: boolean[] = [false]; const st: number[] = [];
+  for (let k = 0; k < N; k++) {
+    if (!m[k] || lab[k]) continue;
+    const id = keep.length; let n = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
+    lab[k] = id; st.push(k);
+    while (st.length) {
+      const q = st.pop()!; const x = q % W, y = (q / W) | 0; n++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      const nb = [x > 0 ? q - 1 : -1, x < W - 1 ? q + 1 : -1, y > 0 ? q - W : -1, y < H - 1 ? q + W : -1];
+      for (const t of nb) if (t >= 0 && m[t] && !lab[t]) { lab[t] = id; st.push(t); }
+    }
+    const ww = x1 - x0 + 1, hh = y1 - y0 + 1;
+    keep.push(n >= 0.004 * N && y1 < 0.66 * H && ww >= 0.04 * W && n / (ww * hh) > 0.45);
+  }
+  const win = new Uint8Array(N); let area = 0;
+  for (let k = 0; k < N; k++) if (lab[k] && keep[lab[k]]) { win[k] = 1; area++; }
+  if (area < 0.01 * N) return null;
+  // riempio i buchi (riflessi chiari dentro i vetri): ciò che non si raggiunge dal bordo senza passare dai vetri
+  const out = new Uint8Array(N);
+  for (let x = 0; x < W; x++) for (const y of [0, H - 1]) { const k = y * W + x; if (!win[k] && !out[k]) { out[k] = 1; st.push(k); } }
+  for (let y = 0; y < H; y++) for (const x of [0, W - 1]) { const k = y * W + x; if (!win[k] && !out[k]) { out[k] = 1; st.push(k); } }
+  while (st.length) {
+    const q = st.pop()!; const x = q % W, y = (q / W) | 0;
+    const nb = [x > 0 ? q - 1 : -1, x < W - 1 ? q + 1 : -1, y > 0 ? q - W : -1, y < H - 1 ? q + W : -1];
+    for (const t of nb) if (t >= 0 && !win[t] && !out[t]) { out[t] = 1; st.push(t); }
+  }
+  const im = g.createImageData(W, H);
+  for (let k = 0; k < N; k++) if (!out[k]) im.data[k * 4 + 3] = 255;
+  g.putImageData(im, 0, 0);
+  return c;
+}
+
 // ---------- adesivi ----------
 function drawSticker(g: CanvasRenderingContext2D, it: Item, w: number, h: number) {
   const bg = it.fill, fg = it.c2 ?? "#FFFFFF", W2 = w / 2, H2 = h / 2, r = Math.min(w, h) * 0.18;
@@ -282,7 +326,7 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
   }
 }
 /** livrea finale: le forme stanno solo sulla carrozzeria, e vetri/ruote/ombre restano visibili sopra (moltiplica) */
-export function compose(blank: HTMLCanvasElement, items: Item[], paint?: HTMLCanvasElement | null): HTMLCanvasElement {
+export function compose(blank: HTMLCanvasElement, items: Item[], paint?: HTMLCanvasElement | null, glass?: HTMLCanvasElement | null): HTMLCanvasElement {
   const W = blank.width, H = blank.height;
   const d = document.createElement("canvas"); d.width = W; d.height = H;
   const dg = d.getContext("2d")!; drawItems(dg, items.filter((i) => !i.glass));
@@ -292,12 +336,12 @@ export function compose(blank: HTMLCanvasElement, items: Item[], paint?: HTMLCan
   og.drawImage(blank, 0, 0);
   og.globalCompositeOperation = "multiply"; og.drawImage(d, 0, 0);
   og.globalCompositeOperation = "destination-in"; og.drawImage(blank, 0, 0);
-  // adesivi: sopra tutto (anche vetri), solo dentro la sagoma del mezzo
+  // adesivi: solo sui vetri (se il mezzo non ha vetri riconoscibili, su tutta la sagoma)
   const top = items.filter((i) => i.glass);
   if (top.length) {
     const t = document.createElement("canvas"); t.width = W; t.height = H;
     const tg = t.getContext("2d")!; drawItems(tg, top);
-    tg.globalCompositeOperation = "destination-in"; tg.drawImage(blank, 0, 0);
+    tg.globalCompositeOperation = "destination-in"; tg.drawImage(glass ?? blank, 0, 0);
     og.globalCompositeOperation = "source-over"; og.drawImage(t, 0, 0);
   }
   return o;
