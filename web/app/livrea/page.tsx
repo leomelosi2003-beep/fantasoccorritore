@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import { loadVehicleLiveries } from "@/lib/liveries";
-import { type Item, type Kind, type Design, uid, SHAPES, PATTERNS, PATTERN_KINDS, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
+import { type Item, type Kind, type Design, uid, SHAPES, PATTERNS, PATTERN_KINDS, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox, drawItems } from "@/components/livery/engine";
 
 type Model = { id: string; name: string; image_url: string | null };
 type Livery = { id: string; model_id: string; name: string; design: Design; image_url: string | null; base_ids: string[] | null; vehicle_ids: string[] | null; updated_at: string };
@@ -69,6 +69,9 @@ export default function LiveryEditor() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tick, setTick] = useState(0);
+  const [ghost, setGhost] = useState(true);                      // parti nascoste (vetri, ruote) in trasparenza
+  const [draft, setDraft] = useState<{ items: Item[]; name: string; curId: string | null; t: number } | null>(null);
+  const dirty = useRef(false);
   const [wide, setWide] = useState(true);
   const undo = useRef<Item[][]>([]); const redo = useRef<Item[][]>([]);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -159,7 +162,41 @@ export default function LiveryEditor() {
     c.width = W; c.height = H;
     const g = c.getContext("2d")!; g.clearRect(0, 0, W, H);
     g.drawImage(compose(blank, items, paint, glass), 0, 0);
-  }, [blank, paint, glass, items, tick, W, H]);
+    // parti che non si vedranno (fuori carrozzeria o fuori dai vetri): in trasparenza, così si capisce dov'è la forma
+    if (ghost) for (const [list, mask] of [[items.filter((i) => !i.glass), paint ?? blank], [items.filter((i) => i.glass), glass ?? blank]] as const) {
+      if (!list.length) continue;
+      const t = document.createElement("canvas"); t.width = W; t.height = H;
+      const tg = t.getContext("2d")!; drawItems(tg, list as Item[]);
+      tg.globalCompositeOperation = "destination-out"; tg.drawImage(mask, 0, 0);
+      g.save(); g.globalAlpha = 0.3; g.drawImage(t, 0, 0); g.restore();
+    }
+  }, [blank, paint, glass, items, tick, W, H, ghost]);
+
+  // ---------- quanta parte di una forma finisce dove si vede ----------
+  const maskData = useMemo(() => {
+    const read = (c: HTMLCanvasElement | null) => c ? c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data : null;
+    return { paint: read(paint), glass: read(glass) };
+  }, [paint, glass]);
+  const coverage = useCallback((x: number, y: number, w: number, h: number, onGlass: boolean) => {
+    const d = onGlass ? maskData.glass : maskData.paint; if (!d) return 1;
+    let ok = 0, n = 0;
+    for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) {
+      const px = Math.round(x + (w * (i + 0.5)) / 7), py = Math.round(y + (h * (j + 0.5)) / 7);
+      n++; if (px >= 0 && py >= 0 && px < W && py < H && d[(py * W + px) * 4 + 3] > 0) ok++;
+    }
+    return ok / n;
+  }, [maskData, W, H]);
+  /** posto migliore vicino a (x,y) dove la forma si vede tutta */
+  const bestSpot = useCallback((x: number, y: number, w: number, h: number, onGlass: boolean) => {
+    if (coverage(x, y, w, h, onGlass) > 0.9) return { x, y };
+    let best = { x, y, s: -1 };
+    for (let i = 0; i <= 16; i++) for (let j = 0; j <= 12; j++) {
+      const cx = ((W - w) * i) / 16, cy = ((H - h) * j) / 12;
+      const s = coverage(cx, cy, w, h, onGlass) - (Math.hypot(cx - x, cy - y) / W) * 0.25;
+      if (s > best.s) best = { x: cx, y: cy, s };
+    }
+    return { x: best.x, y: best.y };
+  }, [coverage, W, H]);
 
   // ---------- logo dell'alleanza: obbligatorio ----------
   const allyItem = useCallback((): Item | null => {
@@ -176,10 +213,10 @@ export default function LiveryEditor() {
   // ---------- modifiche con annulla ----------
   const commit = useCallback((next: Item[]) => {
     undo.current.push(items); if (undo.current.length > 80) undo.current.shift();
-    redo.current = []; setItems(withAlly(next));
+    redo.current = []; setItems(withAlly(next)); dirty.current = true;
   }, [items, withAlly]);
   const patch = (id: string, p: Partial<Item>) => commit(items.map((it) => (it.id === id ? { ...it, ...p } : it)));
-  const live = (id: string, p: Partial<Item>) => setItems((l) => l.map((it) => (it.id === id ? { ...it, ...p } : it)));   // durante gli slider
+  const live = (id: string, p: Partial<Item>) => { dirty.current = true; setItems((l) => l.map((it) => (it.id === id ? { ...it, ...p } : it))); };   // durante gli slider
 
   function scaleItems(list: Item[], sx: number, sy: number): Item[] {
     return list.map((i) => ({ ...i, id: uid(), x: i.x * sx, y: i.y * sy, w: i.w * sx, h: i.h * sy, sw: i.sw * Math.min(sx, sy),
@@ -195,6 +232,31 @@ export default function LiveryEditor() {
   }
   // all'apertura (e quando arriva l'alleanza) il logo c'è sempre
   useEffect(() => { setItems((l) => withAlly(l)); }, [withAlly]);
+
+  // ---------- bozza automatica (se si chiude la pagina o cade la linea non si perde il lavoro) ----------
+  const draftKey = `fs_liv_draft_${modelId}`;
+  useEffect(() => {
+    if (!modelId) return;
+    try { const d = JSON.parse(localStorage.getItem(draftKey) ?? "null"); setDraft(d && d.items?.some((i: Item) => !i.ally) ? d : null); } catch { setDraft(null); }
+    dirty.current = false;
+  }, [modelId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!modelId || !dirty.current) return;
+    const t = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify({ items, name, curId: cur?.id ?? null, t: Date.now() })); } catch { /* spazio pieno */ } }, 700);
+    return () => clearTimeout(t);
+  }, [items, name, modelId, cur?.id, draftKey]);
+  useEffect(() => {
+    const f = (e: BeforeUnloadEvent) => { if (dirty.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", f); return () => window.removeEventListener("beforeunload", f);
+  }, []);
+  function resumeDraft() {
+    if (!draft) return;
+    const c = lvs.find((l) => l.id === draft.curId) ?? null;
+    setCur(c); setName(draft.name); setItems(withAlly(draft.items)); undo.current = []; redo.current = []; setSelId(null);
+    setDraft(null); dirty.current = true;
+    setMsg({ ok: true, text: "Bozza ripresa. Ricordati di premere Salva." });
+  }
+  function dropDraft() { try { localStorage.removeItem(draftKey); } catch { /* */ } setDraft(null); }
 
   function copyFrom(id: string) {
     const l = lvs.find((x) => x.id === id); if (!l) return;
@@ -216,13 +278,16 @@ export default function LiveryEditor() {
       t === "swoosh" ? { ...base, x: W * 0.15, y: H * 0.3, w: W * 0.7, h: H * 0.35, fill: "#F97316", g2: "#FACC15", gdir: "h" } :
       t === "chevron" || t === "arrow" ? { ...base, w: H * 0.3, h: H * 0.22, fill: "#FACC15" } :
       t === "text" ? { ...base, x: W * 0.3, y: H * 0.42, w: W * 0.4, h: H * 0.09, fill: "#1D4ED8", text: "AMBULANZA", bold: true } : base;
-    const fin = onGlass ? { ...it, glass: true, x: W * 0.3, y: H * 0.22, w: Math.min(it.w, H * 0.2), h: Math.min(it.h, H * 0.2), g2: undefined } : it;
+    const fin0 = onGlass ? { ...it, glass: true, x: W * 0.3, y: H * 0.22, w: Math.min(it.w, H * 0.2), h: Math.min(it.h, H * 0.2), g2: undefined } : it;
+    const sp = t === "line" ? { x: fin0.x, y: fin0.y } : bestSpot(fin0.x, fin0.y, Math.abs(fin0.w), Math.abs(fin0.h), onGlass);
+    const fin = { ...fin0, x: sp.x, y: sp.y };
     commit([...items, fin]); setSelId(fin.id); setMode("select"); setShapesOpen(false); setSide("props");
   }
   function addSticker(k: string) {
     const st = STICKERS.find((x) => x.stk === k); if (!st) return;
     const h = H * 0.13;
-    const it: Item = { id: uid(), t: "sticker", stk: st.stk, x: W * 0.3, y: H * 0.22, w: h * st.w, h: h * st.h, r: 0, fill: st.fill, c2: st.c2, stroke: "#000", sw: 0, op: st.stk === "glasstext" ? 0.85 : 1, text: st.text, glass: true };
+    const sp = bestSpot(W * 0.3, H * 0.22, h * st.w, h * st.h, true);
+    const it: Item = { id: uid(), t: "sticker", stk: st.stk, x: sp.x, y: sp.y, w: h * st.w, h: h * st.h, r: 0, fill: st.fill, c2: st.c2, stroke: "#000", sw: 0, op: st.stk === "glasstext" ? 0.85 : 1, text: st.text, glass: true };
     commit([...items, it]); setSelId(it.id); setMode("select"); setStkOpen(false); setSide("props");
   }
   async function addPhoto(file: File) {
@@ -411,6 +476,7 @@ export default function LiveryEditor() {
       if (cur?.image_url) removeFiles(cur.image_url);
       const who = target === "all" ? `tutti i tuoi ${model.name}` : target === "bases" ? `i ${model.name} delle sedi scelte` : `${pickV.length} ${pickV.length === 1 ? "mezzo scelto" : "mezzi scelti"}`;
       setMsg({ ok: true, text: `✅ Livrea salvata: ora la usano ${who}.` });
+      dirty.current = false; try { localStorage.removeItem(draftKey); } catch { /* */ }
       await load(); loadVehicleLiveries(true);
       setCur({ id: String(data), model_id: model.id, name, design, image_url: url, base_ids: target === "bases" ? pickB : null, vehicle_ids: target === "vehicles" ? pickV : null, updated_at: "" });
     } catch (e) { setMsg({ ok: false, text: errText(String((e as Error).message ?? e)) }); }
@@ -629,6 +695,11 @@ export default function LiveryEditor() {
         </div>
 
         <div style={{ fontWeight: 800, color: "#13294B", margin: "8px 2px 6px" }}>2️⃣ Disegna</div>
+        {draft && <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1E3A8A", borderRadius: 12, padding: "8px 12px", marginBottom: 8, fontSize: 13.5 }}>
+          <span style={{ flex: 1, minWidth: 180 }}>📝 Hai una bozza non salvata di «{draft.name}» ({new Date(draft.t).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}).</span>
+          <button style={{ ...tool(true), padding: "4px 10px" }} onClick={resumeDraft}>Riprendi</button>
+          <button style={{ ...tool(), padding: "4px 10px" }} onClick={dropDraft}>Scarta</button>
+        </div>}
         {/* barra strumenti */}
         <div style={{ ...box, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", position: "sticky", top: 0, zIndex: 6, padding: 8 }}>
           <button style={tool(mode === "select")} onClick={() => setMode("select")} title="Sposta e scegli">👆 Sposta</button>
@@ -799,7 +870,16 @@ export default function LiveryEditor() {
               <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 4, background: "rgba(255,255,255,.9)", borderRadius: 8, padding: 3 }}>
                 {([["chess", "▦"], ["light", "☀️"], ["dark", "🌙"]] as const).map(([k, ic]) => (
                   <button key={k} onClick={() => setBg(k)} title="Sfondo" style={{ ...tool(bg === k), padding: "2px 7px", fontSize: 12 }}>{ic}</button>))}
+                <button onClick={() => setGhost(!ghost)} title="Mostra in trasparenza le parti che non si vedranno (vetri, ruote, fanali)" style={{ ...tool(ghost), padding: "2px 7px", fontSize: 12 }}>👻</button>
               </div>
+              {selected && !["line", "path"].includes(selected.t) && (() => {
+                const b = bbox(selected); const cv = coverage(b.x, b.y, b.w, b.h, !!selected.glass);
+                if (cv > 0.5) return null;
+                return <div style={{ position: "absolute", left: "50%", top: 8, transform: "translateX(-50%)", background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", borderRadius: 10, padding: "5px 10px", fontSize: 12.5, fontWeight: 600, display: "flex", gap: 8, alignItems: "center", zIndex: 5, maxWidth: "92%" }}>
+                  <span>⚠️ {cv < 0.05 ? "Non si vede" : "Si vede poco"}: {selected.glass ? "gli adesivi stanno solo sui vetri" : "qui ci sono vetri, ruote o fanali"}.</span>
+                  <button style={{ ...tool(), padding: "2px 8px", fontSize: 12 }} onClick={() => { const sp = bestSpot(b.x, b.y, b.w, b.h, !!selected.glass); patch(selected.id, { x: selected.x + sp.x - b.x, y: selected.y + sp.y - b.y }); }}>📍 Spostala</button>
+                </div>;
+              })()}
               {view.z === 1 && <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 11.5, color: "#475569", background: "rgba(255,255,255,.85)", borderRadius: 6, padding: "2px 7px" }}>
                 {wide ? "🖱️ Rotellina = zoom · Spazio + trascina = sposta" : "🤏 Due dita = zoom e sposta"}
               </div>}

@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21m", date: "21 novembre 2026", title: "🖌️ Editor livree più affidabile",
+    items: ["Le forme e gli adesivi nuovi compaiono subito in un punto dove si vedono (prima a volte finivano sui vetri e sembravano spariti).",
+            "Le parti che non si vedranno (vetri, ruote, fanali) restano in trasparenza: con 👻 le nascondi. Se una forma si vede poco esce un avviso con «📍 Spostala».",
+            "Il lavoro si salva da solo come bozza: se chiudi la pagina o cade la linea, alla prossima apertura premi «Riprendi»."],
+  },
+  {
     id: "2026-11-21l", date: "21 novembre 2026", title: "👆 Zoom col pollice più preciso",
     items: ["La fascia per lo zoom con una mano ora è più stretta e attaccata al bordo: non parte più per sbaglio quando tocchi la mappa."],
   },
