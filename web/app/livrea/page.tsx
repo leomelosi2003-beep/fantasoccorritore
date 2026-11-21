@@ -77,13 +77,14 @@ export default function LiveryEditor() {
 
   const W = blank?.width ?? 900, H = blank?.height ?? 400;
   const model = models.find((m) => m.id === modelId) ?? null;
-  const fit = Math.min(vp.w / W, vp.h / H);                      // a zoom 1 il mezzo entra tutto
+  const MARGIN = wide ? 90 : 56;                                 // spazio intorno al mezzo per maniglie e frecce
+  const fit = Math.max(0.05, Math.min((vp.w - 2 * MARGIN) / W, (vp.h - 2 * MARGIN) / H));   // a zoom 1 il mezzo entra tutto, con margine
   const fitView = useCallback(() => setView({ z: 1, x: (vp.w - W * fit) / 2, y: (vp.h - H * fit) / 2 }), [vp.w, vp.h, W, H, fit]);
   useEffect(() => { fitView(); }, [fitView]);
   useEffect(() => {
     const f = () => {
       const w = vpRef.current?.clientWidth ?? 800;
-      const h = full ? window.innerHeight - 70 : Math.min(window.innerHeight * 0.66, Math.max(240, (w * H) / W + 24));
+      const h = full ? window.innerHeight - 70 : Math.max(380, Math.min(window.innerHeight * 0.8, (w * H) / W + 200));   // tavolo di lavoro grande
       setVp({ w, h });
     };
     f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
@@ -596,7 +597,7 @@ export default function LiveryEditor() {
 
   return (
     <main style={shell}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: 10 }}>
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: 10 }}>
         {/* intestazione */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
           <a href="/" style={{ color: "#64748B", textDecoration: "none", fontSize: 14 }}>← Mappa</a>
@@ -671,7 +672,7 @@ export default function LiveryEditor() {
           </div>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: wide ? "minmax(0, 1fr) 320px" : "1fr", gap: 10, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: wide ? "minmax(0, 1fr) 290px" : "1fr", gap: 10, alignItems: "start" }}>
           {/* tela: rotellina o due dita per lo zoom, ✋/Spazio/due dita per spostare la vista */}
           <div style={full ? { position: "fixed", inset: 0, zIndex: 60, background: "#0F172A", padding: 0 } : { ...box, padding: 0, overflow: "hidden" }}>
             {full && <div style={{ display: "flex", gap: 6, padding: 8, alignItems: "center", flexWrap: "wrap", background: "#13294B" }}>
