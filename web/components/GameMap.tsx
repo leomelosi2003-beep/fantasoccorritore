@@ -338,6 +338,12 @@ async function loadDotColors() {
   for (const r of (data ?? []) as { org_id: string; fill: string | null; border: string | null }[]) m[r.org_id] = { fill: r.fill, border: r.border };
   dotColors = m;
 }
+// servizio visto da lontano: triangolino all'ingiù del colore del codice (bordo scuro se ci va un mio mezzo)
+function triIcon(color: string, mine: boolean) {
+  const w = mine ? 15 : 11, h = Math.round(w * 0.9);
+  return memoIcon(`tri|${color}|${mine}`, () => L.divIcon({ className: "", iconSize: [w, h], iconAnchor: [w / 2, h / 2],
+    html: `<svg width="${w}" height="${h}" viewBox="0 0 20 18" style="display:block;overflow:visible;filter:drop-shadow(0 0 1px rgba(0,0,0,.6))"><path d="M1.5 1.5 L18.5 1.5 L10 16.5 Z" fill="${color}" stroke="${mine ? "#111" : "#fff"}" stroke-width="${mine ? 3 : 2}" stroke-linejoin="round"/></svg>` }));
+}
 // sede vista da lontano: quadratino coi colori dei pallini dell'associazione
 function squareIcon(fill: string, border: string, d: number) {
   return memoIcon(`sq|${fill}|${border}|${d}`, () => L.divIcon({ className: "", iconSize: [d, d], iconAnchor: [d / 2, d / 2],
@@ -1848,9 +1854,9 @@ export default function GameMap() {
           );
         })}
 
-        {far && missions.filter((m) => m.category !== "grande_evento" && showMission(m)).map((m) => (
-          <CircleMarker key={`md-${m.id}`} center={[m.lat, m.lng]} radius={(m.my_vehicles ?? 0) > 0 ? 6 : 4.5} eventHandlers={{ click: () => zoomTo(m.lat, m.lng) }}
-                        pathOptions={{ color: (m.my_vehicles ?? 0) > 0 ? "#111" : "#fff", weight: (m.my_vehicles ?? 0) > 0 ? 2 : 1, fillColor: CODE_COLOR[m.code], fillOpacity: 0.95 }} />
+        {/* servizi da lontano: triangolini all'ingiù (così non si confondono coi pallini delle ambulanze) */}
+        {far && missions.filter((m) => m.category !== "grande_evento" && showMission(m) && inView(m.lat, m.lng)).map((m) => (
+          <Marker key={`md-${m.id}`} position={[m.lat, m.lng]} icon={triIcon(CODE_COLOR[m.code], (m.my_vehicles ?? 0) > 0)} eventHandlers={{ click: () => zoomTo(m.lat, m.lng) }} />
         ))}
         {useMemo(() => !far && missions.filter((m) => m.category !== "grande_evento" && showMission(m) && inView(m.lat, m.lng)).map((m) => (
           <Marker key={m.id} position={[m.lat, m.lng]} icon={missionIcon(m, (m.my_vehicles ?? 0) > 0)}
