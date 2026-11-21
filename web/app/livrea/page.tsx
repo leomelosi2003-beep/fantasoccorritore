@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import { loadVehicleLiveries } from "@/lib/liveries";
-import { type Item, type Kind, type Design, uid, SHAPES, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
+import { type Item, type Kind, type Design, uid, SHAPES, STICKERS, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
 
 type Model = { id: string; name: string; image_url: string | null };
 type Livery = { id: string; model_id: string; name: string; design: Design; image_url: string | null; base_ids: string[] | null; vehicle_ids: string[] | null; updated_at: string };
@@ -49,6 +49,8 @@ export default function LiveryEditor() {
   const [mode, setMode] = useState<"select" | "brush" | "pick" | "pan">("select");
   const [brush, setBrush] = useState({ color: "#1D4ED8", size: 10 });
   const [shapesOpen, setShapesOpen] = useState(false);
+  const [stkOpen, setStkOpen] = useState(false);
+  const [step, setStep] = useState(5);
   const [side, setSide] = useState<"props" | "layers">("props");
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });          // zoom e spostamento della vista
   const [vp, setVp] = useState({ w: 800, h: 360 });               // misure del riquadro
@@ -210,6 +212,12 @@ export default function LiveryEditor() {
       t === "chevron" || t === "arrow" ? { ...base, w: H * 0.3, h: H * 0.22, fill: "#FACC15" } :
       t === "text" ? { ...base, x: W * 0.3, y: H * 0.42, w: W * 0.4, h: H * 0.09, fill: "#1D4ED8", text: "AMBULANZA", bold: true } : base;
     commit([...items, it]); setSelId(it.id); setMode("select"); setShapesOpen(false); setSide("props");
+  }
+  function addSticker(k: string) {
+    const st = STICKERS.find((x) => x.stk === k); if (!st) return;
+    const h = H * 0.13;
+    const it: Item = { id: uid(), t: "sticker", stk: st.stk, x: W * 0.3, y: H * 0.22, w: h * st.w, h: h * st.h, r: 0, fill: st.fill, c2: st.c2, stroke: "#000", sw: 0, op: st.stk === "glasstext" ? 0.85 : 1, text: st.text, glass: true };
+    commit([...items, it]); setSelId(it.id); setMode("select"); setStkOpen(false); setSide("props");
   }
   async function addPhoto(file: File) {
     if (!org) return;
@@ -395,6 +403,46 @@ export default function LiveryEditor() {
         <button style={tool()} onClick={() => setSelId(null)} title="Deseleziona">✕</button>
       </div>
       {selected.ally && <div style={{ fontSize: 12.5, background: "#ECFDF5", color: "#065F46", borderRadius: 8, padding: 8, marginBottom: 8 }}>Obbligatorio per chi è in alleanza: puoi spostarlo e ridimensionarlo, non toglierlo.</div>}
+      {/* posizione precisa */}
+      <div style={{ marginBottom: 10, background: "#F8FAFC", borderRadius: 10, padding: 8 }}>
+        <span style={lbl}>Posizione e misure</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 34px)", gridTemplateRows: "repeat(3, 30px)", gap: 3 }}>
+            {[["", 0, 0], ["↑", 0, -1], ["", 0, 0], ["←", -1, 0], ["·", 0, 0], ["→", 1, 0], ["", 0, 0], ["↓", 0, 1], ["", 0, 0]].map(([ic, dx, dy], i) => ic && ic !== "·"
+              ? <button key={i} style={{ ...tool(), padding: 0, fontSize: 16 }} onClick={() => { const ddx = (dx as number) * step, ddy = (dy as number) * step;
+                  patch(selected.id, { x: selected.x + ddx, y: selected.y + ddy, pts: selected.pts?.map(([x, y]) => [x + ddx, y + ddy] as [number, number]) }); }}>{ic}</button>
+              : <span key={i} style={{ display: "grid", placeItems: "center", fontSize: 10.5, color: "#64748B" }}>{ic === "·" ? `${step}px` : ""}</span>)}
+          </div>
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+            {(["x", "y", "w", "h"] as const).map((k) => (
+              <label key={k} style={{ fontSize: 11.5, color: "#475569", fontWeight: 700 }}>{({ x: "X", y: "Y", w: "Largh.", h: "Alt." } as const)[k]}
+                <input type="number" value={Math.round(selected[k])} disabled={selected.t === "path"}
+                       onChange={(e) => { const v = +e.target.value; if (!Number.isFinite(v)) return; live(selected.id, { [k]: (k === "w" || k === "h") && selected.t !== "line" ? Math.max(4, v) : v } as Partial<Item>); }}
+                       style={{ width: "100%", boxSizing: "border-box", padding: "3px 5px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 13 }} /></label>))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 11.5, color: "#475569" }}>Passo</span>
+          {[1, 5, 20].map((n) => <button key={n} style={{ ...tool(step === n), padding: "2px 8px", fontSize: 12 }} onClick={() => setStep(n)}>{n}</button>)}
+          <span style={{ flex: 1 }} />
+          {selected.t !== "path" && <>
+            <button style={{ ...tool(), padding: "2px 7px", fontSize: 12 }} title="Centra in orizzontale" onClick={() => patch(selected.id, { x: (W - selected.w) / 2 })}>↔ centro</button>
+            <button style={{ ...tool(), padding: "2px 7px", fontSize: 12 }} title="Centra in verticale" onClick={() => patch(selected.id, { y: (H - selected.h) / 2 })}>↕ centro</button>
+          </>}
+        </div>
+      </div>
+      {selected.t === "sticker" && <div style={{ marginBottom: 8 }}>
+        <span style={lbl}>Colori adesivo</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12 }}>Sfondo</span><input type="color" value={selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
+          <span style={{ fontSize: 12 }}>Simbolo</span><input type="color" value={selected.c2 ?? "#ffffff"} onChange={(e) => live(selected.id, { c2: e.target.value })} />
+        </div>
+        {selected.text !== undefined && <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 30) })} placeholder="Scritta"
+          style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
+      </div>}
+      {!selected.ally && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, marginBottom: 8, background: selected.glass ? "#E0F2FE" : "transparent", borderRadius: 8, padding: "4px 6px" }}>
+        <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo: sopra tutto, anche sui vetri
+      </label>}
       {selected.t === "text" && !selected.ally && <div style={{ marginBottom: 8 }}><span style={lbl}>Testo</span>
         <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 40) })} style={{ ...sel, boxSizing: "border-box" }} />
         <label style={{ fontSize: 13 }}><input type="checkbox" checked={!!selected.bold} onChange={(e) => patch(selected.id, { bold: e.target.checked })} /> Grassetto</label></div>}
@@ -530,13 +578,21 @@ export default function LiveryEditor() {
         <div style={{ ...box, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", position: "sticky", top: 0, zIndex: 6, padding: 8 }}>
           <button style={tool(mode === "select")} onClick={() => setMode("select")} title="Sposta e scegli">👆</button>
           <div style={{ position: "relative" }}>
-            <button style={tool(shapesOpen)} onClick={() => setShapesOpen(!shapesOpen)}>🔷 Forme ▾</button>
+            <button style={tool(shapesOpen)} onClick={() => { setShapesOpen(!shapesOpen); setStkOpen(false); }}>🔷 Forme ▾</button>
             {shapesOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 74px)", gap: 6, zIndex: 20 }}>
               {SHAPES.map((s) => <button key={s.t} onClick={() => add(s.t)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
                 <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s.icon}</span>{s.name}</button>)}
             </div>}
           </div>
           <button style={tool()} onClick={() => add("text")}>🔤 Testo</button>
+          <div style={{ position: "relative" }}>
+            <button style={tool(stkOpen)} onClick={() => { setStkOpen(!stkOpen); setShapesOpen(false); }}>🏷️ Adesivi ▾</button>
+            {stkOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 84px)", gap: 6, zIndex: 20 }}>
+              {STICKERS.map((s2) => <button key={s2.stk} onClick={() => addSticker(s2.stk)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
+                <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s2.icon}</span>{s2.name}</button>)}
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#64748B" }}>Gli adesivi si possono mettere anche sui vetri.</div>
+            </div>}
+          </div>
           <button style={tool()} disabled={busy} onClick={() => fileRef.current?.click()}>🖼️ Foto</button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addPhoto(f); }} />
           <button style={tool(mode === "brush")} onClick={() => { setMode("brush"); setSelId(null); setShapesOpen(false); }}>🖌️ Pennello</button>
@@ -577,7 +633,7 @@ export default function LiveryEditor() {
               <button style={tool()} onClick={fitView}>⤢</button>
               <button style={{ ...tool(), background: "#16A34A", color: "#fff" }} onClick={() => setFull(false)}>✓ Fine</button>
             </div>}
-            <div ref={vpRef} onClick={() => setShapesOpen(false)}
+            <div ref={vpRef} onClick={() => { setShapesOpen(false); setStkOpen(false); }}
                  style={{ position: "relative", width: "100%", height: vp.h, overflow: "hidden", touchAction: "none", cursor: mode === "pan" ? "grab" : undefined,
                    background: bg === "dark" ? "#1E293B" : bg === "light" ? "#F8FAFC" : "repeating-conic-gradient(#e8edf3 0% 25%, #fff 0% 50%) 50% / 22px 22px" }}
                  onPointerDownCapture={(e) => {

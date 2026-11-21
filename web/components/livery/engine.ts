@@ -1,6 +1,6 @@
 // Motore dell'editor livrea: forme, sfumature, immagine "bianca" del mezzo, maschera della carrozzeria, composizione finale.
 export type Kind = "rect" | "ellipse" | "line" | "path" | "text" | "image" | "checker"
-  | "roundrect" | "tri" | "diamond" | "star" | "hex" | "chevron" | "arrow" | "wave" | "swoosh" | "heart";
+  | "roundrect" | "tri" | "diamond" | "star" | "hex" | "chevron" | "arrow" | "wave" | "swoosh" | "heart" | "sticker";
 export type Item = {
   id: string; t: Kind; x: number; y: number; w: number; h: number; r: number;
   fill: string; stroke: string; sw: number; op: number;
@@ -9,6 +9,8 @@ export type Item = {
   gang?: number; g3?: string;                             // gradiente: angolo (gradi) e colore centrale
   flip?: boolean;                                         // specchiata
   ally?: boolean;                                         // logo dell'alleanza (obbligatorio)
+  glass?: boolean;                                        // adesivo: sta sopra tutto, anche sui vetri
+  stk?: string;                                           // tipo di adesivo
 };
 export type Design = { v: 1; w: number; h: number; items: Item[] };
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -20,7 +22,19 @@ export const SHAPES: { t: Kind; icon: string; name: string }[] = [
   { t: "arrow", icon: "➜", name: "Freccia" }, { t: "wave", icon: "〰", name: "Onda" }, { t: "swoosh", icon: "⌒", name: "Sagomatura" },
   { t: "checker", icon: "▦", name: "Scacchi" }, { t: "line", icon: "╱", name: "Linea" },
 ];
-export const KIND_NAME: Record<Kind, string> = Object.fromEntries([...SHAPES.map((s) => [s.t, s.name]), ["path", "Pennello"], ["text", "Testo"], ["image", "Foto"]]) as Record<Kind, string>;
+export const KIND_NAME: Record<Kind, string> = Object.fromEntries([...SHAPES.map((s) => [s.t, s.name]), ["path", "Pennello"], ["text", "Testo"], ["image", "Foto"], ["sticker", "Adesivo"]]) as Record<Kind, string>;
+
+// Adesivi pronti (fill = sfondo, c2 = simbolo/scritta). Si mettono anche sui vetri.
+export const STICKERS: { stk: string; icon: string; name: string; w: number; h: number; fill: string; c2: string; text?: string }[] = [
+  { stk: "118", icon: "🔵", name: "118", w: 1.6, h: 1, fill: "#1D4ED8", c2: "#FFFFFF", text: "118" },
+  { stk: "112", icon: "🟡", name: "112", w: 1.6, h: 1, fill: "#FACC15", c2: "#111827", text: "112" },
+  { stk: "plus", icon: "➕", name: "Croce sanitaria", w: 1, h: 1, fill: "#1D4ED8", c2: "#FFFFFF" },
+  { stk: "ecg", icon: "💓", name: "Cuore e battito", w: 1.2, h: 1, fill: "#DC2626", c2: "#FFFFFF" },
+  { stk: "dae", icon: "⚡", name: "DAE a bordo", w: 1, h: 1, fill: "#16A34A", c2: "#FFFFFF" },
+  { stk: "label", icon: "🏷️", name: "Etichetta", w: 3.2, h: 0.8, fill: "#F97316", c2: "#FFFFFF", text: "VOLONTARI DEL SOCCORSO" },
+  { stk: "glasstext", icon: "🪟", name: "Scritta sul vetro", w: 3.2, h: 0.7, fill: "#FFFFFF", c2: "#FFFFFF", text: "AMBULANZA" },
+  { stk: "dots", icon: "⬤", name: "Pallini riflettenti", w: 3, h: 0.5, fill: "#FACC15", c2: "#FACC15" },
+];
 export const FILLABLE: Kind[] = ["rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh"];
 
 // ---------- livree pronte da cui partire (posizioni in proporzione al mezzo) ----------
@@ -145,6 +159,40 @@ export function paintMaskOf(img: HTMLImageElement): HTMLCanvasElement {
 }
 
 
+// ---------- adesivi ----------
+function drawSticker(g: CanvasRenderingContext2D, it: Item, w: number, h: number) {
+  const bg = it.fill, fg = it.c2 ?? "#FFFFFF", W2 = w / 2, H2 = h / 2, r = Math.min(w, h) * 0.18;
+  const rr = () => { g.beginPath(); g.moveTo(-W2 + r, -H2); g.arcTo(W2, -H2, W2, H2, r); g.arcTo(W2, H2, -W2, H2, r); g.arcTo(-W2, H2, -W2, -H2, r); g.arcTo(-W2, -H2, W2, -H2, r); g.closePath(); };
+  const txt = (t: string, size: number, color: string) => {
+    g.fillStyle = color; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `900 ${size}px Arial, sans-serif`;
+    const tw = g.measureText(t).width || 1, k = Math.min(1, (w * 0.86) / tw);
+    g.save(); g.scale(k, 1); g.fillText(t, 0, size * 0.04); g.restore();
+  };
+  const s = it.stk;
+  if (s === "118" || s === "112" || s === "label") { rr(); g.fillStyle = bg; g.fill(); txt(it.text ?? s, h * (s === "label" ? 0.5 : 0.72), fg); }
+  else if (s === "glasstext") txt(it.text ?? "AMBULANZA", h * 0.8, fg);
+  else if (s === "plus") {
+    g.beginPath(); g.ellipse(0, 0, W2, H2, 0, 0, Math.PI * 2); g.fillStyle = bg; g.fill();
+    g.fillStyle = fg; const a = w * 0.17, b = w * 0.36; g.fillRect(-a, -b, a * 2, b * 2); g.fillRect(-b, -a, b * 2, a * 2);
+  } else if (s === "ecg") {
+    g.beginPath(); g.moveTo(0, H2); g.bezierCurveTo(-W2 * 1.1, H2 * 0.1, -W2 * 0.9, -H2 * 1.1, 0, -H2 * 0.45);
+    g.bezierCurveTo(W2 * 0.9, -H2 * 1.1, W2 * 1.1, H2 * 0.1, 0, H2); g.fillStyle = bg; g.fill();
+    g.strokeStyle = fg; g.lineWidth = h * 0.07; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
+    const pts: [number, number][] = [[-0.62, 0], [-0.25, 0], [-0.12, -0.35], [0.02, 0.35], [0.14, -0.15], [0.22, 0], [0.62, 0]];
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x * w, y * h) : g.moveTo(x * w, y * h))); g.stroke();
+  } else if (s === "dae") {
+    rr(); g.fillStyle = bg; g.fill();
+    g.beginPath(); const hw = W2 * 0.62, hh = H2 * 0.62;
+    g.moveTo(0, hh); g.bezierCurveTo(-hw * 1.1, hh * 0.1, -hw * 0.9, -hh * 1.1, 0, -hh * 0.45); g.bezierCurveTo(hw * 0.9, -hh * 1.1, hw * 1.1, hh * 0.1, 0, hh);
+    g.fillStyle = fg; g.fill();
+    g.beginPath(); g.moveTo(w * 0.04, -h * 0.22); g.lineTo(-w * 0.1, h * 0.04); g.lineTo(0, h * 0.04); g.lineTo(-w * 0.04, h * 0.24); g.lineTo(w * 0.1, -h * 0.02); g.lineTo(0, -h * 0.02); g.closePath();
+    g.fillStyle = bg; g.fill();
+  } else if (s === "dots") {
+    const n = Math.max(2, Math.round(w / h)); g.fillStyle = bg;
+    for (let i = 0; i < n; i++) { g.beginPath(); g.arc(-W2 + (w / n) * (i + 0.5), 0, Math.min(H2, w / n / 2) * 0.8, 0, Math.PI * 2); g.fill(); }
+  }
+}
+
 // ---------- disegno delle forme ----------
 export const imgCache = new Map<string, HTMLImageElement>();
 function shapePath(g: CanvasRenderingContext2D, t: Kind, w: number, h: number) {
@@ -223,6 +271,8 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
         const tw = g.measureText(it.text ?? "").width || 1;
         g.save(); g.scale(w / tw, 1); g.fillStyle = fillOf(g, it, tw, h); g.fillText(it.text ?? "", 0, 0); g.restore();
         if (it.sw > 0) { g.strokeStyle = it.stroke; g.lineWidth = it.sw; g.save(); g.scale(w / tw, 1); g.strokeText(it.text ?? "", 0, 0); g.restore(); }
+      } else if (it.t === "sticker") {
+        drawSticker(g, it, w, h);
       } else if (it.t === "image" && it.src) {
         const im = imgCache.get(it.src);
         if (im?.complete) g.drawImage(im, -w / 2, -h / 2, w, h);
@@ -235,13 +285,21 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
 export function compose(blank: HTMLCanvasElement, items: Item[], paint?: HTMLCanvasElement | null): HTMLCanvasElement {
   const W = blank.width, H = blank.height;
   const d = document.createElement("canvas"); d.width = W; d.height = H;
-  const dg = d.getContext("2d")!; drawItems(dg, items);
+  const dg = d.getContext("2d")!; drawItems(dg, items.filter((i) => !i.glass));
   dg.globalCompositeOperation = "destination-in"; dg.drawImage(paint ?? blank, 0, 0);
   const o = document.createElement("canvas"); o.width = W; o.height = H;
   const og = o.getContext("2d")!;
   og.drawImage(blank, 0, 0);
   og.globalCompositeOperation = "multiply"; og.drawImage(d, 0, 0);
   og.globalCompositeOperation = "destination-in"; og.drawImage(blank, 0, 0);
+  // adesivi: sopra tutto (anche vetri), solo dentro la sagoma del mezzo
+  const top = items.filter((i) => i.glass);
+  if (top.length) {
+    const t = document.createElement("canvas"); t.width = W; t.height = H;
+    const tg = t.getContext("2d")!; drawItems(tg, top);
+    tg.globalCompositeOperation = "destination-in"; tg.drawImage(blank, 0, 0);
+    og.globalCompositeOperation = "source-over"; og.drawImage(t, 0, 0);
+  }
   return o;
 }
 export const bbox = (it: Item) => {

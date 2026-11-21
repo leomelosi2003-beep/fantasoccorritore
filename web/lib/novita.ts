@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21b", date: "21 novembre 2026", title: "🏷️ Adesivi e posizione precisa",
+    items: ["Nell'editor livrea c'è il menu «🏷️ Adesivi»: 118, 112, croce sanitaria, cuore e battito, DAE a bordo, etichetta, scritta sul vetro e pallini riflettenti. Gli adesivi vanno anche sui vetri; ogni forma o foto può diventare adesivo con «🪟 sopra tutto».",
+            "Nel pannello della forma: frecce per spostarla di 1, 5 o 20 px, misure X/Y/larghezza/altezza da scrivere e pulsanti per centrarla."],
+  },
+  {
     id: "2026-11-21a", date: "21 novembre 2026", title: "🔍 Editor livrea: zoom e gradienti",
     items: ["Zoom fino al 1000% per i dettagli: rotellina del mouse (zooma dove punti), due dita sul telefono, oppure − / + / ⤢. Per spostare la vista: ✋, Spazio + trascina o due dita. C'è anche lo schermo intero ⛶ e lo sfondo chiaro, scuro o a scacchi.",
             "Gradienti da un colore all'altro con angolo a scelta, colore in mezzo opzionale, dal centro o verso il trasparente, con anteprima."],
