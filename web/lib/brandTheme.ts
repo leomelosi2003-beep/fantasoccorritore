@@ -23,6 +23,10 @@ function sel(prop: string, hex: string, extra = "") {
 }
 
 export const BRAND_CSS = `
+  /* tenendo premuto su telefono non parte la selezione del testo né il menu "copia/salva immagine" (si lascia nei campi da scrivere e nella chat) */
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  img, svg, canvas { -webkit-user-drag: none; -webkit-touch-callout: none; }
+  input, textarea, select, [contenteditable="true"], .fs-selectable, .fs-selectable * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 :root { --fs-nav-h: 0px; --fs-navy: ${BRAND.navy}; --fs-orange: ${BRAND.orange}; --fs-sky: ${BRAND.sky}; }
 body.fs-has-nav { --fs-nav-h: 64px; }
 html, body { -webkit-tap-highlight-color: transparent; }

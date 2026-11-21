@@ -118,7 +118,7 @@ export default function ChatPanel({ orgId }: { orgId: string }) {
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#555" }}>
                       {m.org_name} · {new Date(m.created_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                     </div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</div>
+                    <div className="fs-selectable" style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</div>
                   </div>
                 </div>
               );

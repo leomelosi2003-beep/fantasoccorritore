@@ -178,7 +178,7 @@ export function AllianceChat({ allianceId, myOrg }: { allianceId: string; myOrg:
                 : <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#13294B", color: "#fff", fontSize: 11, display: "grid", placeItems: "center" }}>{m.org_name.slice(0, 1)}</div>)}
               <div style={{ background: mine ? "#13294B" : "#fff", color: mine ? "#fff" : "#0F172A", borderRadius: 14, padding: "7px 11px", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
                 {!mine && <div style={{ fontSize: 11, fontWeight: 800, color: "#EA6A1F" }}>{m.org_name}</div>}
-                <div style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</div>
+                <div className="fs-selectable" style={{ fontSize: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</div>
                 <div style={{ fontSize: 10, opacity: 0.6, textAlign: "right" }}>{new Date(m.created_at).toLocaleString("it-IT", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</div>
               </div>
             </div>
