@@ -1231,7 +1231,7 @@ export default function GameMap() {
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 <button className="fs-stat-btn" onClick={() => router.push("/finanze")}>📊 Entrate e uscite</button>
                 <button className="fs-stat-btn" onClick={() => router.push("/classifica")}>🏆 Classifica</button>
-                <button className="fs-stat-btn" onClick={() => router.push("/associazione")}>🎨 Associazione</button>
+                <button className="fs-stat-btn" onClick={() => router.push("/associazione")}>🪪 Profilo</button>
               </div>
               </div>
             </div>
@@ -1379,7 +1379,7 @@ export default function GameMap() {
                 ["👥", "Squadra", "#1E3A8A", "/squadra"],
                 ["🏠", "Sedi", "#9333EA", "/sedi"],
                 ["🖌️", "Editor livrea", "#0EA5E9", "/livrea"],
-                ["🎨", "Associazione", "#DB2777", "/associazione"],
+                ["🪪", "Il mio profilo", "#DB2777", "/associazione"],
               ]],
               ["Mercato", [
                 ["🛒", "Presidi", "#374151", "/negozio"],

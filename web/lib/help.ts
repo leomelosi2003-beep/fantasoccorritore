@@ -133,7 +133,7 @@ export const HELP: Record<string, Help> = {
   "/notizie": { title: "Notizie", sub: "Cosa succede nel mondo del gioco", steps: [["📰", "Maxi emergenze, incendi, record e novità delle altre associazioni."]] },
   "/novita": { title: "Novità del gioco", sub: "Gli ultimi aggiornamenti", steps: [["🆕", "Ogni volta che il gioco cambia trovi qui un riassunto semplice."]] },
   "/trasferimenti": { title: "Trasferimenti", sub: "Viaggi da un ospedale all'altro", steps: [["🔁", "Li fanno solo i mezzi a passo lungo: pagano 4.000 € più 130 € al km."], ["🩺", "I trasferimenti urgenti vogliono un medico a bordo."]] },
-  "/associazione": { title: "Associazione", sub: "Nome, stemma e colori", steps: [["🎨", "Cambia lo stemma e le informazioni della tua associazione."]] },
+  "/associazione": { title: "Il mio profilo", sub: "Nome, stemma, colori, banner e pallini", steps: [["🪪", "Si apre il tuo profilo: premi «✏️ Modifica profilo» per cambiare nome, stemma, colori, banner, presentazione e pallini sulla mappa."]] },
 };
 
 export function helpFor(path: string): Help | null {

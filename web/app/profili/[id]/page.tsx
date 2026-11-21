@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase, livery } from "@/lib/supabase";
-import FactionEmblem, { type FactionStyle } from "@/components/FactionEmblem";
+import FactionEmblem, { FACTION_STYLES, type FactionStyle } from "@/components/FactionEmblem";
 import { AllyChip, loadOrgAlliances, type AllyBadge } from "@/components/AllianceExtras";
 import { typeColors, KIND_LABEL, ROLE_LABEL, ROLE_ONE } from "@/lib/profileStyle";
 
@@ -104,6 +104,10 @@ export default function Profilo() {
   const [dotFill, setDotFill] = useState("#F97316");
   const [dotBorder, setDotBorder] = useState("#FFFFFF");
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const logoRef = useRef<HTMLInputElement | null>(null);
+  const [oName, setOName] = useState("");
+  const [oType, setOType] = useState<FactionStyle>("blu_giallo");
+  const [oLogo, setOLogo] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -117,16 +121,39 @@ export default function Profilo() {
     setMine((o as { id: string } | null)?.id === pp.id);
     setBio(pp.bio ?? ""); setBanner(pp.banner_url);
     setDotFill(pp.dot_fill ?? typeColors(pp.type).main); setDotBorder(pp.dot_border ?? "#FFFFFF");
+    setOName(pp.name); setOType(pp.type as FactionStyle); setOLogo(pp.logo_url);
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("modifica") && (o as { id: string } | null)?.id === pp.id) setEdit(true);
   }, [id, router]);
   useEffect(() => { load(); }, [load]);
 
   async function saveProfile() {
     setBusy(true); setErr(null);
+    const b = await supabase.rpc("update_org_branding", { p_name: oName.trim(), p_type: oType, p_logo_url: oLogo });
+    if (b.error) { setBusy(false); setErr(b.error.message.includes("BAD_NAME") ? "Il nome deve avere tra 3 e 60 caratteri." : b.error.message); return; }
     const { error } = await supabase.rpc("set_profile_banner", { p_banner: banner, p_bio: bio });
     if (!error) await supabase.rpc("set_dot_colors", { p_fill: dotFill, p_border: dotBorder });
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setEdit(false); load();
+  }
+  // stemma: ritagliato al centro in un quadrato 256×256 (si salva subito, così si vede sulla mappa)
+  async function uploadLogo(file: File) {
+    if (!p) return;
+    setBusy(true); setErr(null);
+    try {
+      const img = await createImageBitmap(file); const side = Math.min(img.width, img.height);
+      const c = document.createElement("canvas"); c.width = c.height = 256;
+      c.getContext("2d")!.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+      const blob: Blob = await new Promise((res, rej) => c.toBlob((x) => (x ? res(x) : rej(new Error("immagine non valida"))), "image/png"));
+      const path = `${p.id}/logo-${Date.now()}.png`;
+      const { error } = await supabase.storage.from("org-logos").upload(path, blob, { contentType: "image/png", upsert: true });
+      if (error) throw error;
+      const url = supabase.storage.from("org-logos").getPublicUrl(path).data.publicUrl;
+      setOLogo(url);
+      const { error: e2 } = await supabase.rpc("update_org_branding", { p_name: p.name, p_type: p.type, p_logo_url: url });
+      if (e2) throw e2;
+    } catch (e) { setErr("Stemma non caricato: " + String((e as Error).message ?? e)); }
+    setBusy(false);
   }
   async function upload(fileOrBlob: File | Blob) {
     if (!p) return;
@@ -165,7 +192,7 @@ export default function Profilo() {
           <a href="/profili" style={{ background: "rgba(0,0,0,.45)", color: "#fff", borderRadius: 999, padding: "6px 12px", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>← Profili</a>
           <a href="/" style={{ background: "rgba(0,0,0,.45)", color: "#fff", borderRadius: 999, padding: "6px 12px", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>Mappa</a>
         </div>
-        {mine && !edit && <button onClick={() => setEdit(true)} style={{ position: "absolute", top: 10, right: 12, background: "#fff", color: "#13294B", border: "none", borderRadius: 999, padding: "7px 12px", fontWeight: 800, cursor: "pointer" }}>✏️ Banner, presentazione e pallini</button>}
+        {mine && !edit && <button onClick={() => setEdit(true)} style={{ position: "absolute", top: 10, right: 12, background: "#fff", color: "#13294B", border: "none", borderRadius: 999, padding: "7px 12px", fontWeight: 800, cursor: "pointer" }}>✏️ Modifica profilo</button>}
       </div>
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 14px 20px" }}>
         <div style={{ display: "flex", gap: 14, alignItems: "end", marginTop: -54, position: "relative", flexWrap: "wrap" }}>
@@ -184,7 +211,34 @@ export default function Profilo() {
 
         {edit && (
           <div style={{ ...box, marginTop: 12, border: `2px solid ${c.main}` }}>
-            <strong>Banner e presentazione</strong>
+            <strong style={{ fontSize: 16 }}>✏️ Modifica il profilo dell&apos;associazione</strong>
+            {/* nome, stemma e colori (prima erano nella pagina "Associazione") */}
+            <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+              <div style={{ position: "relative" }}>
+                <div style={{ background: "#fff", borderRadius: "50%", padding: 4, boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}><FactionEmblem type={oType} size={84} logo={oLogo} /></div>
+              </div>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#64748B" }}>NOME</span>
+                <input value={oName} maxLength={60} onChange={(e) => setOName(e.target.value)}
+                       style={{ width: "100%", padding: 9, borderRadius: 10, border: "1px solid #CBD5E1", fontSize: 16, boxSizing: "border-box" }} />
+                <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                  <button disabled={busy} onClick={() => logoRef.current?.click()} style={{ padding: "7px 11px", borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer" }}>📷 {oLogo ? "Cambia stemma" : "Carica stemma"}</button>
+                  {oLogo && <button onClick={() => setOLogo(null)} style={{ padding: "7px 11px", borderRadius: 10, border: "1px solid #FCA5A5", background: "#fff", color: "#B91C1C", fontWeight: 700, cursor: "pointer" }}>Togli stemma</button>}
+                  <input ref={logoRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadLogo(f); }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#64748B" }}>COLORI DELL&apos;ASSOCIAZIONE {oLogo ? "(usati anche per livree e profilo)" : ""}</span>
+              <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                {FACTION_STYLES.map((st) => (
+                  <button key={st.type} onClick={() => setOType(st.type)} style={{ padding: 8, borderRadius: 12, cursor: "pointer", background: "#fff", border: oType === st.type ? "3px solid #13294B" : "1px solid #CBD5E1" }}>
+                    <FactionEmblem type={st.type} size={44} />
+                    <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 4 }}>{st.colors.map((col) => <span key={col} style={{ width: 12, height: 7, borderRadius: 2, background: col, border: "1px solid #ccc" }} />)}</div>
+                  </button>))}
+              </div>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, fontWeight: 800, color: "#64748B" }}>BANNER E PRESENTAZIONE</div>
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button disabled={busy} onClick={() => fileRef.current?.click()} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer" }}>🖼️ Scegli il banner</button>
               {banner && <button onClick={() => setBanner(null)} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #FCA5A5", background: "#fff", color: "#B91C1C", fontWeight: 700, cursor: "pointer" }}>Togli banner</button>}

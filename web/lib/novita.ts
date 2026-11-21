@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21i", date: "21 novembre 2026", title: "🪪 Associazione e profilo insieme",
+    items: ["La pagina «Associazione» ora è il tuo profilo: con «✏️ Modifica profilo» cambi in un posto solo nome, stemma, colori, banner, presentazione e colore dei pallini sulla mappa."],
+  },
+  {
     id: "2026-11-21h", date: "21 novembre 2026", title: "🎨 Concorso: le livree più belle",
     items: ["In Classifica c'è la scheda «🎨 Livree»: tutte le livree dei giocatori, da guardare in grande e votare. Hai 5 voti a stagione (non alle tue) e puoi cambiarli.",
             "A fine stagione le 3 livree più votate entrano nell'albo d'oro.",
