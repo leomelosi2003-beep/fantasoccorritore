@@ -51,11 +51,8 @@ export default function LiveryEditor() {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [stkOpen, setStkOpen] = useState(false);
   const [step, setStep] = useState(5);
-  const [side, setSide] = useState<"props" | "layers" | "start">("props");
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [savedSnap, setSavedSnap] = useState("[]");
-  const [thumbs, setThumbs] = useState<string[]>([]);
-  const [mapPrev, setMapPrev] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [side, setSide] = useState<"props" | "layers">("props");
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });          // zoom e spostamento della vista
   const [vp, setVp] = useState({ w: 800, h: 360 });               // misure del riquadro
   const [full, setFull] = useState(false);
@@ -329,9 +326,6 @@ export default function LiveryEditor() {
       if (k === "+" || k === "=") { zoomAt(1.25); return; }
       if (k === "-") { zoomAt(0.8); return; }
       if (k === "0") { fitView(); return; }
-      if (!e.ctrlKey && !e.metaKey && k === "v") { setMode("select"); return; }
-      if (!e.ctrlKey && !e.metaKey && k === "b") { setMode("brush"); setSelId(null); return; }
-      if (!e.ctrlKey && !e.metaKey && k === "h") { setMode("pan"); return; }
       if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
       if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); doRedo(); return; }
       if (!selected) return;
@@ -373,7 +367,6 @@ export default function LiveryEditor() {
       if (cur?.image_url) removeFiles(cur.image_url);
       const who = target === "all" ? `tutti i tuoi ${model.name}` : target === "bases" ? `i ${model.name} delle sedi scelte` : `${pickV.length} ${pickV.length === 1 ? "mezzo scelto" : "mezzi scelti"}`;
       setMsg({ ok: true, text: `✅ Livrea salvata: ora la usano ${who}.` });
-      setSaveOpen(false); markSaved(finalItems);
       await load(); loadVehicleLiveries(true);
       setCur({ id: String(data), model_id: model.id, name, design, image_url: url, base_ids: target === "bases" ? pickB : null, vehicle_ids: target === "vehicles" ? pickV : null, updated_at: "" });
     } catch (e) { setMsg({ ok: false, text: errText(String((e as Error).message ?? e)) }); }
@@ -413,6 +406,43 @@ export default function LiveryEditor() {
         <button style={tool()} onClick={() => setSelId(null)} title="Deseleziona">✕</button>
       </div>
       {selected.ally && <div style={{ fontSize: 12.5, background: "#ECFDF5", color: "#065F46", borderRadius: 8, padding: 8, marginBottom: 8 }}>Obbligatorio per chi è in alleanza: puoi spostarlo e ridimensionarlo, non toglierlo.</div>}
+      {selected.t === "text" && !selected.ally && <div style={{ marginBottom: 8 }}><span style={lbl}>Testo</span>
+        <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 40) })} style={{ ...sel, boxSizing: "border-box" }} />
+        <label style={{ fontSize: 13 }}><input type="checkbox" checked={!!selected.bold} onChange={(e) => patch(selected.id, { bold: e.target.checked })} /> Grassetto</label></div>}
+      {selected.t === "sticker" && <div style={{ marginBottom: 8 }}>
+        <span style={lbl}>Colori adesivo</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12 }}>Sfondo</span><input type="color" value={selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
+          <span style={{ fontSize: 12 }}>Simbolo</span><input type="color" value={selected.c2 ?? "#ffffff"} onChange={(e) => live(selected.id, { c2: e.target.value })} />
+        </div>
+        {selected.text !== undefined && <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 30) })} placeholder="Scritta"
+          style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
+      </div>}
+      {(isFillable || selected.t === "checker") && <div style={{ marginBottom: 8 }}>
+        <span style={lbl}>{selected.t === "checker" ? "Colori scacchi" : "Colore"}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
+          <input type="color" value={selected.fill === "none" ? "#ffffff" : selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
+          {selected.t === "checker" && <input type="color" value={selected.c2 ?? "#1D4ED8"} onChange={(e) => live(selected.id, { c2: e.target.value })} />}
+          {FILLABLE.includes(selected.t) && <label style={{ fontSize: 12.5 }}><input type="checkbox" checked={selected.fill !== "none"} onChange={(e) => patch(selected.id, { fill: e.target.checked ? "#F97316" : "none", sw: e.target.checked ? selected.sw : Math.max(selected.sw, 6) })} /> riempita</label>}
+        </div>
+        {swatches((c) => patch(selected.id, { fill: c }), selected.fill)}
+      </div>}
+      {selected.t !== "path" && selected.t !== "line" && <div style={{ marginBottom: 8 }}><span style={lbl}>Grandezza</span>
+        <input type="range" min={10} max={Math.round(W * 1.2)} value={Math.round(Math.abs(selected.w))}
+               onChange={(e) => { const nw = +e.target.value, k = selected.h / (selected.w || 1), cx = selected.x + selected.w / 2, cy = selected.y + selected.h / 2;
+                 live(selected.id, { w: nw, h: nw * k, x: cx - nw / 2, y: cy - (nw * k) / 2 }); }} style={{ width: "100%" }} /></div>}
+      {!["line", "path"].includes(selected.t) && <div style={{ marginBottom: 8 }}><span style={lbl}>Rotazione {Math.round(selected.r)}°</span>
+        <input type="range" min={-180} max={180} value={selected.r} onChange={(e) => live(selected.id, { r: +e.target.value })} style={{ width: "100%" }} /></div>}
+      <div style={{ marginBottom: 8 }}><span style={lbl}>Trasparenza {Math.round((1 - selected.op) * 100)}%</span>
+        <input type="range" min={10} max={100} value={Math.round(selected.op * 100)} onChange={(e) => live(selected.id, { op: +e.target.value / 100 })} style={{ width: "100%" }} /></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 8 }}>
+        {!selected.ally && <button style={tool()} onClick={() => dup(selected)}>⧉ Duplica</button>}
+        {!selected.ally && <button style={{ ...tool(), color: "#B91C1C" }} onClick={() => remove(selected)}>🗑️ Elimina</button>}
+        <button style={tool()} onClick={() => layer(selected.id, 1)}>⬆️ Porta sopra</button>
+        <button style={tool()} onClick={() => layer(selected.id, -1)}>⬇️ Porta sotto</button>
+      </div>
+      <button style={{ ...tool(more), width: "100%", marginBottom: 8 }} onClick={() => setMore(!more)}>{more ? "▾ Meno opzioni" : "▸ Altre opzioni (posizione esatta, gradiente, bordo, adesivo…)"}</button>
+      {more && <div>
       {/* posizione precisa */}
       <div style={{ marginBottom: 10, background: "#F8FAFC", borderRadius: 10, padding: 8 }}>
         <span style={lbl}>Posizione e misure</span>
@@ -441,30 +471,6 @@ export default function LiveryEditor() {
           </>}
         </div>
       </div>
-      {selected.t === "sticker" && <div style={{ marginBottom: 8 }}>
-        <span style={lbl}>Colori adesivo</span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12 }}>Sfondo</span><input type="color" value={selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
-          <span style={{ fontSize: 12 }}>Simbolo</span><input type="color" value={selected.c2 ?? "#ffffff"} onChange={(e) => live(selected.id, { c2: e.target.value })} />
-        </div>
-        {selected.text !== undefined && <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 30) })} placeholder="Scritta"
-          style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
-      </div>}
-      {!selected.ally && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, marginBottom: 8, background: selected.glass ? "#E0F2FE" : "transparent", borderRadius: 8, padding: "4px 6px" }}>
-        <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo sui vetri (non va sulla carrozzeria)
-      </label>}
-      {selected.t === "text" && !selected.ally && <div style={{ marginBottom: 8 }}><span style={lbl}>Testo</span>
-        <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 40) })} style={{ ...sel, boxSizing: "border-box" }} />
-        <label style={{ fontSize: 13 }}><input type="checkbox" checked={!!selected.bold} onChange={(e) => patch(selected.id, { bold: e.target.checked })} /> Grassetto</label></div>}
-      {(isFillable || selected.t === "checker") && <div style={{ marginBottom: 8 }}>
-        <span style={lbl}>{selected.t === "checker" ? "Colori scacchi" : "Colore"}</span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
-          <input type="color" value={selected.fill === "none" ? "#ffffff" : selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
-          {selected.t === "checker" && <input type="color" value={selected.c2 ?? "#1D4ED8"} onChange={(e) => live(selected.id, { c2: e.target.value })} />}
-          {FILLABLE.includes(selected.t) && <label style={{ fontSize: 12.5 }}><input type="checkbox" checked={selected.fill !== "none"} onChange={(e) => patch(selected.id, { fill: e.target.checked ? "#F97316" : "none", sw: e.target.checked ? selected.sw : Math.max(selected.sw, 6) })} /> riempita</label>}
-        </div>
-        {swatches((c) => patch(selected.id, { fill: c }), selected.fill)}
-      </div>}
       {isFillable && selected.fill !== "none" && (() => {
         const kind = selected.gfade ? "fade" : selected.g2 ? "grad" : "solid";
         return (
@@ -505,25 +511,21 @@ export default function LiveryEditor() {
         </div>
         {["line", "path"].includes(selected.t) && <div style={{ marginTop: 5 }}>{swatches((c) => patch(selected.id, { stroke: c }), selected.stroke)}</div>}
       </div>}
-      {!["line", "path"].includes(selected.t) && <div style={{ marginBottom: 8 }}><span style={lbl}>Rotazione {Math.round(selected.r)}°</span>
-        <input type="range" min={-180} max={180} value={selected.r} onChange={(e) => live(selected.id, { r: +e.target.value })} style={{ width: "100%" }} /></div>}
-      <div style={{ marginBottom: 8 }}><span style={lbl}>Trasparenza {Math.round((1 - selected.op) * 100)}%</span>
-        <input type="range" min={10} max={100} value={Math.round(selected.op * 100)} onChange={(e) => live(selected.id, { op: +e.target.value / 100 })} style={{ width: "100%" }} /></div>
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {!["line", "path"].includes(selected.t) && <button style={tool(!!selected.flip)} onClick={() => patch(selected.id, { flip: !selected.flip })}>↔ Specchia</button>}
-        <button style={tool()} onClick={() => layer(selected.id, 1)}>⬆️ Sopra</button>
-        <button style={tool()} onClick={() => layer(selected.id, -1)}>⬇️ Sotto</button>
-        {!selected.ally && <button style={tool()} onClick={() => dup(selected)}>⧉ Duplica</button>}
-        <button style={tool()} onClick={() => setMode("pick")}>💧 Prendi colore</button>
-        {!selected.ally && <button style={{ ...tool(), color: "#B91C1C" }} onClick={() => remove(selected)}>🗑️ Elimina</button>}
-      </div>
+      {!selected.ally && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 700, marginBottom: 8, background: selected.glass ? "#E0F2FE" : "transparent", borderRadius: 8, padding: "4px 6px" }}>
+        <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo sui vetri (non va sulla carrozzeria)
+      </label>}
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+          {!["line", "path"].includes(selected.t) && <button style={tool(!!selected.flip)} onClick={() => patch(selected.id, { flip: !selected.flip })}>↔ Specchia</button>}
+          <button style={tool()} onClick={() => setMode("pick")}>💧 Prendi colore dal mezzo</button>
+        </div>
+      </div>}
     </div>
   ) : (
     <div style={{ color: "#64748B", fontSize: 13.5, lineHeight: 1.5 }}>
       <strong style={{ color: "#13294B" }}>Come si usa</strong><br />
       • Aggiungi una forma, un testo o una foto dalla barra.<br />
-      • Tocca una forma per sceglierla e trascinala; il pallino blu la ingrandisce (con Maiusc mantiene le proporzioni).<br />
-      • Qui compaiono colore, sfumatura, bordo, rotazione e trasparenza.<br />
+      • Tocca una forma per sceglierla e trascinala col dito o col mouse.<br />
+      • Qui cambi colore, grandezza e rotazione.<br />
       {wide && <>• Tastiera: Canc elimina, frecce spostano, Ctrl+Z / Ctrl+Y, Ctrl+D duplica.<br /></>}
       • Si colora solo la carrozzeria: vetri, cerchioni e fanali restano com&apos;erano.
     </div>
@@ -544,163 +546,91 @@ export default function LiveryEditor() {
     </div>
   );
 
-  // ---------- modifiche non salvate ----------
-  const snap = JSON.stringify(items.filter((i) => !i.ally).map(({ id: _id, ...r }) => r));   // eslint-disable-line @typescript-eslint/no-unused-vars
-  const dirty = snap !== savedSnap;
-  useEffect(() => {
-    const f = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
-    window.addEventListener("beforeunload", f); return () => window.removeEventListener("beforeunload", f);
-  }, [dirty]);
-  // quando apro/salvo una livrea, quello è il punto "salvato"
-  const markSaved = useCallback((list: Item[]) => setSavedSnap(JSON.stringify(list.filter((i) => !i.ally).map(({ id: _id, ...r }) => r))), []); // eslint-disable-line @typescript-eslint/no-unused-vars
-  useEffect(() => { markSaved(cur ? items : []); }, [cur?.id, modelId]); // eslint-disable-line react-hooks/exhaustive-deps
-  async function askDiscard(): Promise<boolean> {
-    return !dirty || await gameConfirm("Modifiche non salvate\nSe cambi adesso perdi le modifiche alla livrea. Continuare?");
-  }
-  // anteprime delle livree pronte sul mezzo scelto
-  useEffect(() => {
-    if (!blank) return;
-    const t = setTimeout(() => {
-      setThumbs(PRESETS.map((pr) => {
-        const big = compose(blank, withAlly(pr.make(W, H)), paint, glass);
-        const c = document.createElement("canvas"); c.width = 220; c.height = Math.round((H * 220) / W);
-        c.getContext("2d")!.drawImage(big, 0, 0, c.width, c.height); return c.toDataURL("image/png");
-      }));
-    }, 50);
-    return () => clearTimeout(t);
-  }, [blank, paint, glass, W, H]); // eslint-disable-line react-hooks/exhaustive-deps
-  // come la vedono gli altri sulla mappa (icona piccola)
-  useEffect(() => {
-    if (!blank) return;
-    const t = setTimeout(() => {
-      const big = compose(blank, items, paint, glass);
-      const c = document.createElement("canvas"); c.width = 160; c.height = Math.round((H * 160) / W);
-      const g = c.getContext("2d")!; g.imageSmoothingQuality = "high"; g.drawImage(big, 0, 0, c.width, c.height);
-      setMapPrev(c.toDataURL("image/png"));
-    }, 400);
-    return () => clearTimeout(t);
-  }, [blank, paint, glass, items, W, H]);
-
   if (org && !models.length) return (
     <main style={shell}><div style={{ maxWidth: 700, margin: "0 auto", padding: 16 }}>
       <a href="/" style={{ color: "#64748B", textDecoration: "none" }}>← Mappa</a>
       <div style={{ ...box, marginTop: 10 }}>🎨 Compra un mezzo nel Garage: poi potrai disegnarne la livrea qui.</div>
     </div></main>);
 
-  const rail: [string, string, () => void, boolean, string?][] = [
-    ["👆", "Scegli", () => setMode("select"), mode === "select", "V"],
-    ["✋", "Vista", () => setMode(mode === "pan" ? "select" : "pan"), mode === "pan", "H o Spazio"],
-    ["🔷", "Forme", () => { setShapesOpen(!shapesOpen); setStkOpen(false); }, shapesOpen],
-    ["🏷️", "Adesivi", () => { setStkOpen(!stkOpen); setShapesOpen(false); }, stkOpen],
-    ["🔤", "Testo", () => add("text"), false],
-    ["🖼️", "Foto", () => fileRef.current?.click(), false],
-    ["🖌️", "Pennello", () => { setMode("brush"); setSelId(null); setShapesOpen(false); setStkOpen(false); }, mode === "brush", "B"],
-    ["💧", "Colore", () => setMode(mode === "pick" ? "select" : "pick"), mode === "pick"],
-  ];
-  const flyout = (shapesOpen || stkOpen) && (
-    <div style={{ position: "absolute", zIndex: 30, ...(wide ? { left: 78, top: 0 } : { left: 0, right: 0, bottom: 70 }), background: "#fff", borderRadius: 14, boxShadow: "0 12px 32px rgba(15,23,42,.25)", padding: 10, width: wide ? 360 : "auto", maxHeight: "70vh", overflow: "auto" }}>
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-        <strong style={{ flex: 1, color: "#13294B" }}>{shapesOpen ? "🔷 Forme" : "🏷️ Adesivi (solo sui vetri)"}</strong>
-        <button style={{ ...tool(), padding: "2px 8px" }} onClick={() => { setShapesOpen(false); setStkOpen(false); }}>✕</button>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-        {shapesOpen && SHAPES.map((s2) => <button key={s2.t} onClick={() => add(s2.t)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 2px", fontSize: 11.5, gap: 2 }}>
-          <span style={{ fontSize: 22, lineHeight: 1 }}>{s2.icon}</span>{s2.name}</button>)}
-        {stkOpen && <>
-          {STICKERS.map((s2) => <button key={s2.stk} onClick={() => addSticker(s2.stk)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 2px", fontSize: 11.5, gap: 2 }}>
-            <span style={{ fontSize: 22, lineHeight: 1 }}>{s2.icon}</span>{s2.name}</button>)}
-          <div style={{ gridColumn: "1 / -1", fontSize: 11.5, fontWeight: 800, color: "#64748B", marginTop: 4, textTransform: "uppercase" }}>Forme come adesivo</div>
-          {SHAPES.filter((s2) => !["line", "checker"].includes(s2.t)).map((s2) => <button key={"g" + s2.t} onClick={() => { add(s2.t, true); setStkOpen(false); }} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11, gap: 2 }}>
-            <span style={{ fontSize: 18, lineHeight: 1 }}>{s2.icon}</span>{s2.name}</button>)}
-        </>}
-      </div>
-    </div>);
-  const brushBar = (mode === "brush" || mode === "pick") && (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "8px 10px", background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,.08)", marginBottom: 8 }}>
-      <strong style={{ fontSize: 13, color: "#13294B" }}>{mode === "brush" ? "🖌️ Pennello" : "💧 Tocca il mezzo per prendere un colore"}</strong>
-      {mode === "brush" && <>
-        <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} />
-        <input type="range" min={1} max={60} value={brush.size} onChange={(e) => setBrush({ ...brush, size: +e.target.value })} />
-        <span style={{ display: "inline-block", width: Math.min(28, brush.size), height: Math.min(28, brush.size), borderRadius: "50%", background: brush.color, border: "1px solid #CBD5E1" }} />
-        {swatches((c) => setBrush((b) => ({ ...b, color: c })), brush.color)}
-      </>}
-      <span style={{ flex: 1 }} />
-      <button style={{ ...tool(), padding: "4px 10px" }} onClick={() => setMode("select")}>Fine</button>
-    </div>);
-  const start = (
-    <div>
-      <span style={lbl}>✨ Parti da una livrea pronta</span>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-        {PRESETS.map((pr, i) => (
-          <button key={pr.name} onClick={() => { commit(pr.make(W, H)); setSelId(null); setSide("props"); setMsg({ ok: true, text: "Base pronta: cambiala come vuoi." }); }}
-                  style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#F8FAFC", padding: 4, cursor: "pointer", textAlign: "center" }}>
-            {thumbs[i] ? <img src={thumbs[i]} alt="" style={{ width: "100%", display: "block" }} /> : <div style={{ height: 50 }} />}
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#334155", marginTop: 2 }}>{pr.name.replace(/^\S+\s/, "")}</div>
-          </button>))}
-      </div>
-      {lvs.length > 0 && <>
-        <span style={lbl}>📋 Copia un mio lavoro</span>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {lvs.map((l) => (
-            <button key={l.id} onClick={() => copyFrom(l.id)} style={{ ...tool(), display: "flex", gap: 8, alignItems: "center", textAlign: "left", padding: 5 }}>
-              {l.image_url && <img src={l.image_url.replace(/\.png$/, "-map.png")} alt="" style={{ width: 64 }} />}
-              <span style={{ fontSize: 12.5 }}><b>{l.name}</b><br /><span style={{ color: "#64748B" }}>{models.find((m) => m.id === l.model_id)?.name ?? "?"}</span></span>
-            </button>))}
-        </div>
-      </>}
-    </div>);
-
   return (
     <main style={shell}>
-      {/* barra in alto: sempre visibile */}
-      <div style={{ position: "sticky", top: 0, zIndex: 40, background: "#13294B", color: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.2)" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <a href="/" onClick={async (e) => { if (dirty) { e.preventDefault(); if (await askDiscard()) { setSavedSnap(snap); window.location.href = "/"; } } }} style={{ color: "#CBD5E1", textDecoration: "none", fontSize: 14 }}>← Mappa</a>
-          <strong style={{ fontSize: 17 }}>🖌️ Livrea</strong>
-          <select value={cur?.id ?? ""} onChange={async (e) => { if (await askDiscard()) openLivery(myLvs.find((l) => l.id === e.target.value) ?? null); }}
-                  style={{ ...sel, width: "auto", minWidth: 170, padding: "6px 8px", background: "#1E3A66", color: "#fff", border: "1px solid #345" }}>
-            <option value="">➕ Nuova livrea</option>
-            {myLvs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
-          {ally && <span title="Logo dell'alleanza obbligatorio" style={{ background: "rgba(16,185,129,.2)", color: "#A7F3D0", borderRadius: 999, padding: "3px 9px", fontSize: 12, fontWeight: 700 }}>🤝 {ally.name}</span>}
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 12.5, color: dirty ? "#FCD34D" : "#86EFAC" }}>{dirty ? "● Modifiche non salvate" : cur ? "✓ Salvata" : ""}</span>
-          <button style={tool()} onClick={doUndo} title="Annulla (Ctrl+Z)">↶</button>
-          <button style={tool()} onClick={doRedo} title="Ripeti (Ctrl+Y)">↷</button>
-          <button style={{ ...btn, background: "#16A34A", fontSize: 15, padding: "8px 16px" }} disabled={busy || !blank} onClick={() => setSaveOpen(true)}>💾 Salva</button>
-        </div>
-        {/* scelta del mezzo: miniature */}
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 12px 8px", display: "flex", gap: 6, overflowX: "auto" }}>
-          {models.map((m) => (
-            <button key={m.id} onClick={async () => { if (m.id === modelId || !(await askDiscard())) return; setModelId(m.id); setCur(null); setItems(withAlly([])); setSelId(null); }}
-                    style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 4px", borderRadius: 10, cursor: "pointer",
-                      background: m.id === modelId ? "#fff" : "rgba(255,255,255,.08)", color: m.id === modelId ? "#13294B" : "#E2E8F0", border: m.id === modelId ? "2px solid #F59E0B" : "1px solid rgba(255,255,255,.15)" }}>
-              <img src={(m.image_url ?? "").replace(/\.png$/, "-map.png")} alt="" style={{ width: 54, height: 26, objectFit: "contain" }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>{m.name} <span style={{ opacity: 0.7 }}>· {vehs.filter((v) => v.model_id === m.id).length}</span></span>
-            </button>))}
-        </div>
-      </div>
-      <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addPhoto(f); }} />
-
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: 10, display: "grid", gridTemplateColumns: wide ? "70px minmax(0, 1fr) 330px" : "1fr", gap: 10, alignItems: "start" }}>
-        {/* strumenti */}
-        <div style={wide ? { position: "sticky", top: 112, display: "flex", flexDirection: "column", gap: 6 }
-                         : { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 45, background: "#fff", boxShadow: "0 -4px 16px rgba(0,0,0,.15)", padding: "6px 6px calc(6px + env(safe-area-inset-bottom))", display: "flex", gap: 4, overflowX: "auto" }}>
-          {rail.map(([ic, name, fn, on, key]) => (
-            <button key={name} onClick={fn} title={key ? `${name} (${key})` : name}
-                    style={{ flex: wide ? undefined : "0 0 62px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "8px 2px", borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 700,
-                      background: on ? "#13294B" : "#fff", color: on ? "#fff" : "#13294B", border: on ? "1px solid #13294B" : "1px solid #E2E8F0", boxShadow: wide ? "0 1px 3px rgba(0,0,0,.06)" : undefined }}>
-              <span style={{ fontSize: 21, lineHeight: 1 }}>{ic}</span>{name}
-            </button>))}
-          {flyout}
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: 10 }}>
+        {/* intestazione */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+          <a href="/" style={{ color: "#64748B", textDecoration: "none", fontSize: 14 }}>← Mappa</a>
+          <h1 style={{ margin: 0, fontSize: 21, color: "#13294B", flex: 1 }}>🖌️ Editor livrea</h1>
+          {ally && <span style={{ background: "#ECFDF5", color: "#065F46", borderRadius: 999, padding: "4px 10px", fontSize: 12.5, fontWeight: 700 }}>🤝 {ally.name}: logo obbligatorio</span>}
+          {!wide && <span style={{ fontSize: 12, color: "#9A3412" }}>💻 Meglio dal PC</span>}
         </div>
 
-        {/* tela */}
-        <div style={{ minWidth: 0, paddingBottom: wide ? 0 : 80 }}>
-          {brushBar}
-          {msg && <div onClick={() => setMsg(null)} style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 10, background: msg.ok ? "#DCFCE7" : "#FEE2E2", color: msg.ok ? "#166534" : "#991B1B", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>{msg.text} <span style={{ opacity: 0.5 }}>✕</span></div>}
+        {/* 1 - mezzo e partenza */}
+        <div style={{ fontWeight: 800, color: "#13294B", margin: "4px 2px 6px" }}>1️⃣ Scegli il mezzo</div>
+        <div style={{ ...box, display: "grid", gridTemplateColumns: wide ? "repeat(3, 1fr)" : "1fr", gap: 10 }}>
+          <div><span style={lbl}>Mezzo (solo quelli comprati)</span>
+            <select value={modelId} onChange={(e) => { setModelId(e.target.value); setCur(null); setItems(withAlly([])); setSelId(null); }} style={sel}>
+              {models.map((m) => <option key={m.id} value={m.id}>{m.name} · {vehs.filter((v) => v.model_id === m.id).length}</option>)}
+            </select></div>
+          <div><span style={lbl}>Livrea</span>
+            <select value={cur?.id ?? ""} onChange={(e) => openLivery(myLvs.find((l) => l.id === e.target.value) ?? null)} style={sel}>
+              <option value="">➕ Nuova livrea</option>
+              {myLvs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select></div>
+          <div><span style={lbl}>✨ Parti da…</span>
+            <select value="" onChange={(e) => { const v = e.target.value; if (v.startsWith("p")) { const pr = PRESETS[+v.slice(1)]; if (pr) { commit(pr.make(W, H)); setSelId(null); setMsg({ ok: true, text: "Base pronta: cambiala come vuoi." }); } } else if (v) copyFrom(v.slice(1)); }} style={sel}>
+              <option value="">una livrea pronta o un tuo lavoro…</option>
+              <optgroup label="Livree pronte">{PRESETS.map((pr, i) => <option key={pr.name} value={"p" + i}>{pr.name}</option>)}</optgroup>
+              {lvs.length > 0 && <optgroup label="I tuoi lavori">{lvs.map((l) => <option key={l.id} value={"c" + l.id}>{l.name} — {models.find((m) => m.id === l.model_id)?.name ?? "?"}</option>)}</optgroup>}
+            </select></div>
+        </div>
+
+        <div style={{ fontWeight: 800, color: "#13294B", margin: "8px 2px 6px" }}>2️⃣ Disegna</div>
+        {/* barra strumenti */}
+        <div style={{ ...box, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", position: "sticky", top: 0, zIndex: 6, padding: 8 }}>
+          <button style={tool(mode === "select")} onClick={() => setMode("select")} title="Sposta e scegli">👆 Sposta</button>
           <div style={{ position: "relative" }}>
-          
+            <button style={tool(shapesOpen)} onClick={() => { setShapesOpen(!shapesOpen); setStkOpen(false); }}>🔷 Forme ▾</button>
+            {shapesOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 74px)", gap: 6, zIndex: 20 }}>
+              {SHAPES.map((s) => <button key={s.t} onClick={() => add(s.t)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
+                <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s.icon}</span>{s.name}</button>)}
+            </div>}
+          </div>
+          <button style={tool()} onClick={() => add("text")}>🔤 Testo</button>
+          <div style={{ position: "relative" }}>
+            <button style={tool(stkOpen)} onClick={() => { setStkOpen(!stkOpen); setShapesOpen(false); }}>🏷️ Adesivi ▾</button>
+            {stkOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 84px)", gap: 6, zIndex: 20 }}>
+              {STICKERS.map((s2) => <button key={s2.stk} onClick={() => addSticker(s2.stk)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
+                <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s2.icon}</span>{s2.name}</button>)}
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, fontWeight: 800, color: "#475569", marginTop: 4 }}>Forme come adesivo</div>
+              {SHAPES.filter((s2) => !["line", "checker"].includes(s2.t)).map((s2) => <button key={"g" + s2.t} onClick={() => { add(s2.t, true); setStkOpen(false); }} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 2px", fontSize: 11 }}>
+                <span style={{ fontSize: 17, lineHeight: 1.1 }}>{s2.icon}</span>{s2.name}</button>)}
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#64748B" }}>Gli adesivi stanno solo sui vetri.</div>
+            </div>}
+          </div>
+          <button style={tool()} disabled={busy} onClick={() => fileRef.current?.click()}>🖼️ Foto</button>
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addPhoto(f); }} />
+          <button style={tool(mode === "brush")} onClick={() => { setMode("brush"); setSelId(null); setShapesOpen(false); }}>🖌️ Pennello</button>
+          <button style={tool(mode === "pick")} onClick={() => setMode(mode === "pick" ? "select" : "pick")} title="Prendi un colore dal mezzo">💧</button>
+          <span style={{ width: 1, height: 26, background: "#E2E8F0" }} />
+          <button style={tool()} onClick={doUndo} title="Annulla">↶</button>
+          <button style={tool()} onClick={doRedo} title="Ripeti">↷</button>
+          <span style={{ flex: 1 }} />
+          <button style={tool(mode === "pan")} onClick={() => setMode(mode === "pan" ? "select" : "pan")} title="Sposta la vista (anche: tieni premuto Spazio, o due dita)">✋</button>
+          <button style={tool()} onClick={() => zoomAt(0.8)} title="Riduci (−)">−</button>
+          <span style={{ fontSize: 12.5, minWidth: 44, textAlign: "center", fontWeight: 700 }}>{Math.round(view.z * 100)}%</span>
+          <button style={tool()} onClick={() => zoomAt(1.25)} title="Ingrandisci (+)">+</button>
+          <button style={tool()} onClick={fitView} title="Adatta (0)">⤢</button>
+          <button style={tool(full)} onClick={() => setFull(!full)} title="Schermo intero">{full ? "🗗" : "⛶"}</button>
+          {(mode === "brush" || mode === "pick") && <div style={{ width: "100%", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderTop: "1px solid #EEF2F7", paddingTop: 6 }}>
+            <input type="color" value={brush.color} onChange={(e) => setBrush({ ...brush, color: e.target.value })} />
+            <span style={{ fontSize: 12, color: "#475569" }}>Spessore</span>
+            <input type="range" min={2} max={60} value={brush.size} onChange={(e) => setBrush({ ...brush, size: +e.target.value })} />
+            <span style={{ display: "inline-block", width: Math.min(30, brush.size), height: Math.min(30, brush.size), borderRadius: "50%", background: brush.color, border: "1px solid #CBD5E1" }} />
+            {swatches((c) => { setBrush((b) => ({ ...b, color: c })); setMode("brush"); }, brush.color)}
+          </div>}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: wide ? "minmax(0, 1fr) 320px" : "1fr", gap: 10, alignItems: "start" }}>
+          {/* tela: rotellina o due dita per lo zoom, ✋/Spazio/due dita per spostare la vista */}
           <div style={full ? { position: "fixed", inset: 0, zIndex: 60, background: "#0F172A", padding: 0 } : { ...box, padding: 0, overflow: "hidden" }}>
             {full && <div style={{ display: "flex", gap: 6, padding: 8, alignItems: "center", flexWrap: "wrap", background: "#13294B" }}>
               <button style={tool(mode === "select")} onClick={() => setMode("select")}>👆</button>
@@ -773,75 +703,45 @@ export default function LiveryEditor() {
             </div>
           </div>
 
-            {/* zoom sempre a portata */}
-            {!full && <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 18, display: "flex", gap: 4, alignItems: "center", background: "rgba(19,41,75,.92)", borderRadius: 999, padding: "4px 6px", zIndex: 5 }}>
-              <button style={{ ...tool(), borderRadius: 999, padding: "3px 10px" }} onClick={() => zoomAt(0.8)}>−</button>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12.5, minWidth: 46, textAlign: "center" }}>{Math.round(view.z * 100)}%</span>
-              <button style={{ ...tool(), borderRadius: 999, padding: "3px 10px" }} onClick={() => zoomAt(1.25)}>+</button>
-              <button style={{ ...tool(), borderRadius: 999, padding: "3px 9px" }} onClick={fitView} title="Adatta">⤢</button>
-              <button style={{ ...tool(), borderRadius: 999, padding: "3px 9px" }} onClick={() => setFull(true)} title="Schermo intero">⛶</button>
-            </div>}
-            {/* tela vuota: suggerimento */}
-            {blank && !items.some((i) => !i.ally) && !full && <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(255,255,255,.95)", borderRadius: 12, padding: "8px 12px", boxShadow: "0 4px 14px rgba(0,0,0,.12)", fontSize: 13.5, zIndex: 5, display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
-              Il mezzo è bianco.
-              <button style={{ ...btn, padding: "5px 10px", fontSize: 13 }} onClick={() => setSide("start")}>✨ Parti da una pronta</button>
-            </div>}
-          </div>
-          {/* su telefono il pannello sta sotto la tela */}
-          {!wide && <div style={{ ...box, marginTop: 10 }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-              {([["props", "🎛️ Forma"], ["layers", `🗂️ Livelli`], ["start", "✨ Partenza"]] as const).map(([k, t]) => <button key={k} style={{ ...tool(side === k), flex: 1, padding: "6px 4px", fontSize: 12.5 }} onClick={() => setSide(k)}>{t}</button>)}
+          {/* pannello laterale */}
+          <div style={{ ...box, position: wide ? "sticky" : "static", top: 62 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <button style={{ ...tool(side === "props"), flex: 1 }} onClick={() => setSide("props")}>🎛️ Proprietà</button>
+              <button style={{ ...tool(side === "layers"), flex: 1 }} onClick={() => setSide("layers")}>🗂️ Livelli ({items.length})</button>
             </div>
-            {side === "props" ? props : side === "layers" ? layers : start}
-          </div>}
+            {side === "props" ? props : layers}
+          </div>
         </div>
 
-        {/* pannello a destra */}
-        {wide && <div style={{ position: "sticky", top: 112, maxHeight: "calc(100vh - 124px)", overflow: "auto" }}>
-          <div style={box}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-              {([["props", "🎛️ Forma"], ["layers", `🗂️ Livelli ${items.length}`], ["start", "✨ Partenza"]] as const).map(([k, t]) => <button key={k} style={{ ...tool(side === k), flex: 1, padding: "6px 4px", fontSize: 12.5 }} onClick={() => setSide(k)}>{t}</button>)}
+        <div style={{ fontWeight: 800, color: "#13294B", margin: "8px 2px 6px" }}>3️⃣ Salva e scegli a chi va</div>
+        {/* a chi va e salvataggio */}
+        <div style={box}>
+          <div style={{ display: "grid", gridTemplateColumns: wide ? "260px 1fr" : "1fr", gap: 12 }}>
+            <div><span style={lbl}>Nome della livrea</span>
+              <input value={name} onChange={(e) => setName(e.target.value.slice(0, 40))} style={{ ...sel, boxSizing: "border-box" }} /></div>
+            <div>
+              <span style={lbl}>A chi va questa livrea</span>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button style={tool(target === "all")} onClick={() => setTarget("all")}>🌍 Tutti i {model?.name ?? "mezzi"} ({myVehs.length})</button>
+                <button style={tool(target === "bases")} onClick={() => setTarget("bases")}>🏠 Solo alcune sedi</button>
+                <button style={tool(target === "vehicles")} onClick={() => setTarget("vehicles")}>🚑 Solo alcuni mezzi</button>
+              </div>
             </div>
-            {side === "props" ? props : side === "layers" ? layers : start}
           </div>
-          {mapPrev && <div style={{ ...box, display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ background: "#D9E4D4", borderRadius: 8, padding: 6 }}><img src={mapPrev} alt="" style={{ width: 110, display: "block" }} /></div>
-            <div style={{ fontSize: 12.5, color: "#475569" }}><b style={{ color: "#13294B" }}>Sulla mappa</b><br />Così la vedono gli altri giocatori.</div>
-          </div>}
-        </div>}
-      </div>
-
-      {/* salvataggio: nome e a chi va */}
-      {saveOpen && <div onClick={() => setSaveOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,.6)", display: "grid", placeItems: "center", padding: 12 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 16, width: "min(680px, 100%)", maxHeight: "90vh", overflow: "auto", boxSizing: "border-box" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            {mapPrev && <img src={mapPrev} alt="" style={{ width: 120 }} />}
-            <div style={{ flex: 1 }}><strong style={{ fontSize: 18, color: "#13294B" }}>💾 Salva la livrea</strong><div style={{ fontSize: 13, color: "#64748B" }}>{model?.name}</div></div>
-            <button style={tool()} onClick={() => setSaveOpen(false)}>✕</button>
-          </div>
-          <span style={lbl}>Nome</span>
-          <input value={name} onChange={(e) => setName(e.target.value.slice(0, 40))} style={{ ...sel, boxSizing: "border-box", marginBottom: 12 }} />
-          <span style={lbl}>A chi va</span>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
-            {([["all", "🌍", `Tutti i ${model?.name ?? "mezzi"}`, `${myVehs.length} mezzi`], ["bases", "🏠", "Alcune sedi", "scegli le sedi"], ["vehicles", "🚑", "Alcuni mezzi", "scegli per sigla"]] as const).map(([k, ic, t, sub2]) => (
-              <button key={k} onClick={() => setTarget(k)} style={{ border: target === k ? "2px solid #16A34A" : "1px solid #CBD5E1", background: target === k ? "#F0FDF4" : "#fff", borderRadius: 12, padding: 10, cursor: "pointer", textAlign: "center" }}>
-                <div style={{ fontSize: 22 }}>{ic}</div><div style={{ fontWeight: 800, fontSize: 13.5, color: "#13294B" }}>{t}</div><div style={{ fontSize: 11.5, color: "#64748B" }}>{sub2}</div>
-              </button>))}
-          </div>
-          {target === "bases" && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+          {target === "bases" && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
             {bases.filter((b) => myVehs.some((v) => v.base_id === b.id)).map((b) => { const on = pickB.includes(b.id); return (
               <button key={b.id} onClick={() => setPickB(on ? pickB.filter((x) => x !== b.id) : [...pickB, b.id])}
                       style={{ ...tool(), padding: "5px 9px", fontSize: 13, background: on ? "#DCFCE7" : "#fff", borderColor: on ? "#16A34A" : "#CBD5E1" }}>
                 {on ? "✅ " : ""}{b.is_headquarters ? "⭐ " : ""}{b.name} · {myVehs.filter((v) => v.base_id === b.id).length}
               </button>); })}
           </div>}
-          {target === "vehicles" && <div style={{ marginTop: 10 }}>
+          {target === "vehicles" && <div style={{ marginTop: 8 }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
               <button style={{ ...tool(), padding: "4px 9px", fontSize: 12.5 }} onClick={() => setPickV(myVehs.map((v) => v.id))}>Tutti</button>
               <button style={{ ...tool(), padding: "4px 9px", fontSize: 12.5 }} onClick={() => setPickV([])}>Nessuno</button>
               <span style={{ fontSize: 12.5, color: "#64748B", alignSelf: "center" }}>{pickV.length} scelti</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 5, maxHeight: 240, overflow: "auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 5, maxHeight: 220, overflow: "auto" }}>
               {myVehs.map((v) => { const on = pickV.includes(v.id); return (
                 <button key={v.id} onClick={() => setPickV(on ? pickV.filter((x) => x !== v.id) : [...pickV, v.id])}
                         style={{ ...tool(), textAlign: "left", padding: "5px 8px", fontSize: 12.5, background: on ? "#DCFCE7" : "#fff", borderColor: on ? "#16A34A" : "#CBD5E1" }}>
@@ -849,13 +749,14 @@ export default function LiveryEditor() {
                 </button>); })}
             </div>
           </div>}
-          <div style={{ fontSize: 12, color: "#64748B", marginTop: 8 }}>Se un mezzo ha più livree vale quella dei mezzi scelti, poi quella delle sedi, poi quella per tutti.</div>
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-            <button style={{ ...btn, background: "#16A34A", fontSize: 15, flex: 1, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={async () => { await save(); }}>{busy ? "Salvo…" : "💾 Salva e applica"}</button>
-            {cur && <button style={{ ...btn, background: "#fff", color: "#B91C1C", border: "1px solid #FCA5A5" }} disabled={busy} onClick={async () => { setSaveOpen(false); await del(); }}>↩️ Rimetti l&apos;ufficiale</button>}
+          <div style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>Se un mezzo ha più livree vale quella dei mezzi scelti, poi quella delle sedi, poi quella per tutti.</div>
+          {msg && <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: msg.ok ? "#DCFCE7" : "#FEE2E2", color: msg.ok ? "#166534" : "#991B1B", fontWeight: 600 }}>{msg.text}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button style={{ ...btn, background: "#16A34A", opacity: busy ? 0.5 : 1, fontSize: 15 }} disabled={busy || !blank} onClick={save}>{busy ? "Salvo…" : "💾 Salva e applica"}</button>
+            <button style={{ ...btn, background: "#fff", color: "#B91C1C", border: "1px solid #FCA5A5" }} disabled={busy} onClick={del}>{cur ? "↩️ Rimetti la livrea ufficiale" : "🧹 Ricomincia"}</button>
           </div>
         </div>
-      </div>}
+      </div>
     </main>
   );
 }

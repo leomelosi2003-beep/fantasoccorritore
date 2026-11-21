@@ -4,10 +4,9 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
-    id: "2026-11-21c", date: "21 novembre 2026", title: "🎨 Editor livrea tutto nuovo",
-    items: ["Barra in alto sempre visibile con i tuoi mezzi in miniatura, la livrea aperta, Annulla/Ripeti e Salva; avviso se hai modifiche non salvate.",
-            "Strumenti a sinistra (sul telefono in basso), pannello a destra con Forma, Livelli e Partenza (le livree pronte con anteprima sul tuo mezzo), più l'anteprima di come appare sulla mappa.",
-            "Il salvataggio apre una finestra dove scegli nome e a chi va (tutti, alcune sedi, alcuni mezzi). Gli adesivi stanno solo sui vetri."],
+    id: "2026-11-21d", date: "21 novembre 2026", title: "🎨 Editor livrea più semplice",
+    items: ["Tre passi chiari: 1️⃣ scegli il mezzo (e da dove partire: una livrea pronta o un tuo lavoro), 2️⃣ disegna, 3️⃣ salva e scegli a chi va.",
+            "Sulla forma scelta trovi subito colore, grandezza, rotazione e trasparenza; posizione esatta, gradiente, bordo e adesivo sono in «Altre opzioni»."],
   },
   {
     id: "2026-11-21b", date: "21 novembre 2026", title: "🏷️ Adesivi e posizione precisa",
