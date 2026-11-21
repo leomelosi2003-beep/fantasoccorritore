@@ -49,6 +49,7 @@ export default function Classifica() {
   const [livTab, setLivTab] = useState(false);
   const [allyTab, setAllyTab] = useState(false);
   const [openAlly, setOpenAlly] = useState<string | null>(null);
+  const [allyAwards, setAllyAwards] = useState<{ season: string; rank: number; alliance_name: string; points: number; prize_funds: number; prize_note: string | null }[]>([]);
   const [awards, setAwards] = useState<Award[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,8 @@ export default function Classifica() {
         .map((x) => [x.org_id, { season_points: Number(x.points), per_vehicle: Number(x.per_vehicle), vehicles: x.vehicles }]));
       setRows(((data as Row[]) ?? []).map((r) => ({ ...r, ...(steals.get(r.org_id) ?? {}), ...(season.get(r.org_id) ?? {}), org_id: r.org_id })));
       setAwards((aw.data as Award[]) ?? []);
+      const { data: aa } = await supabase.from("alliance_season_awards").select("season,rank,alliance_name,points,prize_funds,prize_note").order("season", { ascending: false }).order("rank");
+      setAllyAwards((aa as typeof allyAwards) ?? []);
     })();
   }, [router]);
 
@@ -133,6 +136,13 @@ export default function Classifica() {
             <b style={{ color: "#1D4ED8" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>
             Punti di stagione di tutti i membri sommati: l&apos;alleanza con più punti è in cima. Tocca un&apos;alleanza per vedere chi ha portato i punti.
           </div>
+          <div style={{ background: "linear-gradient(135deg,#1E3A8A,#1D4ED8)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione</div>
+            <div>🥇 <b>30.000.000 €</b> + 2 ambulanze con kit completo</div>
+            <div>🥈 <b>5.000.000 €</b> + 1 motorino</div>
+            <div>🥉 <b>1.000.000 €</b></div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>I soldi si dividono in parti uguali tra i membri; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
+          </div>
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
             {allyRows.map((a, i) => (
               <div key={a.name} style={{ borderTop: i ? "1px solid #f0f0f0" : "none", background: a.name === myAlly ? "#EFF6FF" : undefined }}>
@@ -156,6 +166,14 @@ export default function Classifica() {
             ))}
             {allyRows.length === 0 && <div style={{ padding: 20, color: "#888", textAlign: "center" }}>{rows.length ? "Nessuna alleanza ancora." : "Caricamento…"}</div>}
           </div>
+          {allyAwards.length > 0 && <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 14, marginTop: 14 }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>🏛️ Albo d&apos;oro delle alleanze</div>
+            {[...new Set(allyAwards.map((a) => a.season))].map((se) => (
+              <div key={se} style={{ borderTop: "1px solid #f0f0f0", padding: "8px 0", fontSize: 13 }}>
+                <div style={{ fontWeight: 700, textTransform: "capitalize" }}>{monthName(se)}</div>
+                {allyAwards.filter((a) => a.season === se).map((a) => <div key={a.rank} style={{ color: "#555" }}>{MEDAL[a.rank - 1]} {a.alliance_name} · {Number(a.points).toLocaleString("it-IT")} pt</div>)}
+              </div>))}
+          </div>}
         </div> : livTab ? <div style={{ marginTop: 10 }}><LiveryContest /></div> : <>
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}

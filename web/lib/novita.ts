@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21o", date: "21 novembre 2026", title: "🎁 Premi per le alleanze migliori",
+    items: ["A fine stagione (fine mese) le prime 3 alleanze della classifica «🤝 Alleanze» vincono: 🥇 30 milioni + 2 ambulanze con kit completo, 🥈 5 milioni + 1 motorino, 🥉 1 milione.",
+            "I soldi si dividono tra i membri; i mezzi vanno al membro con più punti."],
+  },
+  {
     id: "2026-11-21n", date: "21 novembre 2026", title: "🎶 Concerti al Modigliani Forum, classifica alleanze e multa d'uscita",
     items: ["Quando c'è un concerto al Modigliani Forum la scena dell'evento mostra la cupola del palazzetto con la cupoletta in cima e la gente che entra dai tornelli; quando inizia lo spettacolo partono luci dal tetto, note e musica che pulsa dalle porte.",
             "In Classifica c'è la scheda «🤝 Alleanze»: i punti di stagione dei membri si sommano, in cima l'alleanza con più punti. Tocca un'alleanza per vedere chi ha portato i punti.",
