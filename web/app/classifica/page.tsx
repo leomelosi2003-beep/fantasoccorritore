@@ -47,6 +47,8 @@ export default function Classifica() {
   const [rows, setRows] = useState<Row[]>([]);
   const [tab, setTab] = useState<Key>("season_points");
   const [livTab, setLivTab] = useState(false);
+  const [allyTab, setAllyTab] = useState(false);
+  const [openAlly, setOpenAlly] = useState<string | null>(null);
   const [awards, setAwards] = useState<Award[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +89,17 @@ export default function Classifica() {
     return y - x;
   });
   const t = TABS.find((x) => x.key === tab)!;
+  // classifica alleanze: somma dei punti di stagione dei membri
+  const allyRows = (() => {
+    const m = new Map<string, { name: string; points: number; members: Row[] }>();
+    for (const r of rows) if (r.alliance) {
+      const a = m.get(r.alliance) ?? { name: r.alliance, points: 0, members: [] };
+      a.points += r.season_points ?? 0; a.members.push(r); m.set(r.alliance, a);
+    }
+    return [...m.values()].map((a) => ({ ...a, members: a.members.sort((x, y) => (y.season_points ?? 0) - (x.season_points ?? 0)) }))
+      .sort((a, b) => b.points - a.points);
+  })();
+  const myAlly = rows.find((r) => r.org_id === me)?.alliance ?? null;
 
   return (
     <main style={shell}>
@@ -100,18 +113,50 @@ export default function Classifica() {
 
       <div style={wrap}>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-          <button onClick={() => setLivTab(true)}
+          <button onClick={() => { setAllyTab(true); setLivTab(false); }}
+                  style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
+                           fontWeight: 700, fontSize: 14, background: allyTab ? "#1D4ED8" : "#DBEAFE",
+                           color: allyTab ? "#fff" : "#1D4ED8", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>🤝 Alleanze</button>
+          <button onClick={() => { setLivTab(true); setAllyTab(false); }}
                   style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
                            fontWeight: 700, fontSize: 14, background: livTab ? "#BE123C" : "#FFE4E6",
                            color: livTab ? "#fff" : "#BE123C", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>🎨 Livree</button>
           {TABS.map((x) => (
-            <button key={x.key} onClick={() => { setTab(x.key); setLivTab(false); }}
+            <button key={x.key} onClick={() => { setTab(x.key); setLivTab(false); setAllyTab(false); }}
                     style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                             fontWeight: 700, fontSize: 14, background: !livTab && tab === x.key ? "#111" : "#fff",
-                             color: !livTab && tab === x.key ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{x.label}</button>
+                             fontWeight: 700, fontSize: 14, background: !livTab && !allyTab && tab === x.key ? "#111" : "#fff",
+                             color: !livTab && !allyTab && tab === x.key ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{x.label}</button>
           ))}
         </div>
-        {livTab ? <div style={{ marginTop: 10 }}><LiveryContest /></div> : <>
+        {allyTab ? <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 13, color: "#666", margin: "0 2px 12px" }}>
+            <b style={{ color: "#1D4ED8" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>
+            Punti di stagione di tutti i membri sommati: l&apos;alleanza con più punti è in cima. Tocca un&apos;alleanza per vedere chi ha portato i punti.
+          </div>
+          <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+            {allyRows.map((a, i) => (
+              <div key={a.name} style={{ borderTop: i ? "1px solid #f0f0f0" : "none", background: a.name === myAlly ? "#EFF6FF" : undefined }}>
+                <div onClick={() => setOpenAlly(openAlly === a.name ? null : a.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer" }}>
+                  <div style={{ width: 30, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666" }}>{MEDAL[i] ?? i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>🤝 {a.name}{a.name === myAlly && <span style={{ color: "#1D4ED8" }}> (la tua)</span>}</div>
+                    <div style={{ fontSize: 12, color: "#777" }}>{a.members.length} {a.members.length === 1 ? "membro" : "membri"} · media {Math.round(a.points / a.members.length).toLocaleString("it-IT")} pt {openAlly === a.name ? "▴" : "▾"}</div>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap" }}>{a.points.toLocaleString("it-IT")} pt</div>
+                </div>
+                {openAlly === a.name && <div style={{ padding: "0 12px 10px 52px" }}>
+                  {a.members.map((r) => (
+                    <div key={r.org_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13.5 }}>
+                      <FactionEmblem type={r.type} size={24} logo={r.logo_url} />
+                      <a href={`/profili/${r.org_id}`} style={{ flex: 1, color: "inherit", textDecoration: "none", fontWeight: r.org_id === me ? 700 : 500 }}>{r.name}{r.org_id === me && " (tu)"}</a>
+                      <span style={{ fontWeight: 700 }}>{(r.season_points ?? 0).toLocaleString("it-IT")} pt</span>
+                    </div>))}
+                </div>}
+              </div>
+            ))}
+            {allyRows.length === 0 && <div style={{ padding: 20, color: "#888", textAlign: "center" }}>{rows.length ? "Nessuna alleanza ancora." : "Caricamento…"}</div>}
+          </div>
+        </div> : livTab ? <div style={{ marginTop: 10 }}><LiveryContest /></div> : <>
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}

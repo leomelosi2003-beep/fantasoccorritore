@@ -37,7 +37,7 @@ const ERR: Record<string, string> = {
   ALREADY_IN_ALLIANCE: "È già in un'alleanza.", NO_ALLIANCE: "Prima crea o entra in un'alleanza.",
   NOT_ALLY: "Puoi prestare solo ai tuoi alleati.", VEHICLE_BUSY: "Il mezzo è impegnato in un servizio.",
   CARD_BUSY: "Il volontario è in servizio o ha il contratto scaduto.", ALREADY_LENT: "È già in prestito.",
-  INSUFFICIENT_FUNDS: "Non hai abbastanza fondi.", OFFER_EXISTS: "Hai già un'offerta in attesa per questa associazione.",
+  LEAVE_FINE_FUNDS: "Non hai abbastanza soldi per pagare la multa di uscita dall'alleanza.", INSUFFICIENT_FUNDS: "Non hai abbastanza fondi.", OFFER_EXISTS: "Hai già un'offerta in attesa per questa associazione.",
   SELLER_BUSY: "Non puoi vendere con servizi in corso: aspetta che rientrino tutti.",
   BUYER_NO_FUNDS: "Il compratore non ha più i fondi per pagare.", NOTHING_TO_BUY: "Questa associazione non ha sedi da comprare.",
   duplicate: "Esiste già un'alleanza con questo nome.",
@@ -416,7 +416,12 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
                 <button disabled={busy || !inviteOrg} style={{ ...btn, background: "#15803D" }}
                         onClick={() => call("invite_to_alliance", { p_org: inviteOrg }, "Invito mandato.").then(() => setInviteOrg(""))}>Invita</button>
                 <button disabled={busy} style={{ ...btn, background: "#eee", color: "#B91C1C" }}
-                        onClick={async () => (await gameConfirm("Uscire dall'alleanza? I prestiti finiscono subito.")) && call("leave_alliance", {}, "Sei uscito dall'alleanza.")}>Esci</button>
+                        onClick={async () => {
+                          const { data: fn } = await supabase.rpc("my_alliance_leave_fine");
+                          const f0 = (fn as { each: number; members: number; total: number }[] | null)?.[0];
+                          const fine = f0 && f0.members > 0 ? `\nMulta: ${Number(f0.each).toLocaleString("it-IT")} € a ciascuno dei ${f0.members} membri che restano = ${Number(f0.total).toLocaleString("it-IT")} €.` : "";
+                          if (await gameConfirm(`Uscire dall'alleanza?\nI prestiti finiscono subito.${fine}`)) call("leave_alliance", {}, f0 && f0.members > 0 ? `Sei uscito dall'alleanza e hai pagato ${Number(f0.total).toLocaleString("it-IT")} € di multa.` : "Sei uscito dall'alleanza.");
+                        }}>Esci</button>
               </div>
             </>
           )}

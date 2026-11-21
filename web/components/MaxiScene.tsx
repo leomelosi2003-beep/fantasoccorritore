@@ -21,7 +21,12 @@ export type SceneData = {
   event_id?: string | null; event_kind?: string | null; slots?: number | null; show_at?: string | null; inc_every?: number;    // grandi eventi veri
 };
 export function evKindOf(k?: string | null): string { return k === "calcio" ? "ev-stadio" : k === "basket" || k === "teatro" ? "ev-arena" : "ev-concerto"; }
-type EvExtra = { spots: V3[]; lights: V3[]; victims: V3[]; led?: [number, number, number, number, number]; pitch?: boolean; people: number };
+type EvExtra = { spots: V3[]; lights: V3[]; victims: V3[]; led?: [number, number, number, number, number]; pitch?: boolean; people: number; forum?: boolean };
+/** concerto al Modigliani Forum di Livorno: si vede il palazzetto da fuori con la gente che entra */
+export function isForumConcert(d: { venue?: string | null; title?: string; description?: string | null; event_kind?: string | null }): boolean {
+  const txt = `${d.venue ?? ""} ${d.title ?? ""} ${d.description ?? ""}`.toLowerCase();
+  return txt.includes("modigliani") && evKindOf(d.event_kind) === "ev-concerto";
+}
 
 type V3 = [number, number, number];
 const ORANGE = "#FF5A36", BLUE = "#6CB4FF", WHITE = "#F1F5F9";
@@ -231,6 +236,21 @@ function buildScene(kind: string, seed: number) {
              lights: [[-60, 26, -78], [60, 26, -78], [-60, 26, 8], [60, 26, 8]], victims: [[-30, 0, -3], [-10, 0, -3], [15, 0, -3], [35, 0, -3], [-46, 0, -20], [46, 0, -50]],
              pitch: true, people: (6 + Math.floor(r() * 9)) * 1000 };
       break; }
+    case "ev-modigliani": {
+      // il palazzetto: corpo grande, tetto a gradoni, pensilina d'ingresso
+      boxes.push({ c: [0, 8, -48], s: [96, 16, 56], yaw: 0, fill: "rgba(51,65,85,.75)", edge: "rgba(148,163,184,.85)" });
+      boxes.push({ c: [0, 18, -48], s: [80, 4, 44], yaw: 0, fill: "rgba(71,85,105,.7)", edge: "rgba(148,163,184,.8)" });
+      boxes.push({ c: [0, 22, -48], s: [56, 4, 30], yaw: 0, fill: "rgba(71,85,105,.65)", edge: "rgba(148,163,184,.75)" });
+      boxes.push({ c: [0, 5.4, -17], s: [44, 0.6, 6], yaw: 0, fill: "rgba(203,213,225,.55)", edge: "rgba(226,232,240,.9)" });   // pensilina
+      for (const x of [-20, -10, 0, 10, 20]) lines.push([[x, 0, -14.5], [x, 5.1, -14.5]]);
+      for (let i = 0; i < 7; i++) boxes.push({ c: [-15 + i * 5, 1.1, -8], s: [3.4, 1.1, 0.3], yaw: 0, fill: "rgba(148,163,184,.45)", edge: "rgba(203,213,225,.85)" });   // tornelli
+      for (const x of [-40, 40]) boxes.push({ c: [x, 1.6, -4], s: [6, 3.2, 3], yaw: 0, fill: "rgba(250,204,21,.5)", edge: "#FACC15" });   // biglietteria e merchandising
+      for (let i = 0; i < 6; i++) boxes.push({ c: [62, 1.2, -16 + i * 3.2], s: [2.4, 2.4, 2.4], yaw: 0, fill: "rgba(59,130,246,.4)", edge: "#60A5FA" });   // bagni chimici
+      lines.push([[-90, 0.05, 14], [90, 0.05, 14]]);                                                       // marciapiede del piazzale
+      for (let i = 0; i < 140; i++) { const x = (r() - 0.5) * 110, z = -4 + r() * 18; if (Math.abs(x) < 18 && z < 4) continue; crowd.push([x, 0, z]); }   // gente sul piazzale
+      ev = { spots: [[-40, 0, 27], [40, 0, 27], [0, 0, 27], [-64, 0, 4], [64, 0, 4], [-20, 0, 27], [20, 0, 27], [-58, 0, 27], [58, 0, 27]],
+             lights: [[-36, 24, -48], [-12, 24, -48], [12, 24, -48], [36, 24, -48]], victims: crowd.slice(0, 40), people: (5 + Math.floor(r() * 4)) * 1000, forum: true };
+      break; }
     case "ev-arena":
       house(0, -38, 80, 16, 44);
       lines.push([[-12, 0.05, -15], [-12, 0.05, 18]], [[12, 0.05, -15], [12, 0.05, 18]]);
@@ -323,7 +343,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const sev = Math.max(1, Math.min(3, Math.round(data.fire?.severity ?? 2)));
     const PC = data.venue === "PC";                                          // protezione civile
     const EV = !!data.event_id;                                              // grande evento vero (concerto, partita...)
-    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : EV ? evKindOf(data.event_kind) : scenarioOf(data.title);
+    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : EV ? (isForumConcert(data) ? "ev-modigliani" : evKindOf(data.event_kind)) : scenarioOf(data.title);
     let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
     const X = PC ? scene.pc : null;
@@ -1260,6 +1280,41 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             poly([[xa, y0, z], [xb, y0, z], [xb, y1, z], [xa, y1, z]], undefined, `hsla(${(t / 8 + k * 36) % 360},90%,60%,.55)`);
           }
         }
+        if (E.forum) {
+          // insegna sopra l'ingresso
+          const sg = P([0, 7.4, -17]);
+          if (sg) { ctx.font = "900 12px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = live ? `hsla(${(t / 20) % 360},90%,72%,.95)` : "#E2E8F0"; ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]); }
+          // gente che entra: dal piazzale e dal parcheggio verso i tornelli, poi sparisce dentro
+          const flow = live ? 34 : 90;
+          for (let k = 0; k < flow; k++) {
+            const sp = 0.045 + (k % 5) * 0.008, u = ((t / 1000) * sp + k * 0.137) % 1;
+            const sx = ((k * 37) % 120) - 60, sz = 30 + (k % 7) * 3;
+            const gx = -15 + (k % 7) * 5;
+            let p: V3;
+            if (u < 0.75) { const v = u / 0.75; p = [sx + (gx - sx) * v, 0, sz + (-6 - sz) * v]; }
+            else { const v = (u - 0.75) / 0.25; p = [gx, 0, -6 - v * 12]; }
+            if (p[2] < -15.5) continue;                                                  // è entrato
+            figure(p, "walk", ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#E2E8F0"][k % 6], t / 1000 + k);
+          }
+          // steward ai tornelli
+          for (const x of [-17.5, 17.5]) figure([x, 0, -6.5], "stand", "#FACC15", t / 1000 + x);
+          if (live) {
+            // musica che "esce" dal palazzetto: luce dalle porte che pulsa a tempo, note che salgono, onde dal tetto
+            const beat = Math.pow(Math.max(0, Math.sin(t / 230)), 6);
+            const door = [P([-20, 0.2, -20]), P([20, 0.2, -20]), P([20, 5, -20]), P([-20, 5, -20])];
+            if (door.every(Boolean)) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `hsla(${(t / 15) % 360},100%,60%,${0.18 + beat * 0.35})`;
+              ctx.beginPath(); door.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1]) : ctx.moveTo(q![0], q![1]))); ctx.closePath(); ctx.fill(); ctx.restore(); }
+            for (let k = 0; k < 3; k++) {                                                   // onde sonore dal tetto
+              const u = ((t / 1600) + k / 3) % 1; const c = P([0, 24 + u * 10, -48]); const e = P([28 + u * 50, 24 + u * 10, -48]);
+              if (c && e) { ctx.strokeStyle = `hsla(${(t / 20 + k * 90) % 360},100%,70%,${0.45 * (1 - u)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(c[0], c[1], Math.abs(e[0] - c[0]), Math.abs(e[0] - c[0]) * 0.32, 0, 0, Math.PI * 2); ctx.stroke(); }
+            }
+            ctx.font = "700 14px system-ui,sans-serif"; ctx.textAlign = "center";
+            for (let k = 0; k < 10; k++) {                                                  // note musicali
+              const u = ((t / 4200) + k * 0.1) % 1; const q = P([-30 + (k * 23) % 60 + Math.sin(t / 700 + k) * 3, 26 + u * 22, -40 - (k % 3) * 6]);
+              if (q) { ctx.fillStyle = `hsla(${(k * 47 + t / 30) % 360},100%,75%,${(1 - u) * 0.9})`; ctx.fillText(k % 2 ? "♪" : "♫", q[0], q[1]); }
+            }
+          }
+        }
         if (E.pitch) for (let i = 0; i < 22; i++) {                           // giocatori
           const q = P([Math.sin(t / 2600 + i * 1.7) * 36, 0.8, -35 + Math.cos(t / 3100 + i * 1.3) * 26]);
           if (q) { ctx.fillStyle = i < 11 ? "#B91C1C" : "#F1F5F9"; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, Math.PI * 2); ctx.fill(); }
@@ -1267,13 +1322,13 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         scene.crowd.forEach((c, i) => {
           if (evInc && evInc.tt < 58 && c === evInc.vic) return;             // è a terra
           const ph = t / (E.pitch ? 240 : 320) + i * 0.37;
-          const jump = live ? Math.max(0, Math.sin(ph)) * (E.pitch ? 0.35 : 0.55) : 0;
+          const jump = live && !E.forum ? Math.max(0, Math.sin(ph)) * (E.pitch ? 0.35 : 0.55) : 0;
           const f = P([c[0], c[1] + jump, c[2]]), h = P([c[0], c[1] + 1.7 + jump, c[2]]);
           if (!f || !h) return;
           const hh = f[1] - h[1]; if (hh < 0.6) { ctx.fillStyle = pal[i % 7]; ctx.fillRect(h[0], h[1], 1.5, 1.5); return; }
           ctx.strokeStyle = pal[i % 7]; ctx.lineWidth = Math.max(0.8, hh * 0.12);
           ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(h[0], h[1] + hh * 0.15);
-          const sy = h[1] + hh * 0.32, up = live && (i % 3 !== 0 || Math.sin(ph * 0.5) > 0);
+          const sy = h[1] + hh * 0.32, up = live && !E.forum && (i % 3 !== 0 || Math.sin(ph * 0.5) > 0);
           if (up) { ctx.moveTo(h[0] - hh * 0.3, h[1] - hh * 0.25 + Math.sin(ph) * hh * 0.08); ctx.lineTo(h[0], sy); ctx.lineTo(h[0] + hh * 0.3, h[1] - hh * 0.25 - Math.sin(ph) * hh * 0.08); }
           else { ctx.moveTo(h[0] - hh * 0.2, sy + hh * 0.35); ctx.lineTo(h[0], sy); ctx.lineTo(h[0] + hh * 0.2, sy + hh * 0.35); }
           ctx.stroke();
@@ -1285,6 +1340,12 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             const src = P(L0); if (!src) return;
             const beams = E.pitch ? 1 : 2;
             for (let b = 0; b < beams; b++) {
+              if (E.forum) {                                                    // fasci di luce dal tetto verso il cielo
+                const sw = Math.sin(t / 1300 + i * 1.9 + b * 2.4) * 30, top = P([L0[0] + sw, 110, L0[2] + Math.cos(t / 1700 + i + b) * 20]);
+                if (!top) continue; const hue2 = (t / 25 + i * 70 + b * 140) % 360;
+                const g2 = ctx.createLinearGradient(src[0], src[1], top[0], top[1]); g2.addColorStop(0, `hsla(${hue2},100%,65%,.45)`); g2.addColorStop(1, `hsla(${hue2},100%,60%,0)`);
+                ctx.strokeStyle = g2; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(src[0], src[1]); ctx.lineTo(top[0], top[1]); ctx.stroke(); continue;
+              }
               const tx = E.pitch ? L0[0] * 0.25 : Math.sin(t / 1400 + i * 1.7 + b * 2.1) * 48;
               const tz = E.pitch ? -35 : -10 + Math.cos(t / 1900 + i + b * 1.4) * 26;
               const wd = E.pitch ? 26 : 3.5;
