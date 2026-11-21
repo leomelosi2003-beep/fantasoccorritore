@@ -537,7 +537,14 @@ export default function LiveryEditor() {
           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.ally ? "🤝 Logo alleanza" : it.t === "text" ? `Testo «${it.text}»` : KIND_NAME[it.t]}</span>
           <button style={{ ...tool(), padding: "2px 6px" }} onClick={(e) => { e.stopPropagation(); layer(it.id, 1); }}>↑</button>
           <button style={{ ...tool(), padding: "2px 6px" }} onClick={(e) => { e.stopPropagation(); layer(it.id, -1); }}>↓</button>
-          {!it.ally && <button style={{ ...tool(), padding: "2px 6px", color: "#B91  // ---------- modifiche non salvate ----------
+          {!it.ally && <button style={{ ...tool(), padding: "2px 6px", color: "#B91C1C" }} onClick={(e) => { e.stopPropagation(); remove(it); }}>✕</button>}
+        </div>
+      ))}
+      {!items.length && <div style={{ color: "#64748B", fontSize: 13 }}>Ancora niente: aggiungi una forma.</div>}
+    </div>
+  );
+
+  // ---------- modifiche non salvate ----------
   const snap = JSON.stringify(items.filter((i) => !i.ally).map(({ id: _id, ...r }) => r));   // eslint-disable-line @typescript-eslint/no-unused-vars
   const dirty = snap !== savedSnap;
   useEffect(() => {
