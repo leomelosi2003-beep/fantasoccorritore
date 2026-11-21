@@ -237,19 +237,17 @@ function buildScene(kind: string, seed: number) {
              pitch: true, people: (6 + Math.floor(r() * 9)) * 1000 };
       break; }
     case "ev-modigliani": {
-      // il palazzetto: corpo grande, tetto a gradoni, pensilina d'ingresso
-      boxes.push({ c: [0, 8, -48], s: [96, 16, 56], yaw: 0, fill: "rgba(51,65,85,.75)", edge: "rgba(148,163,184,.85)" });
-      boxes.push({ c: [0, 18, -48], s: [80, 4, 44], yaw: 0, fill: "rgba(71,85,105,.7)", edge: "rgba(148,163,184,.8)" });
-      boxes.push({ c: [0, 22, -48], s: [56, 4, 30], yaw: 0, fill: "rgba(71,85,105,.65)", edge: "rgba(148,163,184,.75)" });
-      boxes.push({ c: [0, 5.4, -17], s: [44, 0.6, 6], yaw: 0, fill: "rgba(203,213,225,.55)", edge: "rgba(226,232,240,.9)" });   // pensilina
-      for (const x of [-20, -10, 0, 10, 20]) lines.push([[x, 0, -14.5], [x, 5.1, -14.5]]);
+      // la cupola si disegna a spicchi nel ciclo di disegno; qui solo l'ingresso: base blu con le porte e vetrata scura sopra
+      boxes.push({ c: [0, 1.5, -14.5], s: [40, 3, 3], yaw: 0, fill: "rgba(37,99,235,.75)", edge: "rgba(147,197,253,.9)" });
+      boxes.push({ c: [0, 4.6, -15], s: [40, 3.2, 3], yaw: 0, fill: "rgba(30,41,59,.88)", edge: "rgba(148,163,184,.85)" });
+      for (const x of [-16, -8, 0, 8, 16]) lines.push([[x, 0, -12.9], [x, 3, -12.9]]);
       for (let i = 0; i < 7; i++) boxes.push({ c: [-15 + i * 5, 1.1, -8], s: [3.4, 1.1, 0.3], yaw: 0, fill: "rgba(148,163,184,.45)", edge: "rgba(203,213,225,.85)" });   // tornelli
       for (const x of [-40, 40]) boxes.push({ c: [x, 1.6, -4], s: [6, 3.2, 3], yaw: 0, fill: "rgba(250,204,21,.5)", edge: "#FACC15" });   // biglietteria e merchandising
       for (let i = 0; i < 6; i++) boxes.push({ c: [62, 1.2, -16 + i * 3.2], s: [2.4, 2.4, 2.4], yaw: 0, fill: "rgba(59,130,246,.4)", edge: "#60A5FA" });   // bagni chimici
       lines.push([[-90, 0.05, 14], [90, 0.05, 14]]);                                                       // marciapiede del piazzale
       for (let i = 0; i < 140; i++) { const x = (r() - 0.5) * 110, z = -4 + r() * 18; if (Math.abs(x) < 18 && z < 4) continue; crowd.push([x, 0, z]); }   // gente sul piazzale
       ev = { spots: [[-40, 0, 27], [40, 0, 27], [0, 0, 27], [-64, 0, 4], [64, 0, 4], [-20, 0, 27], [20, 0, 27], [-58, 0, 27], [58, 0, 27]],
-             lights: [[-36, 24, -48], [-12, 24, -48], [12, 24, -48], [36, 24, -48]], victims: crowd.slice(0, 40), people: (5 + Math.floor(r() * 4)) * 1000, forum: true };
+             lights: [[-22, 22, -56], [-8, 26.5, -56], [8, 26.5, -56], [22, 22, -56]], victims: crowd.slice(0, 40), people: (5 + Math.floor(r() * 4)) * 1000, forum: true };
       break; }
     case "ev-arena":
       house(0, -38, 80, 16, 44);
@@ -1268,6 +1266,49 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           const q = P(x); if (q) draws.push({ z: q[2] - 0.5, fn: () => { ctx.fillStyle = "rgba(125,211,252,.85)"; ctx.beginPath(); ctx.arc(q[0], q[1], 1.8, 0, Math.PI * 2); ctx.fill(); } });
         }
       }
+      if (E?.forum) {
+        // Modigliani Forum: grande cupola argentata a spicchi con la cupoletta di rame in cima
+        const sun = norm([0.45, 1, 0.35]);
+        const dome = (cx: number, cz: number, R: number, Hh: number, y0: number, nLon: number, nLat: number, col: (sh: number) => string, seam: string) => {
+          const pt = (th: number, ph: number): V3 => [cx + R * Math.cos(ph) * Math.cos(th), y0 + Hh * Math.sin(ph), cz + R * Math.cos(ph) * Math.sin(th)];
+          for (let j = 0; j < nLon; j++) for (let i = 0; i < nLat; i++) {
+            const t0 = (j / nLon) * Math.PI * 2, t1 = ((j + 1) / nLon) * Math.PI * 2, p0 = (i / nLat) * Math.PI / 2, p1 = ((i + 1) / nLat) * Math.PI / 2;
+            const tm = (t0 + t1) / 2, pm = (p0 + p1) / 2, mid = pt(tm, pm);
+            const nn = norm([Math.cos(pm) * Math.cos(tm) / R, Math.sin(pm) / Hh, Math.cos(pm) * Math.sin(tm) / R]);
+            if (dot(nn, sub(camP, mid)) <= 0) continue;                          // spicchio sul retro
+            const pc = P(mid); if (!pc) continue;
+            const sh = Math.max(0, dot(nn, sun));
+            const quad = i === nLat - 1 ? [pt(t0, p0), pt(t1, p0), pt(tm, p1)] : [pt(t0, p0), pt(t1, p0), pt(t1, p1), pt(t0, p1)];
+            draws.push({ z: pc[2], fn: () => poly(quad, seam, col(sh), 0.8) });
+          }
+        };
+        const R0 = 40, CZ = -56;
+        for (let j = 0; j < 36; j++) {                                           // basamento chiaro tutto intorno
+          const t0 = (j / 36) * Math.PI * 2, t1 = ((j + 1) / 36) * Math.PI * 2, tm = (t0 + t1) / 2;
+          const mid: V3 = [R0 * Math.cos(tm), 1.5, CZ + R0 * Math.sin(tm)];
+          if (dot([Math.cos(tm), 0, Math.sin(tm)], sub(camP, mid)) <= 0) continue;
+          const pc = P(mid); if (!pc) continue;
+          const q: V3[] = [[R0 * Math.cos(t0), 0, CZ + R0 * Math.sin(t0)], [R0 * Math.cos(t1), 0, CZ + R0 * Math.sin(t1)], [R0 * Math.cos(t1), 3, CZ + R0 * Math.sin(t1)], [R0 * Math.cos(t0), 3, CZ + R0 * Math.sin(t0)]];
+          draws.push({ z: pc[2] + 0.5, fn: () => poly(q, "rgba(203,213,225,.6)", "rgba(148,163,184,.55)", 0.8) });
+        }
+        dome(0, CZ, R0, 24, 3, 36, 7, (sh) => { const c = Math.round(105 + sh * 120); return `rgba(${c},${c + 8},${c + 18},.93)`; }, "rgba(226,232,240,.45)");
+        dome(0, CZ, 5, 2.6, 26.6, 14, 3, (sh) => `rgba(${Math.round(150 + sh * 70)},${Math.round(75 + sh * 40)},${Math.round(30 + sh * 20)},.97)`, "rgba(253,186,116,.6)");
+        const fLive = now >= evShow;
+        const sg = P([0, 7.2, -15]);
+        if (sg) draws.push({ z: sg[2] - 3, fn: () => { ctx.font = "900 12px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = fLive ? `hsla(${(t / 20) % 360},90%,72%,.95)` : "#E2E8F0"; ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]); } });
+        // gente che entra: dal piazzale e dal parcheggio verso i tornelli e le porte
+        const flow = fLive ? 34 : 90;
+        for (let k = 0; k < flow; k++) {
+          const sp = 0.045 + (k % 5) * 0.008, u = ((t / 1000) * sp + k * 0.137) % 1;
+          const sx = ((k * 37) % 120) - 60, sz = 30 + (k % 7) * 3, gx = -15 + (k % 7) * 5;
+          let p: V3;
+          if (u < 0.75) { const v = u / 0.75; p = [sx + (gx - sx) * v, 0, sz + (-6 - sz) * v]; }
+          else { const v = (u - 0.75) / 0.25; p = [gx, 0, -6 - v * 7]; }
+          if (p[2] < -12.6) continue;                                              // è entrato
+          figure(p, "walk", ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#E2E8F0"][k % 6], t / 1000 + k);
+        }
+        for (const x of [-17.5, 17.5]) figure([x, 0, -6.5], "stand", "#FACC15", t / 1000 + x);   // steward ai tornelli
+      }
       draws.sort((a, b) => b.z - a.z).forEach((x) => x.fn());
 
       if (E) {
@@ -1281,36 +1322,19 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           }
         }
         if (E.forum) {
-          // insegna sopra l'ingresso
-          const sg = P([0, 7.4, -17]);
-          if (sg) { ctx.font = "900 12px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = live ? `hsla(${(t / 20) % 360},90%,72%,.95)` : "#E2E8F0"; ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]); }
-          // gente che entra: dal piazzale e dal parcheggio verso i tornelli, poi sparisce dentro
-          const flow = live ? 34 : 90;
-          for (let k = 0; k < flow; k++) {
-            const sp = 0.045 + (k % 5) * 0.008, u = ((t / 1000) * sp + k * 0.137) % 1;
-            const sx = ((k * 37) % 120) - 60, sz = 30 + (k % 7) * 3;
-            const gx = -15 + (k % 7) * 5;
-            let p: V3;
-            if (u < 0.75) { const v = u / 0.75; p = [sx + (gx - sx) * v, 0, sz + (-6 - sz) * v]; }
-            else { const v = (u - 0.75) / 0.25; p = [gx, 0, -6 - v * 12]; }
-            if (p[2] < -15.5) continue;                                                  // è entrato
-            figure(p, "walk", ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#E2E8F0"][k % 6], t / 1000 + k);
-          }
-          // steward ai tornelli
-          for (const x of [-17.5, 17.5]) figure([x, 0, -6.5], "stand", "#FACC15", t / 1000 + x);
           if (live) {
             // musica che "esce" dal palazzetto: luce dalle porte che pulsa a tempo, note che salgono, onde dal tetto
             const beat = Math.pow(Math.max(0, Math.sin(t / 230)), 6);
-            const door = [P([-20, 0.2, -20]), P([20, 0.2, -20]), P([20, 5, -20]), P([-20, 5, -20])];
+            const door = [P([-20, 0.2, -12.9]), P([20, 0.2, -12.9]), P([20, 3, -12.9]), P([-20, 3, -12.9])];
             if (door.every(Boolean)) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `hsla(${(t / 15) % 360},100%,60%,${0.18 + beat * 0.35})`;
               ctx.beginPath(); door.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1]) : ctx.moveTo(q![0], q![1]))); ctx.closePath(); ctx.fill(); ctx.restore(); }
             for (let k = 0; k < 3; k++) {                                                   // onde sonore dal tetto
-              const u = ((t / 1600) + k / 3) % 1; const c = P([0, 24 + u * 10, -48]); const e = P([28 + u * 50, 24 + u * 10, -48]);
+              const u = ((t / 1600) + k / 3) % 1; const c = P([0, 29 + u * 10, -56]); const e = P([20 + u * 50, 29 + u * 10, -56]);
               if (c && e) { ctx.strokeStyle = `hsla(${(t / 20 + k * 90) % 360},100%,70%,${0.45 * (1 - u)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(c[0], c[1], Math.abs(e[0] - c[0]), Math.abs(e[0] - c[0]) * 0.32, 0, 0, Math.PI * 2); ctx.stroke(); }
             }
             ctx.font = "700 14px system-ui,sans-serif"; ctx.textAlign = "center";
             for (let k = 0; k < 10; k++) {                                                  // note musicali
-              const u = ((t / 4200) + k * 0.1) % 1; const q = P([-30 + (k * 23) % 60 + Math.sin(t / 700 + k) * 3, 26 + u * 22, -40 - (k % 3) * 6]);
+              const u = ((t / 4200) + k * 0.1) % 1; const q = P([-30 + (k * 23) % 60 + Math.sin(t / 700 + k) * 3, 30 + u * 22, -50 - (k % 3) * 6]);
               if (q) { ctx.fillStyle = `hsla(${(k * 47 + t / 30) % 360},100%,75%,${(1 - u) * 0.9})`; ctx.fillText(k % 2 ? "♪" : "♫", q[0], q[1]); }
             }
           }

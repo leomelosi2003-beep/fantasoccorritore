@@ -5,7 +5,7 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 export const NOVITA: Novita[] = [
   {
     id: "2026-11-21n", date: "21 novembre 2026", title: "🎶 Concerti al Modigliani Forum, classifica alleanze e multa d'uscita",
-    items: ["Quando c'è un concerto al Modigliani Forum la scena dell'evento mostra il palazzetto con la gente che entra dai tornelli; quando inizia lo spettacolo partono luci dal tetto, note e musica che pulsa dalle porte.",
+    items: ["Quando c'è un concerto al Modigliani Forum la scena dell'evento mostra la cupola del palazzetto con la cupoletta in cima e la gente che entra dai tornelli; quando inizia lo spettacolo partono luci dal tetto, note e musica che pulsa dalle porte.",
             "In Classifica c'è la scheda «🤝 Alleanze»: i punti di stagione dei membri si sommano, in cima l'alleanza con più punti. Tocca un'alleanza per vedere chi ha portato i punti.",
             "Chi esce da un'alleanza paga una multa di 25.000 € a ciascun membro che resta (se non ha i soldi non può uscire)."],
   },
