@@ -371,8 +371,11 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
         g.textAlign = "center"; g.textBaseline = "middle";
         g.font = `${it.bold ? "900 " : "600 "}${Math.max(6, h * 0.82)}px Arial, sans-serif`;
         const tw = g.measureText(it.text ?? "").width || 1;
-        g.save(); g.scale(w / tw, 1); g.fillStyle = fillOf(g, it, tw, h); g.fillText(it.text ?? "", 0, 0); g.restore();
-        if (it.sw > 0) { g.strokeStyle = it.stroke; g.lineWidth = it.sw; g.save(); g.scale(w / tw, 1); g.strokeText(it.text ?? "", 0, 0); g.restore(); }
+        g.save(); g.scale(w / tw, 1);
+        // bordo solo all'esterno delle lettere: prima il contorno (doppio e arrotondato), poi le lettere sopra
+        if (it.sw > 0) { g.strokeStyle = it.stroke; g.lineWidth = it.sw * 2; g.lineJoin = "round"; g.lineCap = "round"; g.miterLimit = 2; g.strokeText(it.text ?? "", 0, 0); }
+        g.fillStyle = fillOf(g, it, tw, h); g.fillText(it.text ?? "", 0, 0);
+        g.restore();
       } else if (it.t === "sticker") {
         drawSticker(g, it, w, h);
       } else if (it.t === "image" && it.src) {

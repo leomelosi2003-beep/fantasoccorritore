@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21h", date: "21 novembre 2026", title: "🎨 Concorso: le livree più belle",
+    items: ["In Classifica c'è la scheda «🎨 Livree»: tutte le livree dei giocatori, da guardare in grande e votare. Hai 5 voti a stagione (non alle tue) e puoi cambiarli.",
+            "A fine stagione le 3 livree più votate entrano nell'albo d'oro.",
+            "Il bordo del testo nelle livree ora sta solo fuori dalle lettere."],
+  },
+  {
     id: "2026-11-21g", date: "21 novembre 2026", title: "🎨 Livrea: comandi sotto il foglio, più forme e livree",
     items: ["Sotto il foglio di lavoro ci sono sempre i comandi per la forma scelta: frecce (passo 1, 5, 20), più grande/più piccola, ruota, sopra/sotto, duplica, elimina.",
             "I livelli si aprono sul foglio di lavoro col pulsante «🗂️ Livelli».",

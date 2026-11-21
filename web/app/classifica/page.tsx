@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, type Organization } from "@/lib/supabase";
+import LiveryContest from "@/components/LiveryContest";
 import FactionEmblem from "@/components/FactionEmblem";
 
 type Row = {
@@ -45,6 +46,7 @@ export default function Classifica() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [tab, setTab] = useState<Key>("season_points");
+  const [livTab, setLivTab] = useState(false);
   const [awards, setAwards] = useState<Award[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,13 +100,18 @@ export default function Classifica() {
 
       <div style={wrap}>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+          <button onClick={() => setLivTab(true)}
+                  style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
+                           fontWeight: 700, fontSize: 14, background: livTab ? "#BE123C" : "#FFE4E6",
+                           color: livTab ? "#fff" : "#BE123C", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>🎨 Livree</button>
           {TABS.map((x) => (
-            <button key={x.key} onClick={() => setTab(x.key)}
+            <button key={x.key} onClick={() => { setTab(x.key); setLivTab(false); }}
                     style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                             fontWeight: 700, fontSize: 14, background: tab === x.key ? "#111" : "#fff",
-                             color: tab === x.key ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{x.label}</button>
+                             fontWeight: 700, fontSize: 14, background: !livTab && tab === x.key ? "#111" : "#fff",
+                             color: !livTab && tab === x.key ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{x.label}</button>
           ))}
         </div>
+        {livTab ? <div style={{ marginTop: 10 }}><LiveryContest /></div> : <>
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}
@@ -161,6 +168,7 @@ export default function Classifica() {
             ))}
           </div>
         )}
+        </>}
       </div>
     </main>
   );
