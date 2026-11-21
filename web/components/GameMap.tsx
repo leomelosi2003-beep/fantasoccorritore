@@ -338,6 +338,18 @@ async function loadDotColors() {
   for (const r of (data ?? []) as { org_id: string; fill: string | null; border: string | null }[]) m[r.org_id] = { fill: r.fill, border: r.border };
   dotColors = m;
 }
+// sede vista da lontano: quadratino coi colori dei pallini dell'associazione
+function squareIcon(fill: string, border: string, d: number) {
+  return memoIcon(`sq|${fill}|${border}|${d}`, () => L.divIcon({ className: "", iconSize: [d, d], iconAnchor: [d / 2, d / 2],
+    html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:${Math.max(2, d / 5)}px;background:${fill};border:2px solid ${border};box-shadow:0 0 0 1px rgba(0,0,0,.4);box-sizing:border-box"></span>` }));
+}
+// la mia sede a zoom medio: solo il logo, piccolo
+function smallLogoIcon(type: BasePin["org_type"], logo: string | null | undefined, hq: boolean) {
+  const d = hq ? 30 : 24;
+  const bg = type === "rosso_bianco" ? "#DC2626" : type === "arancio_nero" ? "#EA580C" : "#1D4ED8";
+  return memoIcon(`sl|${type}|${logo ?? ""}|${hq}`, () => L.divIcon({ className: "", iconSize: [d, d], iconAnchor: [d / 2, d / 2],
+    html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:50%;background:${logo ? `#fff center/cover url('${logo}')` : bg};border:2px solid ${hq ? "#F59E0B" : "#fff"};box-shadow:0 1px 4px rgba(0,0,0,.45)"></span>` }));
+}
 // C-130H visto dall'alto (muso a destra), girato nella direzione del volo
 function planeIcon(deg: number, small: boolean) {
   const w = small ? 30 : 46;
@@ -1632,14 +1644,16 @@ export default function GameMap() {
           </Marker>
         )), [flt.hospitals, hospitals, mv])}
 
-        {far && bases.filter((b) => showBase(b)).map((b) => b.org_id === org?.id ? (
-          <CircleMarker key={`bd-${b.id}`} center={[b.lat, b.lng]} radius={b.is_headquarters ? 7 : 5.5} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }}
-                        pathOptions={{ color: "#13294B", weight: 2, fillColor: "#F59E0B", fillOpacity: 1 }} />
-        ) : (
-          <CircleMarker key={`bd-${b.id}`} center={[b.lat, b.lng]} radius={4} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }}
-                        pathOptions={{ color: "#fff", weight: 1, fillColor: b.org_type === "rosso_bianco" ? "#DC2626" : b.org_type === "arancio_nero" ? "#EA580C" : "#1D4ED8", fillOpacity: 0.9 }} />
-        ))}
-        {useMemo(() => !far && bases.filter((b) => showBase(b) && inView(b.lat, b.lng)).map((b) => (
+        {/* sedi da lontano: le mie col logo (zoom medio) o quadratini colorati (molto lontano); quelle degli altri quadratini */}
+        {dots && bases.filter((b) => showBase(b) && inView(b.lat, b.lng)).map((b) => {
+          const mineB = b.org_id === org?.id;
+          const dc = dotColors[b.org_id];
+          const icon = mineB && !far ? smallLogoIcon(b.org_type, b.logo_url, b.is_headquarters)
+            : squareIcon(dc?.fill ?? (mineB ? "#F59E0B" : b.org_type === "rosso_bianco" ? "#DC2626" : b.org_type === "arancio_nero" ? "#EA580C" : "#1D4ED8"),
+                         dc?.border ?? (mineB ? "#13294B" : "#FFFFFF"), mineB ? (b.is_headquarters ? 13 : 11) : 8);
+          return <Marker key={`bd-${b.id}`} position={[b.lat, b.lng]} icon={icon} zIndexOffset={mineB ? 500 : 0} eventHandlers={{ click: () => zoomTo(b.lat, b.lng) }} />;
+        })}
+        {useMemo(() => !dots && bases.filter((b) => showBase(b) && inView(b.lat, b.lng)).map((b) => (
           <Marker key={b.id} position={[b.lat, b.lng]} icon={baseIcon(b.org_type, b.org_id === org?.id, b.logo_url, b.is_headquarters && !!b.online, b.is_headquarters, baseColors[b.id], baseTwins[b.id], orgAlly[b.org_id])}
                   eventHandlers={{ popupopen: () => loadBaseCars(b.id) }}>
             <Popup>
@@ -1706,7 +1720,7 @@ export default function GameMap() {
               </div>
             </Popup>
           </Marker>
-        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins, orgAlly, far, mv])}
+        )), [bases, flt.bases, org?.id, baseCars, baseColors, baseTwins, orgAlly, dots, mv])}
 
         {flt.events && upcoming.filter((e) => !missions.some((m) => m.event_id === e.id)).map((e) => {
           const show = new Date(e.show_at ?? e.starts_at);

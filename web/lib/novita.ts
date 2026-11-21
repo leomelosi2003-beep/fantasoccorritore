@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21j", date: "21 novembre 2026", title: "🗺️ Zoom a livelli per le sedi",
+    items: ["Allontanando un po' lo zoom vedi solo il logo delle tue sedi, mentre quelle degli altri diventano quadratini.",
+            "Allontanando ancora anche le tue sedi diventano quadratini, coi colori scelti per i pallini nel profilo. Tocca un quadratino per avvicinarti."],
+  },
+  {
     id: "2026-11-21i", date: "21 novembre 2026", title: "🪪 Associazione e profilo insieme",
     items: ["La pagina «Associazione» ora è il tuo profilo: con «✏️ Modifica profilo» cambi in un posto solo nome, stemma, colori, banner, presentazione e colore dei pallini sulla mappa."],
   },
