@@ -1,6 +1,8 @@
 // Motore dell'editor livrea: forme, sfumature, immagine "bianca" del mezzo, maschera della carrozzeria, composizione finale.
 export type Kind = "rect" | "ellipse" | "line" | "path" | "text" | "image" | "checker"
-  | "roundrect" | "tri" | "diamond" | "star" | "hex" | "chevron" | "arrow" | "wave" | "swoosh" | "heart" | "sticker";
+  | "roundrect" | "tri" | "diamond" | "star" | "hex" | "chevron" | "arrow" | "wave" | "swoosh" | "heart" | "sticker"
+  | "pent" | "oct" | "plus" | "trap" | "para" | "bolt" | "ring" | "halfc" | "crescent" | "drop" | "shield"
+  | "stripes" | "polka" | "zigzag" | "grid";
 export type Item = {
   id: string; t: Kind; x: number; y: number; w: number; h: number; r: number;
   fill: string; stroke: string; sw: number; op: number;
@@ -20,9 +22,18 @@ export const SHAPES: { t: Kind; icon: string; name: string }[] = [
   { t: "tri", icon: "▲", name: "Triangolo" }, { t: "diamond", icon: "◆", name: "Rombo" }, { t: "hex", icon: "⬢", name: "Esagono" },
   { t: "star", icon: "★", name: "Stella" }, { t: "heart", icon: "♥", name: "Cuore" }, { t: "chevron", icon: "❯", name: "Chevron" },
   { t: "arrow", icon: "➜", name: "Freccia" }, { t: "wave", icon: "〰", name: "Onda" }, { t: "swoosh", icon: "⌒", name: "Sagomatura" },
-  { t: "checker", icon: "▦", name: "Scacchi" }, { t: "line", icon: "╱", name: "Linea" },
+  { t: "pent", icon: "⬟", name: "Pentagono" }, { t: "oct", icon: "⯃", name: "Ottagono" }, { t: "plus", icon: "✚", name: "Croce" },
+  { t: "trap", icon: "⏢", name: "Trapezio" }, { t: "para", icon: "▱", name: "Parallelogr." }, { t: "bolt", icon: "⚡", name: "Fulmine" },
+  { t: "ring", icon: "◯", name: "Anello" }, { t: "halfc", icon: "◗", name: "Mezzo cerchio" }, { t: "crescent", icon: "☾", name: "Luna" },
+  { t: "drop", icon: "💧", name: "Goccia" }, { t: "shield", icon: "🛡", name: "Scudo" }, { t: "line", icon: "╱", name: "Linea" },
 ];
-export const KIND_NAME: Record<Kind, string> = Object.fromEntries([...SHAPES.map((s) => [s.t, s.name]), ["path", "Pennello"], ["text", "Testo"], ["image", "Foto"], ["sticker", "Adesivo"]]) as Record<Kind, string>;
+// motivi: riempiono un rettangolo con due colori (fill e c2)
+export const PATTERNS: { t: Kind; icon: string; name: string }[] = [
+  { t: "checker", icon: "▦", name: "Scacchi" }, { t: "stripes", icon: "▨", name: "Righe oblique" },
+  { t: "polka", icon: "⁘", name: "Pois" }, { t: "zigzag", icon: "〽", name: "Zig-zag" }, { t: "grid", icon: "▦", name: "Griglia" },
+];
+export const PATTERN_KINDS: Kind[] = PATTERNS.map((p) => p.t);
+export const KIND_NAME: Record<Kind, string> = Object.fromEntries([...SHAPES.map((s) => [s.t, s.name]), ...PATTERNS.map((s) => [s.t, s.name]), ["path", "Pennello"], ["text", "Testo"], ["image", "Foto"], ["sticker", "Adesivo"]]) as Record<Kind, string>;
 
 // Adesivi pronti (fill = sfondo, c2 = simbolo/scritta). Si mettono anche sui vetri.
 export const STICKERS: { stk: string; icon: string; name: string; w: number; h: number; fill: string; c2: string; text?: string }[] = [
@@ -35,11 +46,14 @@ export const STICKERS: { stk: string; icon: string; name: string; w: number; h: 
   { stk: "glasstext", icon: "🪟", name: "Scritta", w: 3.2, h: 0.7, fill: "#FFFFFF", c2: "#FFFFFF", text: "AMBULANZA" },
   { stk: "dots", icon: "⬤", name: "Pallini riflettenti", w: 3, h: 0.5, fill: "#FACC15", c2: "#FACC15" },
 ];
-export const FILLABLE: Kind[] = ["rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh"];
+export const FILLABLE: Kind[] = ["rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh",
+  "pent", "oct", "plus", "trap", "para", "bolt", "ring", "halfc", "crescent", "drop", "shield"];
 
 // ---------- livree pronte da cui partire (posizioni in proporzione al mezzo) ----------
 const R = (W: number, H: number, x: number, y: number, w: number, h: number, fill: string, extra: Partial<Item> = {}): Item =>
   ({ id: uid(), t: "rect", x: x * W, y: y * H, w: w * W, h: h * H, r: 0, fill, stroke: "#000", sw: 0, op: 1, ...extra });
+const S = (W: number, H: number, t: Kind, x: number, y: number, w: number, h: number, fill: string, extra: Partial<Item> = {}): Item =>
+  ({ id: uid(), t, x: x * W, y: y * H, w: w * W, h: h * H, r: 0, fill, stroke: "#000", sw: 0, op: 1, ...extra });
 const CK = (W: number, H: number, y: number, h: number, a: string, b: string): Item =>
   ({ id: uid(), t: "checker", x: 0, y: y * H, w: W, h: h * H, r: 0, fill: a, c2: b, stroke: "#000", sw: 0, op: 1 });
 export const PRESETS: { name: string; make: (W: number, H: number) => Item[] }[] = [
@@ -53,6 +67,17 @@ export const PRESETS: { name: string; make: (W: number, H: number) => Item[] }[]
   { name: "➖ Elegante a doppia linea", make: (W, H) => [R(W, H, 0, 0.56, 1, 0.02, "#13294B"), R(W, H, 0, 0.6, 1, 0.008, "#F59E0B")] },
   { name: "🚨 Fascia larga con scritta", make: (W, H) => [R(W, H, 0, 0.5, 1, 0.13, "#F97316"),
       { id: uid(), t: "text", x: W * 0.3, y: H * 0.515, w: W * 0.4, h: H * 0.1, r: 0, fill: "#FFFFFF", stroke: "#000", sw: 0, op: 1, text: "AMBULANZA", bold: true }] },
+  { name: "🇮🇹 Tricolore", make: (W, H) => [R(W, H, 0, 0.5, 1, 0.035, "#16A34A"), R(W, H, 0, 0.535, 1, 0.035, "#FFFFFF", { sw: 0 }), R(W, H, 0, 0.57, 1, 0.035, "#DC2626")] },
+  { name: "🌊 Onde marine", make: (W, H) => [S(W, H, "wave", 0, 0.5, 1, 0.12, "#0EA5E9"), S(W, H, "wave", 0, 0.6, 1, 0.08, "#1E3A8A")] },
+  { name: "🔥 Fiammata", make: (W, H) => [S(W, H, "swoosh", 0.05, 0.35, 0.75, 0.4, "#DC2626", { g2: "#F59E0B", gdir: "h", gang: 0 }), S(W, H, "swoosh", 0.1, 0.45, 0.6, 0.3, "#FACC15", { op: 0.85 })] },
+  { name: "🌙 Notturna", make: (W, H) => [R(W, H, 0, 0.47, 1, 0.16, "#111827", { g2: "#374151", gdir: "v" }), R(W, H, 0, 0.47, 1, 0.012, "#F59E0B"), R(W, H, 0, 0.62, 1, 0.012, "#F59E0B")] },
+  { name: "🏎️ Corsa a righe", make: (W, H) => [S(W, H, "stripes", 0, 0.5, 1, 0.09, "#F97316", { c2: "#FFFFFF" }), R(W, H, 0, 0.6, 1, 0.02, "#13294B")] },
+  { name: "⚪ Pois allegri", make: (W, H) => [S(W, H, "polka", 0, 0.5, 1, 0.12, "#1D4ED8", { c2: "#FACC15" })] },
+  { name: "〽 Zig-zag", make: (W, H) => [S(W, H, "zigzag", 0, 0.52, 1, 0.08, "#FFFFFF", { c2: "#DC2626" }), R(W, H, 0, 0.61, 1, 0.02, "#DC2626")] },
+  { name: "🎯 Chevron posteriore", make: (W, H) => [R(W, H, 0, 0.55, 0.75, 0.05, "#1D4ED8"),
+      S(W, H, "chevron", 0.76, 0.42, 0.08, 0.3, "#FACC15"), S(W, H, "chevron", 0.84, 0.42, 0.08, 0.3, "#DC2626")] },
+  { name: "💠 Moderna a blocchi", make: (W, H) => [S(W, H, "para", 0.05, 0.48, 0.35, 0.12, "#0EA5E9"), S(W, H, "para", 0.35, 0.48, 0.35, 0.12, "#1E3A8A"), S(W, H, "para", 0.65, 0.48, 0.3, 0.12, "#F97316")] },
+  { name: "🟨 Protezione civile", make: (W, H) => [R(W, H, 0, 0.48, 1, 0.1, "#1E3A8A"), R(W, H, 0, 0.58, 1, 0.04, "#FACC15"), CK(W, H, 0.17, 0.035, "#1E3A8A", "#FACC15")] },
 ];
 
 // ---------- immagine "bianca" del mezzo: tolgo i colori della livrea ufficiale, tengo ombre, vetri e ruote ----------
@@ -261,7 +286,19 @@ function shapePath(g: CanvasRenderingContext2D, t: Kind, w: number, h: number) {
   } else if (t === "swoosh") {
     g.moveTo(-W2, H2); g.quadraticCurveTo(-W2 * 0.1, H2 * 0.9, W2, -H2);
     g.lineTo(W2, -H2 + h * 0.38); g.quadraticCurveTo(-W2 * 0.05, H2 * 1.05, -W2 + w * 0.12, H2); g.closePath();
-  } else if (t === "heart") {
+  } else if (t === "pent" || t === "oct") {
+    const n = t === "pent" ? 5 : 8, off = t === "pent" ? -Math.PI / 2 : Math.PI / 8;
+    poly(Array.from({ length: n }, (_, i) => [Math.cos(off + (2 * Math.PI * i) / n) * W2, Math.sin(off + (2 * Math.PI * i) / n) * H2] as [number, number]));
+  } else if (t === "plus") { const a = w / 6, b = h / 6; poly([[-a, -H2], [a, -H2], [a, -b], [W2, -b], [W2, b], [a, b], [a, H2], [-a, H2], [-a, b], [-W2, b], [-W2, -b], [-a, -b]]); }
+  else if (t === "trap") poly([[-W2 * 0.6, -H2], [W2 * 0.6, -H2], [W2, H2], [-W2, H2]]);
+  else if (t === "para") poly([[-W2 + w * 0.25, -H2], [W2, -H2], [W2 - w * 0.25, H2], [-W2, H2]]);
+  else if (t === "bolt") poly([[w * 0.1, -H2], [-W2 * 0.7, h * 0.08], [-w * 0.02, h * 0.08], [-w * 0.12, H2], [W2 * 0.7, -h * 0.1], [w * 0.02, -h * 0.1]]);
+  else if (t === "ring") { g.ellipse(0, 0, W2, H2, 0, 0, Math.PI * 2); g.moveTo(W2 * 0.6, 0); g.ellipse(0, 0, W2 * 0.6, H2 * 0.6, 0, 0, Math.PI * 2, true); }
+  else if (t === "halfc") { g.ellipse(-W2, 0, w, H2, 0, -Math.PI / 2, Math.PI / 2); g.closePath(); }
+  else if (t === "crescent") { g.ellipse(0, 0, W2, H2, 0, Math.PI / 2, (Math.PI * 3) / 2); g.ellipse(-W2 * 0.35, 0, W2 * 0.55, H2, 0, (Math.PI * 3) / 2, Math.PI / 2, true); g.closePath(); }
+  else if (t === "drop") { g.moveTo(0, -H2); g.bezierCurveTo(W2 * 0.4, -H2 * 0.3, W2, H2 * 0.15, W2, H2 * 0.4); g.arc(0, H2 * 0.4, W2, 0, Math.PI); g.bezierCurveTo(-W2, H2 * 0.15, -W2 * 0.4, -H2 * 0.3, 0, -H2); g.closePath(); }
+  else if (t === "shield") { g.moveTo(-W2, -H2); g.lineTo(W2, -H2); g.lineTo(W2, 0); g.quadraticCurveTo(W2, H2 * 0.7, 0, H2); g.quadraticCurveTo(-W2, H2 * 0.7, -W2, 0); g.closePath(); }
+  else if (t === "heart") {
     g.moveTo(0, H2); g.bezierCurveTo(-W2 * 1.1, H2 * 0.1, -W2 * 0.9, -H2 * 1.1, 0, -H2 * 0.45);
     g.bezierCurveTo(W2 * 0.9, -H2 * 1.1, W2 * 1.1, H2 * 0.1, 0, H2); g.closePath();
   }
@@ -300,8 +337,29 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
       const w = Math.abs(it.w), h = Math.abs(it.h);
       if (FILLABLE.includes(it.t)) {
         shapePath(g, it.t, w, h);
-        if (it.fill !== "none") { g.fillStyle = fillOf(g, it, w, h); g.fill(); }
+        if (it.fill !== "none") { g.fillStyle = fillOf(g, it, w, h); g.fill(it.t === "ring" ? "evenodd" : "nonzero"); }
         if (it.sw > 0) { g.strokeStyle = it.stroke; g.lineWidth = it.sw; g.lineJoin = "round"; g.stroke(); }
+      } else if (it.t === "stripes" || it.t === "polka" || it.t === "zigzag" || it.t === "grid") {
+        g.save(); g.beginPath(); g.rect(-w / 2, -h / 2, w, h); g.clip();
+        const c2 = it.c2 ?? "#1D4ED8", u = Math.max(4, Math.min(w, h) / 3);
+        g.fillStyle = it.fill; g.fillRect(-w / 2, -h / 2, w, h);
+        if (it.t === "stripes") {
+          g.fillStyle = c2;
+          for (let x = -w / 2 - h; x < w / 2 + h; x += u * 2) { g.beginPath(); g.moveTo(x, h / 2); g.lineTo(x + u, h / 2); g.lineTo(x + u + h, -h / 2); g.lineTo(x + h, -h / 2); g.closePath(); g.fill(); }
+        } else if (it.t === "polka") {
+          g.fillStyle = c2; const st = u * 1.2;
+          for (let y = -h / 2 + st / 2, row = 0; y < h / 2 + st; y += st, row++) for (let x = -w / 2 + (row % 2 ? st : st / 2); x < w / 2 + st; x += st) { g.beginPath(); g.arc(x, y, st * 0.28, 0, Math.PI * 2); g.fill(); }
+        } else if (it.t === "zigzag") {
+          g.strokeStyle = c2; g.lineWidth = Math.max(2, h * 0.18); g.lineJoin = "miter"; g.beginPath();
+          const st = h * 0.8; let up = true; g.moveTo(-w / 2, h * 0.25);
+          for (let x = -w / 2; x <= w / 2 + st; x += st / 2, up = !up) g.lineTo(x, up ? -h * 0.25 : h * 0.25);
+          g.stroke();
+        } else {
+          g.strokeStyle = c2; g.lineWidth = Math.max(1.5, u * 0.12);
+          for (let x = -w / 2; x <= w / 2; x += u) { g.beginPath(); g.moveTo(x, -h / 2); g.lineTo(x, h / 2); g.stroke(); }
+          for (let y = -h / 2; y <= h / 2; y += u) { g.beginPath(); g.moveTo(-w / 2, y); g.lineTo(w / 2, y); g.stroke(); }
+        }
+        g.restore();
       } else if (it.t === "checker") {
         const cell = h / 2, n = Math.max(1, Math.round(w / cell));
         const cw = w / n;

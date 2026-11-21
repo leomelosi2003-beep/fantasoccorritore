@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21g", date: "21 novembre 2026", title: "🎨 Livrea: comandi sotto il foglio, più forme e livree",
+    items: ["Sotto il foglio di lavoro ci sono sempre i comandi per la forma scelta: frecce (passo 1, 5, 20), più grande/più piccola, ruota, sopra/sotto, duplica, elimina.",
+            "I livelli si aprono sul foglio di lavoro col pulsante «🗂️ Livelli».",
+            "11 forme nuove (pentagono, ottagono, croce, trapezio, parallelogramma, fulmine, anello, mezzo cerchio, luna, goccia, scudo), 4 motivi nuovi (righe oblique, pois, zig-zag, griglia) e 10 livree pronte in più (tricolore, onde, fiammata, notturna, corsa, pois, zig-zag, chevron, a blocchi, protezione civile)."],
+  },
+  {
     id: "2026-11-21f", date: "21 novembre 2026", title: "🔵 Mappa più leggera: pallini colorati",
     items: ["Appena allontani un po' lo zoom le ambulanze diventano pallini: la mappa è più leggera e scatta meno.",
             "Colore e bordo dei pallini dei tuoi mezzi li scegli nel tuo profilo («✏️ Banner, presentazione e pallini»): tutti li vedranno così."],

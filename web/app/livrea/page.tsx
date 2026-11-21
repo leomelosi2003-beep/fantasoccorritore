@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import { loadVehicleLiveries } from "@/lib/liveries";
-import { type Item, type Kind, type Design, uid, SHAPES, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
+import { type Item, type Kind, type Design, uid, SHAPES, PATTERNS, PATTERN_KINDS, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox } from "@/components/livery/engine";
 
 type Model = { id: string; name: string; image_url: string | null };
 type Livery = { id: string; model_id: string; name: string; design: Design; image_url: string | null; base_ids: string[] | null; vehicle_ids: string[] | null; updated_at: string };
@@ -52,6 +52,7 @@ export default function LiveryEditor() {
   const [stkOpen, setStkOpen] = useState(false);
   const [step, setStep] = useState(5);
   const [more, setMore] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [side, setSide] = useState<"props" | "layers">("props");
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });          // zoom e spostamento della vista
   const [vp, setVp] = useState({ w: 800, h: 360 });               // misure del riquadro
@@ -84,7 +85,7 @@ export default function LiveryEditor() {
   useEffect(() => {
     const f = () => {
       const w = vpRef.current?.clientWidth ?? 800;
-      const h = full ? window.innerHeight - 70 : Math.max(380, Math.min(window.innerHeight * 0.8, (w * H) / W + 200));   // tavolo di lavoro grande
+      const h = full ? window.innerHeight - 130 : Math.max(380, Math.min(window.innerHeight * 0.8, (w * H) / W + 200));   // tavolo di lavoro grande
       setVp({ w, h });
     };
     f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
@@ -210,6 +211,7 @@ export default function LiveryEditor() {
       t === "ellipse" ? { ...base, fill: "#DC2626" } :
       t === "line" ? { ...base, x: W * 0.1, y: H * 0.35, w: W * 0.8, h: 0, sw: 8, stroke: "#1D4ED8" } :
       t === "checker" ? { ...base, x: W * 0.05, y: H * 0.62, w: W * 0.9, h: H * 0.06, fill: "#FACC15", c2: "#1D4ED8" } :
+      PATTERN_KINDS.includes(t) ? { ...base, x: W * 0.05, y: H * 0.5, w: W * 0.9, h: H * 0.1, fill: "#F97316", c2: "#FFFFFF" } :
       t === "wave" ? { ...base, x: W * 0.05, y: H * 0.45, w: W * 0.9, h: H * 0.12, fill: "#0EA5E9" } :
       t === "swoosh" ? { ...base, x: W * 0.15, y: H * 0.3, w: W * 0.7, h: H * 0.35, fill: "#F97316", g2: "#FACC15", gdir: "h" } :
       t === "chevron" || t === "arrow" ? { ...base, w: H * 0.3, h: H * 0.22, fill: "#FACC15" } :
@@ -460,11 +462,11 @@ export default function LiveryEditor() {
         {selected.text !== undefined && <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 30) })} placeholder="Scritta"
           style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
       </div>}
-      {(isFillable || selected.t === "checker") && <div style={{ marginBottom: 8 }}>
-        <span style={lbl}>{selected.t === "checker" ? "Colori scacchi" : "Colore"}</span>
+      {(isFillable || PATTERN_KINDS.includes(selected.t)) && <div style={{ marginBottom: 8 }}>
+        <span style={lbl}>{PATTERN_KINDS.includes(selected.t) ? "Colori del motivo" : "Colore"}</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
           <input type="color" value={selected.fill === "none" ? "#ffffff" : selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
-          {selected.t === "checker" && <input type="color" value={selected.c2 ?? "#1D4ED8"} onChange={(e) => live(selected.id, { c2: e.target.value })} />}
+          {PATTERN_KINDS.includes(selected.t) && <input type="color" value={selected.c2 ?? "#1D4ED8"} onChange={(e) => live(selected.id, { c2: e.target.value })} />}
           {FILLABLE.includes(selected.t) && <label style={{ fontSize: 12.5 }}><input type="checkbox" checked={selected.fill !== "none"} onChange={(e) => patch(selected.id, { fill: e.target.checked ? "#F97316" : "none", sw: e.target.checked ? selected.sw : Math.max(selected.sw, 6) })} /> riempita</label>}
         </div>
         {swatches((c) => patch(selected.id, { fill: c }), selected.fill)}
@@ -632,8 +634,12 @@ export default function LiveryEditor() {
           <button style={tool(mode === "select")} onClick={() => setMode("select")} title="Sposta e scegli">👆 Sposta</button>
           <div style={{ position: "relative" }}>
             <button style={tool(shapesOpen)} onClick={() => { setShapesOpen(!shapesOpen); setStkOpen(false); }}>🔷 Forme ▾</button>
-            {shapesOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 74px)", gap: 6, zIndex: 20 }}>
+            {shapesOpen && <div style={{ position: "absolute", top: "110%", left: 0, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.18)", padding: 8, display: "grid", gridTemplateColumns: "repeat(5, 74px)", gap: 6, zIndex: 20, maxHeight: "65vh", overflow: "auto" }}>
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, fontWeight: 800, color: "#64748B", textTransform: "uppercase" }}>Forme</div>
               {SHAPES.map((s) => <button key={s.t} onClick={() => add(s.t)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
+                <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s.icon}</span>{s.name}</button>)}
+              <div style={{ gridColumn: "1 / -1", fontSize: 11.5, fontWeight: 800, color: "#64748B", textTransform: "uppercase", marginTop: 4 }}>Motivi</div>
+              {PATTERNS.map((s) => <button key={s.t} onClick={() => add(s.t)} style={{ ...tool(), display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", fontSize: 11.5 }}>
                 <span style={{ fontSize: 20, lineHeight: 1.1 }}>{s.icon}</span>{s.name}</button>)}
             </div>}
           </div>
@@ -734,13 +740,6 @@ export default function LiveryEditor() {
                     const bx = isPath ? sb : { x: selected.x, y: selected.y, w: selected.w, h: selected.h };
                     const cx = bx.x + bx.w / 2, cy = bx.y + bx.h / 2, hw = Math.abs(bx.w) / 2, hh = Math.abs(bx.h) / 2;
                     const rot = isPath || isLine ? 0 : selected.r;
-                    const arrow = (dx: number, dy: number, px: number, py: number) => (
-                      <g key={`a${dx}${dy}`} data-nudge={`${dx},${dy}`} style={{ cursor: "pointer" }} transform={`translate(${px} ${py}) rotate(${-rot})`}>
-                        <circle r={13 * u} fill="#13294B" stroke="#fff" strokeWidth={2 * u} />
-                        <path d={`M ${-5 * u} ${2.5 * u} L 0 ${-4 * u} L ${5 * u} ${2.5 * u}`} fill="none" stroke="#fff" strokeWidth={2.6 * u} strokeLinecap="round" strokeLinejoin="round"
-                              transform={`rotate(${dx > 0 ? 90 : dx < 0 ? -90 : dy > 0 ? 180 : 0})`} />
-                      </g>);
-                    const gap = 30 * u;
                     if (isLine) return <>
                       <line x1={selected.x} y1={selected.y} x2={selected.x + selected.w} y2={selected.y + selected.h} stroke={col} strokeWidth={ink} strokeDasharray={`${ink * 4} ${ink * 3}`} pointerEvents="none" />
                       {[["p0", selected.x, selected.y], ["p1", selected.x + selected.w, selected.y + selected.h]].map(([k, px, py]) =>
@@ -762,11 +761,6 @@ export default function LiveryEditor() {
                           ? <circle key={`${hx}${hy}`} data-h={`${hx},${hy}`} cx={hxp} cy={hyp} r={handleR * 0.85} fill="#fff" stroke={col} strokeWidth={2.4 * u} style={{ cursor: cur }} />
                           : <rect key={`${hx}${hy}`} data-h={`${hx},${hy}`} x={hxp - (hx ? 5 : 11) * u} y={hyp - (hy ? 5 : 11) * u} width={(hx ? 10 : 22) * u} height={(hy ? 10 : 22) * u} rx={4 * u} fill="#fff" stroke={col} strokeWidth={2.2 * u} style={{ cursor: cur }} />;
                       })}
-                      {/* freccette per spostare di poco, ai quattro lati */}
-                      {arrow(0, -1, cx + hw * 0.45 + 26 * u, cy - hh - gap)}
-                      {arrow(0, 1, cx, cy + hh + gap)}
-                      {arrow(-1, 0, cx - hw - gap, cy)}
-                      {arrow(1, 0, cx + hw + gap, cy)}
                     </g>;
                   })()}
                 </svg>
@@ -795,6 +789,12 @@ export default function LiveryEditor() {
                     <button title="Chiudi" onClick={() => setSelId(null)} style={{ ...tool(), padding: "3px 7px", border: "none" }}>✕</button>
                   </div>);
               })()}
+              {/* livelli sul foglio di lavoro */}
+              <button onClick={() => setLayersOpen(!layersOpen)} style={{ position: "absolute", left: 8, top: 8, zIndex: 9, ...tool(layersOpen), padding: "5px 10px", boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>🗂️ Livelli ({items.length})</button>
+              {layersOpen && <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: 8, top: 46, zIndex: 9, width: 250, maxHeight: vp.h - 60, overflow: "auto", background: "rgba(255,255,255,.97)", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.2)", padding: 8 }}>
+                <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 6 }}>In alto = sopra. Tocca per scegliere.</div>
+                {layers}
+              </div>}
               {/* sfondo e aiuto */}
               <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 4, background: "rgba(255,255,255,.9)", borderRadius: 8, padding: 3 }}>
                 {([["chess", "▦"], ["light", "☀️"], ["dark", "🌙"]] as const).map(([k, ic]) => (
@@ -803,6 +803,30 @@ export default function LiveryEditor() {
               {view.z === 1 && <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 11.5, color: "#475569", background: "rgba(255,255,255,.85)", borderRadius: 6, padding: "2px 7px" }}>
                 {wide ? "🖱️ Rotellina = zoom · Spazio + trascina = sposta" : "🤏 Due dita = zoom e sposta"}
               </div>}
+            </div>
+            {/* comandi sempre sotto il foglio di lavoro */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", padding: "8px 10px", borderTop: "1px solid #E2E8F0", background: "#F8FAFC" }}>
+              {(() => {
+                const sl = selected; const dis = !sl || mode !== "select";
+                const mv = (dx: number, dy: number) => sl && patch(sl.id, { x: sl.x + dx * step, y: sl.y + dy * step, pts: sl.pts?.map(([x, y]) => [x + dx * step, y + dy * step] as [number, number]) });
+                const sz = (k: number) => { if (!sl || sl.t === "path") return; const cx = sl.x + sl.w / 2, cy = sl.y + sl.h / 2, nw = Math.max(6, sl.w * k), nh = Math.max(4, sl.h * k); patch(sl.id, { w: nw, h: nh, x: cx - nw / 2, y: cy - nh / 2 }); };
+                const rb = (ch: string, fn: () => void, title: string, big = false) => <button title={title} disabled={dis} onClick={fn}
+                  style={{ ...tool(), padding: big ? "6px 12px" : "6px 9px", fontSize: big ? 17 : 14, opacity: dis ? 0.4 : 1, minWidth: 38 }}>{ch}</button>;
+                return <>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#475569", minWidth: 70 }}>{sl ? (sl.ally ? "🤝 Logo" : KIND_NAME[sl.t]) : "Nessuna forma"}</span>
+                  <div style={{ display: "flex", gap: 3 }}>{rb("←", () => mv(-1, 0), "Sinistra", true)}{rb("↑", () => mv(0, -1), "Su", true)}{rb("↓", () => mv(0, 1), "Giù", true)}{rb("→", () => mv(1, 0), "Destra", true)}</div>
+                  <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                    <span style={{ fontSize: 11.5, color: "#64748B" }}>passo</span>
+                    {[1, 5, 20].map((n) => <button key={n} onClick={() => setStep(n)} style={{ ...tool(step === n), padding: "4px 8px", fontSize: 12 }}>{n}</button>)}
+                  </div>
+                  <span style={{ width: 1, height: 26, background: "#E2E8F0" }} />
+                  {rb("➖", () => sz(1 / 1.08), "Più piccola")}{rb("➕", () => sz(1.08), "Più grande")}
+                  {rb("↺", () => sl && patch(sl.id, { r: Math.round(sl.r - 15) }), "Ruota a sinistra")}{rb("↻", () => sl && patch(sl.id, { r: Math.round(sl.r + 15) }), "Ruota a destra")}
+                  {rb("⬆", () => sl && layer(sl.id, 1), "Porta sopra")}{rb("⬇", () => sl && layer(sl.id, -1), "Porta sotto")}
+                  {rb("⧉", () => sl && dup(sl), "Duplica")}{rb("🗑", () => sl && remove(sl), "Elimina")}
+                  {!sl && <span style={{ fontSize: 12, color: "#64748B" }}>Tocca una forma sul mezzo per usare i comandi.</span>}
+                </>;
+              })()}
             </div>
           </div>
 
