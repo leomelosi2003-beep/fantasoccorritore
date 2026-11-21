@@ -5,7 +5,7 @@ import { useMap } from "react-leaflet";
 
 // Zoom col pollice sul bordo (come Bump): appoggia il dito vicino al bordo destro o sinistro della mappa
 // e scorri: in su avvicina, in giù allontana. Niente doppio tocco. Al centro la mappa si trascina come sempre.
-export const EDGE_PX = 56; // larghezza della fascia sensibile su ciascun bordo
+export const EDGE_PX = 28; // larghezza della fascia sensibile su ciascun bordo
 
 export default function OneFingerZoom({ enabled }: { enabled: boolean }) {
   const map = useMap();

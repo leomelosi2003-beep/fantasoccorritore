@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21l", date: "21 novembre 2026", title: "👆 Zoom col pollice più preciso",
+    items: ["La fascia per lo zoom con una mano ora è più stretta e attaccata al bordo: non parte più per sbaglio quando tocchi la mappa."],
+  },
+  {
     id: "2026-11-21k", date: "21 novembre 2026", title: "⚡ Bollino elettrico sempre verde",
     items: ["Sui mezzi elettrici il bollino verde col fulmine resta com'è: la livrea non lo sbianca e non ci si può dipingere sopra."],
   },
