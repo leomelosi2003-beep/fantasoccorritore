@@ -84,6 +84,33 @@ export const PRESETS: { name: string; make: (W: number, H: number) => Item[] }[]
 export async function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; });
 }
+// ---------- bollino verde col fulmine dei mezzi elettrici: resta sempre com'è ----------
+type Disk = { cx: number; cy: number; r: number };
+function badgeDisks(p: Uint8ClampedArray, W: number, H: number): Disk[] {
+  const N = W * H, m = new Uint8Array(N);
+  for (let k = 0, i = 0; k < N; k++, i += 4) {
+    const r = p[i], g = p[i + 1], b = p[i + 2], M = Math.max(r, g, b), mn = Math.min(r, g, b);
+    m[k] = p[i + 3] > 200 && g === M && M > 90 && (M - mn) / M > 0.4 && r < g - 30 && b < g - 20 ? 1 : 0;
+  }
+  const lab = new Int32Array(N), st: number[] = [], out: Disk[] = [];
+  let id = 0;
+  for (let k = 0; k < N; k++) {
+    if (!m[k] || lab[k]) continue;
+    id++; let n = 0, x0 = W, x1 = 0, y0 = H, y1 = 0; lab[k] = id; st.push(k);
+    while (st.length) {
+      const q = st.pop()!; const x = q % W, y = (q / W) | 0; n++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      const nb = [x > 0 ? q - 1 : -1, x < W - 1 ? q + 1 : -1, y > 0 ? q - W : -1, y < H - 1 ? q + W : -1];
+      for (const t of nb) if (t >= 0 && m[t] && !lab[t]) { lab[t] = id; st.push(t); }
+    }
+    const ww = x1 - x0 + 1, hh = y1 - y0 + 1, ar = ww / hh;
+    if (ar > 0.85 && ar < 1.18 && hh >= 0.1 * H && y1 < 0.4 * H && ww <= 0.2 * W && n / (ww * hh) > 0.4 && n / (ww * hh) < 0.85)
+      out.push({ cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, r: Math.max(ww, hh) / 2 * 1.18 + 2 });
+  }
+  return out;
+}
+const inDisk = (ds: Disk[], x: number, y: number) => ds.some((d) => (x - d.cx) ** 2 + (y - d.cy) ** 2 <= d.r * d.r);
+
 export function blankOf(img: HTMLImageElement): HTMLCanvasElement {
   const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
   const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
@@ -97,8 +124,10 @@ export function blankOf(img: HTMLImageElement): HTMLCanvasElement {
   }
   let w0 = 240, acc = 0;
   for (let v = 0; v < 256 && nb; v++) { acc += hist[v]; if (acc >= nb / 2) { w0 = v; break; } }
+  const badges = badgeDisks(p, W, H);
   for (let i = 0; i < p.length; i += 4) {
     if (!p[i + 3]) continue;
+    if (badges.length && inDisk(badges, (i / 4) % W, Math.floor(i / 4 / W))) continue;   // bollino elettrico
     const r = p[i], gg = p[i + 1], b = p[i + 2];
     const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dl = mx - mn, s = mx ? dl / mx : 0;
     if (!((s >= 0.15 && mx >= 95) || (s >= 0.45 && mx >= 45))) continue;
@@ -176,6 +205,8 @@ export function paintMaskOf(img: HTMLImageElement): HTMLCanvasElement {
     }
   }
   // solo le zone grandi (via fanali, riflessi, maniglie)
+  const badges = badgeDisks(p, W, H);
+  if (badges.length) for (let k = 0; k < N; k++) if (cand[k] && inDisk(badges, k % W, (k / W) | 0)) cand[k] = 0;
   const b = label(cand, 0);
   const out = g.createImageData(W, H);
   for (let k = 0; k < N; k++) if (cand[k] && b.comps[b.lab[k]].n >= 0.004 * N) out.data[k * 4 + 3] = 255;
