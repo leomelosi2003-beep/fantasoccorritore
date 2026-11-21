@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21f", date: "21 novembre 2026", title: "🔵 Mappa più leggera: pallini colorati",
+    items: ["Appena allontani un po' lo zoom le ambulanze diventano pallini: la mappa è più leggera e scatta meno.",
+            "Colore e bordo dei pallini dei tuoi mezzi li scegli nel tuo profilo («✏️ Banner, presentazione e pallini»): tutti li vedranno così."],
+  },
+  {
     id: "2026-11-21e", date: "21 novembre 2026", title: "✋ Livrea: si modifica direttamente sul disegno",
     items: ["Quando scegli una forma compaiono sul disegno: tondini negli angoli per ingrandirla, quadratini sui lati per allargarla o allungarla, ↻ per ruotarla (si ferma da solo sugli angoli giusti) e quattro frecce blu per spostarla di poco.",
             "Sopra la forma c'è una barra veloce: colore, passo delle frecce (1, 5, 20), raddrizza, duplica, porta sopra, elimina. Le linee si modificano trascinando i due estremi."],

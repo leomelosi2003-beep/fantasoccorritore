@@ -9,6 +9,7 @@ import { typeColors, KIND_LABEL, ROLE_LABEL, ROLE_ONE } from "@/lib/profileStyle
 
 type P = {
   id: string; name: string; type: string; logo_url: string | null; banner_url: string | null; bio: string | null; reputation: number; created_at: string;
+  dot_fill?: string | null; dot_border?: string | null;
   bases: { id: string; name: string; hq: boolean; level: number; color: string | null; vehicles: number; income7: number; services7: number }[];
   kinds: Record<string, number>; models: { name: string; image_url: string | null; custom: string | null; n: number }[];
   roles: Record<string, number>; rarity: Record<string, number>;
@@ -100,6 +101,8 @@ export default function Profilo() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [dotFill, setDotFill] = useState("#F97316");
+  const [dotBorder, setDotBorder] = useState("#FFFFFF");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
@@ -113,12 +116,14 @@ export default function Profilo() {
     const pp = data as P; setP(pp); setAlly(al[pp.id] ?? null);
     setMine((o as { id: string } | null)?.id === pp.id);
     setBio(pp.bio ?? ""); setBanner(pp.banner_url);
+    setDotFill(pp.dot_fill ?? typeColors(pp.type).main); setDotBorder(pp.dot_border ?? "#FFFFFF");
   }, [id, router]);
   useEffect(() => { load(); }, [load]);
 
   async function saveProfile() {
     setBusy(true); setErr(null);
     const { error } = await supabase.rpc("set_profile_banner", { p_banner: banner, p_bio: bio });
+    if (!error) await supabase.rpc("set_dot_colors", { p_fill: dotFill, p_border: dotBorder });
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setEdit(false); load();
@@ -160,7 +165,7 @@ export default function Profilo() {
           <a href="/profili" style={{ background: "rgba(0,0,0,.45)", color: "#fff", borderRadius: 999, padding: "6px 12px", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>← Profili</a>
           <a href="/" style={{ background: "rgba(0,0,0,.45)", color: "#fff", borderRadius: 999, padding: "6px 12px", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>Mappa</a>
         </div>
-        {mine && !edit && <button onClick={() => setEdit(true)} style={{ position: "absolute", top: 10, right: 12, background: "#fff", color: "#13294B", border: "none", borderRadius: 999, padding: "7px 12px", fontWeight: 800, cursor: "pointer" }}>✏️ Banner e presentazione</button>}
+        {mine && !edit && <button onClick={() => setEdit(true)} style={{ position: "absolute", top: 10, right: 12, background: "#fff", color: "#13294B", border: "none", borderRadius: 999, padding: "7px 12px", fontWeight: 800, cursor: "pointer" }}>✏️ Banner, presentazione e pallini</button>}
       </div>
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 14px 20px" }}>
         <div style={{ display: "flex", gap: 14, alignItems: "end", marginTop: -54, position: "relative", flexWrap: "wrap" }}>
@@ -188,6 +193,18 @@ export default function Profilo() {
             <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 400))} rows={3} placeholder="Presentati: chi siete, dove operate, il vostro motto…"
                       style={{ width: "100%", marginTop: 8, padding: 10, borderRadius: 10, border: "1px solid #CBD5E1", fontSize: 15, boxSizing: "border-box", fontFamily: "inherit" }} />
             <div style={{ fontSize: 12, color: "#64748B" }}>{bio.length}/400 · Dopo aver scelto la foto la ritagli tu (forma 3:1, come appare nel profilo).</div>
+            <div style={{ marginTop: 12, background: "#F8FAFC", borderRadius: 12, padding: 10 }}>
+              <strong style={{ fontSize: 14 }}>🔵 I tuoi mezzi sulla mappa da lontano</strong>
+              <div style={{ fontSize: 12.5, color: "#64748B", marginBottom: 8 }}>Quando allontani lo zoom le ambulanze diventano pallini: scegli il colore e il bordo con cui tutti vedranno i tuoi.</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 13, fontWeight: 700 }}>Colore <input type="color" value={dotFill} onChange={(e) => setDotFill(e.target.value)} /></label>
+                <label style={{ fontSize: 13, fontWeight: 700 }}>Bordo <input type="color" value={dotBorder} onChange={(e) => setDotBorder(e.target.value)} /></label>
+                <span style={{ display: "flex", gap: 10, alignItems: "center", background: "#D9E4D4", borderRadius: 10, padding: "8px 12px" }}>
+                  {[13, 9].map((d) => <span key={d} style={{ width: d, height: d, borderRadius: "50%", background: dotFill, border: `${d > 10 ? 2.5 : 2}px solid ${dotBorder}`, boxShadow: "0 0 0 1px rgba(0,0,0,.4)" }} />)}
+                  <span style={{ fontSize: 12, color: "#475569" }}>anteprima</span>
+                </span>
+              </div>
+            </div>
             {err && <div style={{ color: "#B91C1C", marginTop: 6 }}>{err}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button disabled={busy} onClick={saveProfile} style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "#16A34A", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{busy ? "Attendi…" : "💾 Salva"}</button>

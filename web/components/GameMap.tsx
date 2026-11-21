@@ -317,12 +317,26 @@ function sirens(code: string, pos: { moving: boolean; text: string }) {
 const STEP_MS = 250;
 // da lontano il mezzo è un puntino del colore del codice (i miei col bordo bianco, quelli degli altri più piccoli)
 const dotIcons: Record<string, L.DivIcon> = {};
-function dotIcon(code: string, mine: boolean) {
-  const k = code + mine;
-  if (!dotIcons[k]) { const d = mine ? 12 : 7;
+// pallino del mezzo quando la mappa è lontana: colori scelti dall'associazione nel profilo (altrimenti colore del codice)
+function dotIcon(code: string, mine: boolean, fill?: string | null, border?: string | null) {
+  const k = `${code}|${mine}|${fill ?? ""}|${border ?? ""}`;
+  if (!dotIcons[k]) { const d = mine ? 13 : 9;
+    const bg = fill ?? (CODE_COLOR as Record<string, string>)[code] ?? "#64748B";
+    const bd = border ?? (mine ? "#ffffff" : "rgba(255,255,255,.85)");
     dotIcons[k] = L.divIcon({ className: "", iconSize: [d, d], iconAnchor: [d / 2, d / 2],
-      html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:50%;background:${(CODE_COLOR as Record<string, string>)[code] ?? "#64748B"};border:${mine ? 2 : 1}px solid ${mine ? "#fff" : "rgba(255,255,255,.8)"};box-shadow:0 0 0 1px rgba(0,0,0,.45)${mine ? ",0 0 6px rgba(37,99,235,.8)" : ""}"></span>` }); }
+      html: `<span style="display:block;width:${d}px;height:${d}px;border-radius:50%;background:${bg};border:${mine ? 2.5 : 2}px solid ${bd};box-shadow:0 0 0 1px rgba(0,0,0,.4)${mine ? ",0 0 6px rgba(37,99,235,.7)" : ""}"></span>` }); }
   return dotIcons[k];
+}
+// colori dei pallini di tutte le associazioni (caricati una volta ogni 5 minuti)
+let dotColors: Record<string, { fill: string | null; border: string | null }> = {};
+let dotColorsAt = 0;
+async function loadDotColors() {
+  if (Date.now() - dotColorsAt < 300_000) return;
+  dotColorsAt = Date.now();
+  const { data } = await supabase.rpc("org_dot_colors");
+  const m: typeof dotColors = {};
+  for (const r of (data ?? []) as { org_id: string; fill: string | null; border: string | null }[]) m[r.org_id] = { fill: r.fill, border: r.border };
+  dotColors = m;
 }
 // C-130H visto dall'alto (muso a destra), girato nella direzione del volo
 function planeIcon(deg: number, small: boolean) {
@@ -345,17 +359,18 @@ const flying = (text: string) => text.startsWith("✈️ In volo");
 const flightDeg = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
   Math.round((Math.atan2(b.lat - a.lat, (b.lng - a.lng) * Math.cos((a.lat * Math.PI) / 180)) * 180) / Math.PI / 10) * 10;
 
-function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mine }: {
+function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mine, dot }: {
+  dot?: { fill: string | null; border: string | null } | null;
   route: RoutePoint[]; code: string; zIndexOffset?: number; children?: ReactNode; small?: boolean; mine?: boolean;
   makeIcon: (onScene: boolean, facingRight: boolean) => L.DivIcon;
 }) {
   const ref = useRef<L.Marker | null>(null);
   const routeRef = useRef(route); routeRef.current = route;
-  const makeRef = useRef(makeIcon); makeRef.current = (sc: boolean, fr: boolean) => (small ? dotIcon(code, !!mine) : makeIcon(sc, fr));
+  const makeRef = useRef(makeIcon); makeRef.current = (sc: boolean, fr: boolean) => (small ? dotIcon(code, !!mine, dot?.fill, dot?.border) : makeIcon(sc, fr));
   const [start] = useState(() => {
     const t = serverNow(); const p = alongRoute(route, t); const ah = alongRoute(route, t + 4000);
     const fl = flying(p.text);
-    return { pos: [p.lat, p.lng] as [number, number], key: fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}|${!sirens(code, p)}|${ah.lng > p.lng}`,
+    return { pos: [p.lat, p.lng] as [number, number], key: fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}${small ? (dot?.fill ?? "") + (dot?.border ?? "") : ""}|${!sirens(code, p)}|${ah.lng > p.lng}`,
              icon: fl ? planeIcon(flightDeg(p, ah), !!small) : makeRef.current(!sirens(code, p), ah.lng > p.lng) };
   });
   const keyRef = useRef(start.key);
@@ -367,7 +382,7 @@ function MovingMarker({ route, code, makeIcon, zIndexOffset, children, small, mi
       const ah = alongRoute(routeRef.current, t + 4000);
       const facing = Math.abs(ah.lng - p.lng) < 1e-7 ? keyRef.current.endsWith("true") : ah.lng > p.lng;
       const fl = flying(p.text);   // in volo sul C-130H: si vede l'aereo
-      const key = fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}|${!sirens(code, p)}|${facing}`;
+      const key = fl ? `plane|${flightDeg(p, ah)}|${!!small}` : `${!!small}${small ? (dot?.fill ?? "") + (dot?.border ?? "") : ""}|${!sirens(code, p)}|${facing}`;
       if (key !== keyRef.current) { keyRef.current = key; m.setIcon(fl ? planeIcon(flightDeg(p, ah), !!small) : makeRef.current(!sirens(code, p), facing)); }
       m.getElement()?.classList.add("fs-mv");
       const next = alongRoute(routeRef.current, t + STEP_MS);
@@ -589,6 +604,7 @@ function FerryTimes({ portId }: { portId: number }) {
 // Zoom e area visibile: aggiornati solo a fine movimento, così la mappa disegna solo quello che si vede
 // e da lontano usa puntini leggeri invece di centinaia di simboli.
 const FAR_ZOOM = 9.6;
+const DOT_ZOOM = 11.5;   // le ambulanze diventano pallini già da qui (più leggero)
 function ViewWatcher({ onView }: { onView: (v: { z: number; b: L.LatLngBounds }) => void }) {
   const tm = useRef<ReturnType<typeof setTimeout> | null>(null);
   const map = useMapEvents({
@@ -733,6 +749,9 @@ export default function GameMap() {
   const mapRef = useRef<L.Map | null>(null);
   const [mv, setMv] = useState<{ z: number; b: L.LatLngBounds } | null>(null);
   const far = !!mv && mv.z < FAR_ZOOM;
+  const dots = !!mv && mv.z < DOT_ZOOM;   // ambulanze come pallini
+  const [, setDotTick] = useState(0);
+  useEffect(() => { loadDotColors().then(() => setDotTick((n) => n + 1)); const t = setInterval(() => loadDotColors().then(() => setDotTick((n) => n + 1)), 300_000); return () => clearInterval(t); }, []);
   const inView = (lat: number, lng: number) => !mv || mv.b.contains([lat, lng]);
   // un solo C-130H per volo: i mezzi sullo stesso volo (stessi aeroporti) mostrano un aereo solo
   const planeSeen = new Set<string>();
@@ -1055,12 +1074,12 @@ export default function GameMap() {
         if (isSea(p) || isSea(q) || ferrySeg(p, q)) continue; // barche, traghetti e aerei vanno in linea dritta
         const vis = !box || box.contains([p.lat, p.lng]) || box.contains([q.lat, q.lng])
           || box.intersects(L.latLngBounds([p.lat, p.lng], [q.lat, q.lng]));
-        if (!mine && (!vis || far)) { ahead++; continue; }
+        if (!mine && (!vis || dots)) { ahead++; continue; }
         if (!mine && new Date(p.t).getTime() > tNow + 120_000) continue;   // degli altri basta il tratto che stanno facendo adesso
         fetchLeg(p, q, (vis ? 0 : 4) + (mine ? 0 : 1) + Math.min(2, ahead++));
       }
     }
-  }, [assignments, others, mv, far]);
+  }, [assignments, others, mv, dots]);
 
   // Sessione: se sei loggato ma senza associazione vai all'onboarding.
   // IMPORTANTE: se la query fallisce (server lento/riavvio) NON mandare in onboarding: si riprova,
@@ -1941,7 +1960,7 @@ export default function GameMap() {
           const mins = Math.max(1, Math.round(st.leftS / 60));
           const what = st.phase === "andata" ? `🚨 Porta un ferito a ${x.hospital}` : st.phase === "ospedale" ? `🏥 Consegna in pronto soccorso a ${x.hospital}` : "🆘 Torna alla maxi emergenza";
           return (
-            <MovingMarker key={`shut-${x.id}-${st.n}`} route={route} code="rosso" zIndexOffset={x.mine ? 900 : 0} small={far} mine={x.mine}
+            <MovingMarker key={`shut-${x.id}-${st.n}`} route={route} code="rosso" zIndexOffset={x.mine ? 900 : 0} small={dots} mine={x.mine}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, livery(x.vehicle_image, x.org_type), fr)}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
@@ -1971,7 +1990,7 @@ export default function GameMap() {
           const pos = alongRoute(route, now);
           if (onPlaneAlready(route, pos)) return null;
           return (
-            <MovingMarker key={`o-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} zIndexOffset={-100} small={far}
+            <MovingMarker key={`o-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} zIndexOffset={-100} small={dots} dot={dotColors[a.org_id]}
                           makeIcon={(sc, fr) => otherAmbulanceIcon(sc, vehicleImg(a.vehicle_id, livery(a.vehicle_image, a.org_type)), fr, a.org_type, a.logo_url, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup">
                 <div className="fs-amb">
@@ -2065,7 +2084,7 @@ export default function GameMap() {
                           ? { color: "#2563EB", weight: 5, opacity: 0.85 }
                           : { color: "#2563EB", weight: 4, opacity: 0.45, dashArray: "8 8" }} />
             ))}
-            {!onScene(a, now) && !onPlaneAlready(route, pos) && <MovingMarker key={`m-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} small={far} mine
+            {!onScene(a, now) && !onPlaneAlready(route, pos) && <MovingMarker key={`m-${a.id}-${vehicleImg(a.vehicle_id, "")}`} route={route} code={a.code} small={dots} mine dot={org?.id ? dotColors[org.id] : null}
                           makeIcon={(sc, fr) => ambulanceIcon(sc, vehicleImg(a.vehicle_id, livery(a.vehicle_image, org?.type)), fr, pairAt(a.base_lat, a.base_lng))}>
               <Popup className="fs-amb-popup" eventHandlers={{ add: () => setRouteFor(a.vehicle_id) }}>
                 <div className="fs-amb">
