@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-21e", date: "21 novembre 2026", title: "✋ Livrea: si modifica direttamente sul disegno",
+    items: ["Quando scegli una forma compaiono sul disegno: tondini negli angoli per ingrandirla, quadratini sui lati per allargarla o allungarla, ↻ per ruotarla (si ferma da solo sugli angoli giusti) e quattro frecce blu per spostarla di poco.",
+            "Sopra la forma c'è una barra veloce: colore, passo delle frecce (1, 5, 20), raddrizza, duplica, porta sopra, elimina. Le linee si modificano trascinando i due estremi."],
+  },
+  {
     id: "2026-11-21d", date: "21 novembre 2026", title: "🎨 Editor livrea più semplice",
     items: ["Tre passi chiari: 1️⃣ scegli il mezzo (e da dove partire: una livrea pronta o un tuo lavoro), 2️⃣ disegna, 3️⃣ salva e scegli a chi va.",
             "Sulla forma scelta trovi subito colore, grandezza, rotazione e trasparenza; posizione esatta, gradiente, bordo e adesivo sono in «Altre opzioni»."],

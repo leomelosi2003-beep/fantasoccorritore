@@ -72,7 +72,7 @@ export default function LiveryEditor() {
   const undo = useRef<Item[][]>([]); const redo = useRef<Item[][]>([]);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const drag = useRef<{ kind: "move" | "size" | "brush"; id: string; sx: number; sy: number; orig: Item } | null>(null);
+  const drag = useRef<{ kind: "move" | "size" | "rot" | "brush" | "p0" | "p1"; id: string; sx: number; sy: number; orig: Item; hx?: number; hy?: number } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const W = blank?.width ?? 900, H = blank?.height ?? 400;
@@ -274,9 +274,30 @@ export default function LiveryEditor() {
       undo.current.push(items); redo.current = [];
       setItems([...items, it]); drag.current = { kind: "brush", id: it.id, sx: x, sy: y, orig: it }; return;
     }
-    const handle = (e.target as Element).getAttribute?.("data-h");
-    if (handle && selected) { drag.current = { kind: "size", id: selected.id, sx: x, sy: y, orig: { ...selected } }; undo.current.push(items); return; }
-    const hit = [...items].reverse().find((it) => { const b = bbox(it); const pad = Math.max(8, it.sw); return x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad; });
+    const tgt = (e.target as Element).closest?.("[data-h],[data-nudge]");
+    const nudgeAttr = tgt?.getAttribute("data-nudge");
+    if (nudgeAttr && selected) {           // freccette sul disegno
+      const [nx, ny] = nudgeAttr.split(",").map(Number); const ddx = nx * step, ddy = ny * step;
+      patch(selected.id, { x: selected.x + ddx, y: selected.y + ddy, pts: selected.pts?.map(([px, py]) => [px + ddx, py + ddy] as [number, number]) });
+      return;
+    }
+    const handle = tgt?.getAttribute("data-h");
+    if (handle && selected) {
+      undo.current.push(items); redo.current = [];
+      const orig = { ...selected, pts: selected.pts?.map((pp) => [...pp] as [number, number]) };
+      if (handle === "rot") drag.current = { kind: "rot", id: selected.id, sx: x, sy: y, orig };
+      else if (handle === "p0" || handle === "p1") drag.current = { kind: handle, id: selected.id, sx: x, sy: y, orig };
+      else { const [hx, hy] = handle.split(",").map(Number); drag.current = { kind: "size", id: selected.id, sx: x, sy: y, orig, hx, hy }; }
+      return;
+    }
+    const inside = (it: Item, pad: number) => {
+      if (it.t === "path" || it.t === "line") { const b = bbox(it); return x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad; }
+      const cx = it.x + it.w / 2, cy = it.y + it.h / 2, a = (-it.r * Math.PI) / 180;
+      const lx = (x - cx) * Math.cos(a) - (y - cy) * Math.sin(a), ly = (x - cx) * Math.sin(a) + (y - cy) * Math.cos(a);
+      return Math.abs(lx) <= Math.abs(it.w) / 2 + pad && Math.abs(ly) <= Math.abs(it.h) / 2 + pad;
+    };
+    const pad0 = 6 / (fit * view.z);
+    const hit = (selected && inside(selected, pad0) ? selected : null) ?? [...items].reverse().find((it) => inside(it, Math.max(pad0, it.sw / 2)));
     setSelId(hit?.id ?? null); if (hit) setSide("props");
     if (hit) { drag.current = { kind: "move", id: hit.id, sx: x, sy: y, orig: { ...hit, pts: hit.pts?.map((p) => [...p] as [number, number]) } }; undo.current.push(items); redo.current = []; }
   }
@@ -287,14 +308,34 @@ export default function LiveryEditor() {
       if (it.id !== d.id) return it;
       if (d.kind === "brush") return { ...it, pts: [...(it.pts ?? []), [x, y] as [number, number]] };
       if (d.kind === "move") return { ...it, x: d.orig.x + dx, y: d.orig.y + dy, pts: d.orig.pts?.map(([px, py]) => [px + dx, py + dy] as [number, number]) };
-      if (it.t === "path") {
-        const b = bbox(d.orig); const sx = Math.max(0.05, (b.w + dx) / (b.w || 1)), sy = Math.max(0.05, (b.h + dy) / (b.h || 1));
-        return { ...it, pts: d.orig.pts?.map(([px, py]) => [b.x + (px - b.x) * sx, b.y + (py - b.y) * sy] as [number, number]) };
+      const o = d.orig;
+      if (d.kind === "p0") return { ...it, x: o.x + dx, y: o.y + dy, w: o.w - dx, h: o.h - dy };      // linea: punto iniziale
+      if (d.kind === "p1") return { ...it, w: o.w + dx, h: o.h + dy };                                // linea: punto finale
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+      if (d.kind === "rot") {                                                                          // rotazione (scatta ogni 15° vicino)
+        let a = (Math.atan2(y - cy, x - cx) * 180) / Math.PI + 90; if (a > 180) a -= 360;
+        const sn = Math.round(a / 15) * 15; if (Math.abs(a - sn) < 4 || e.shiftKey) a = sn;
+        return { ...it, r: Math.round(a) };
       }
-      if (it.t === "line") return { ...it, w: d.orig.w + dx, h: d.orig.h + dy };
-      const keep = (it.t === "image" || e.shiftKey) ? d.orig.h / (d.orig.w || 1) : null;
-      const nw = Math.max(6, d.orig.w + dx);
-      return { ...it, w: nw, h: keep ? nw * keep : Math.max(4, d.orig.h + dy) };
+      const hx = d.hx ?? 1, hy = d.hy ?? 1;
+      if (it.t === "path") {
+        const b = bbox(o);
+        const sx = hx ? Math.max(0.05, (b.w + hx * dx) / (b.w || 1)) : 1, sy = hy ? Math.max(0.05, (b.h + hy * dy) / (b.h || 1)) : 1;
+        const ox = hx < 0 ? b.x + b.w : b.x, oy = hy < 0 ? b.y + b.h : b.y;
+        return { ...it, pts: o.pts?.map(([px, py]) => [ox + (px - ox) * sx, oy + (py - oy) * sy] as [number, number]) };
+      }
+      // spostamento nel verso della forma (anche se è ruotata)
+      const a = (o.r * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a);
+      const lx = dx * ca + dy * sa, ly = -dx * sa + dy * ca;
+      let nw = Math.max(6, o.w + hx * lx), nh = Math.max(4, o.h + hy * ly);
+      const corner = hx !== 0 && hy !== 0;
+      if (corner && !e.shiftKey && ["image", "sticker", "text", "ellipse", "star", "heart", "hex", "diamond", "tri"].includes(it.t)) {
+        const k = Math.max(nw / (o.w || 1), nh / (o.h || 1)); nw = Math.max(6, o.w * k); nh = Math.max(4, o.h * k);   // angoli: proporzioni mantenute
+      }
+      if (!hx) nw = o.w; if (!hy) nh = o.h;
+      const cxl = (hx * (nw - o.w)) / 2, cyl = (hy * (nh - o.h)) / 2;                                   // il lato opposto resta fermo
+      const ncx = cx + cxl * ca - cyl * sa, ncy = cy + cxl * sa + cyl * ca;
+      return { ...it, w: nw, h: nh, x: ncx - nw / 2, y: ncy - nh / 2 };
     }));
   }
   function up() {
@@ -525,6 +566,7 @@ export default function LiveryEditor() {
       <strong style={{ color: "#13294B" }}>Come si usa</strong><br />
       • Aggiungi una forma, un testo o una foto dalla barra.<br />
       • Tocca una forma per sceglierla e trascinala col dito o col mouse.<br />
+      • Sul disegno: i <b>tondini negli angoli</b> la ingrandiscono, i <b>quadratini sui lati</b> la allargano o allungano, <b>↻</b> la ruota, le <b>frecce blu</b> la spostano di poco.<br />
       • Qui cambi colore, grandezza e rotazione.<br />
       {wide && <>• Tastiera: Canc elimina, frecce spostano, Ctrl+Z / Ctrl+Y, Ctrl+D duplica.<br /></>}
       • Si colora solo la carrozzeria: vetri, cerchioni e fanali restano com&apos;erano.
@@ -685,13 +727,73 @@ export default function LiveryEditor() {
                 <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", cursor: mode === "brush" ? "crosshair" : mode === "pick" ? "copy" : mode === "pan" ? "grab" : "default" }}
                      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
                   <rect x={0} y={0} width={W} height={H} fill="transparent" />
-                  {sb && selected && mode === "select" && <>
-                    <rect x={sb.x} y={sb.y} width={Math.max(1, sb.w)} height={Math.max(1, sb.h)} fill="none" stroke={selected.ally ? "#059669" : "#2563EB"} strokeWidth={ink} strokeDasharray={`${ink * 4} ${ink * 3}`} pointerEvents="none" />
-                    <circle data-h="1" cx={selected.t === "line" ? selected.x + selected.w : sb.x + sb.w} cy={selected.t === "line" ? selected.y + selected.h : sb.y + sb.h}
-                            r={handleR} fill="#2563EB" stroke="#fff" strokeWidth={ink} style={{ cursor: "nwse-resize" }} />
-                  </>}
+                  {sb && selected && mode === "select" && (() => {
+                    const u = 1 / (fit * view.z), col = selected.ally ? "#059669" : "#2563EB";
+                    const isLine = selected.t === "line", isPath = selected.t === "path";
+                    const bx = isPath ? sb : { x: selected.x, y: selected.y, w: selected.w, h: selected.h };
+                    const cx = bx.x + bx.w / 2, cy = bx.y + bx.h / 2, hw = Math.abs(bx.w) / 2, hh = Math.abs(bx.h) / 2;
+                    const rot = isPath || isLine ? 0 : selected.r;
+                    const arrow = (dx: number, dy: number, px: number, py: number) => (
+                      <g key={`a${dx}${dy}`} data-nudge={`${dx},${dy}`} style={{ cursor: "pointer" }} transform={`translate(${px} ${py}) rotate(${-rot})`}>
+                        <circle r={13 * u} fill="#13294B" stroke="#fff" strokeWidth={2 * u} />
+                        <path d={`M ${-5 * u} ${2.5 * u} L 0 ${-4 * u} L ${5 * u} ${2.5 * u}`} fill="none" stroke="#fff" strokeWidth={2.6 * u} strokeLinecap="round" strokeLinejoin="round"
+                              transform={`rotate(${dx > 0 ? 90 : dx < 0 ? -90 : dy > 0 ? 180 : 0})`} />
+                      </g>);
+                    const gap = 30 * u;
+                    if (isLine) return <>
+                      <line x1={selected.x} y1={selected.y} x2={selected.x + selected.w} y2={selected.y + selected.h} stroke={col} strokeWidth={ink} strokeDasharray={`${ink * 4} ${ink * 3}`} pointerEvents="none" />
+                      {[["p0", selected.x, selected.y], ["p1", selected.x + selected.w, selected.y + selected.h]].map(([k, px, py]) =>
+                        <circle key={k as string} data-h={k as string} cx={px as number} cy={py as number} r={handleR} fill="#fff" stroke={col} strokeWidth={2.4 * u} style={{ cursor: "move" }} />)}
+                    </>;
+                    return <g transform={`rotate(${rot} ${cx} ${cy})`}>
+                      <rect x={cx - hw} y={cy - hh} width={Math.max(1, hw * 2)} height={Math.max(1, hh * 2)} fill="none" stroke={col} strokeWidth={ink * 1.2} pointerEvents="none" />
+                      {!isPath && <>
+                        <line x1={cx} y1={cy - hh} x2={cx} y2={cy - hh - 34 * u} stroke={col} strokeWidth={ink} pointerEvents="none" />
+                        <g data-h="rot" style={{ cursor: "grab" }}>
+                          <circle cx={cx} cy={cy - hh - 34 * u} r={11 * u} fill="#fff" stroke={col} strokeWidth={2.4 * u} />
+                          <text x={cx} y={cy - hh - 34 * u} textAnchor="middle" dominantBaseline="central" fontSize={13 * u} fill={col} style={{ pointerEvents: "none", userSelect: "none" }}>↻</text>
+                        </g>
+                      </>}
+                      {[[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].map(([hx, hy]) => {
+                        const corner = hx !== 0 && hy !== 0, hxp = cx + hx * hw, hyp = cy + hy * hh;
+                        const cur = corner ? (hx === hy ? "nwse-resize" : "nesw-resize") : hx ? "ew-resize" : "ns-resize";
+                        return corner
+                          ? <circle key={`${hx}${hy}`} data-h={`${hx},${hy}`} cx={hxp} cy={hyp} r={handleR * 0.85} fill="#fff" stroke={col} strokeWidth={2.4 * u} style={{ cursor: cur }} />
+                          : <rect key={`${hx}${hy}`} data-h={`${hx},${hy}`} x={hxp - (hx ? 5 : 11) * u} y={hyp - (hy ? 5 : 11) * u} width={(hx ? 10 : 22) * u} height={(hy ? 10 : 22) * u} rx={4 * u} fill="#fff" stroke={col} strokeWidth={2.2 * u} style={{ cursor: cur }} />;
+                      })}
+                      {/* freccette per spostare di poco, ai quattro lati */}
+                      {arrow(0, -1, cx + hw * 0.45 + 26 * u, cy - hh - gap)}
+                      {arrow(0, 1, cx, cy + hh + gap)}
+                      {arrow(-1, 0, cx - hw - gap, cy)}
+                      {arrow(1, 0, cx + hw + gap, cy)}
+                    </g>;
+                  })()}
                 </svg>
               </div>
+              {/* barra veloce sopra la forma scelta: si vede il disegno mentre si cambia */}
+              {selected && mode === "select" && !drag.current && (() => {
+                const b = bbox(selected), a = (selected.r * Math.PI) / 180, cx = selected.x + selected.w / 2, cy = selected.y + selected.h / 2;
+                const ys = selected.t === "path" || selected.t === "line" ? [b.y, b.y + b.h]
+                  : [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([kx, ky]) => cy + (kx * selected.w / 2) * Math.sin(a) + (ky * selected.h / 2) * Math.cos(a));
+                const ys2 = selected.t === "path" || selected.t === "line" ? [b.y + b.h] : ys;
+                const top = view.y + Math.min(...ys) * fit * view.z, bottom = view.y + Math.max(...ys2) * fit * view.z;
+                const left = view.x + cx * fit * view.z;
+                const above = top - 100 > 0;
+                const fillKey: "fill" | "stroke" = ["line", "path"].includes(selected.t) ? "stroke" : "fill";
+                return (
+                  <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: Math.max(150, Math.min(vp.w - 150, left)), top: above ? top - 94 : Math.min(vp.h - 52, bottom + 46), transform: "translateX(-50%)",
+                    display: "flex", gap: 4, alignItems: "center", background: "#13294B", borderRadius: 12, padding: "5px 7px", boxShadow: "0 6px 18px rgba(0,0,0,.3)", zIndex: 8, whiteSpace: "nowrap" }}>
+                    {selected.t !== "image" && <input type="color" title="Colore" value={(selected[fillKey] && selected[fillKey] !== "none" ? selected[fillKey] : "#ffffff") as string}
+                      onChange={(e) => live(selected.id, { [fillKey]: e.target.value } as Partial<Item>)} style={{ width: 30, height: 28, border: "none", padding: 0, background: "none" }} />}
+                    <span style={{ color: "#94A3B8", fontSize: 11 }}>passo</span>
+                    {[1, 5, 20].map((n) => <button key={n} onClick={() => setStep(n)} style={{ ...tool(step === n), padding: "2px 7px", fontSize: 12, background: step === n ? "#F59E0B" : "#fff", color: "#13294B", border: "none" }}>{n}</button>)}
+                    {!["line", "path"].includes(selected.t) && <button title="Raddrizza" onClick={() => patch(selected.id, { r: 0 })} style={{ ...tool(), padding: "3px 7px", border: "none" }}>⟲ 0°</button>}
+                    {!selected.ally && <button title="Duplica" onClick={() => dup(selected)} style={{ ...tool(), padding: "3px 7px", border: "none" }}>⧉</button>}
+                    <button title="Porta sopra" onClick={() => layer(selected.id, 1)} style={{ ...tool(), padding: "3px 7px", border: "none" }}>⬆</button>
+                    {!selected.ally && <button title="Elimina" onClick={() => remove(selected)} style={{ ...tool(), padding: "3px 7px", border: "none", color: "#B91C1C" }}>🗑</button>}
+                    <button title="Chiudi" onClick={() => setSelId(null)} style={{ ...tool(), padding: "3px 7px", border: "none" }}>✕</button>
+                  </div>);
+              })()}
               {/* sfondo e aiuto */}
               <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 4, background: "rgba(255,255,255,.9)", borderRadius: 8, padding: 3 }}>
                 {([["chess", "▦"], ["light", "☀️"], ["dark", "🌙"]] as const).map(([k, ic]) => (
