@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-22c", date: "22 novembre 2026", title: "↔️ Livree: specchia e capovolgi",
+    items: ["Ogni forma, testo, foto, linea o tratto di pennello si può specchiare (sinistra-destra) o capovolgere (sopra-sotto): tasti nel pannello e nella barra sotto il foglio."],
+  },
+  {
     id: "2026-11-22b", date: "22 novembre 2026", title: "🖌️ Livree: rotazione al grado, forme bloccate e Stella della vita",
     items: ["Rotazione precisa: −1° / +1°, numero esatto e «0°» per raddrizzare; sotto il foglio le frecce ruotano col passo scelto (1°, 5° o 15°).",
             "Nei Livelli il lucchetto 🔒 blocca una forma: non si sposta e toccando il disegno prendi quella sotto. 🔓 la sblocca.",

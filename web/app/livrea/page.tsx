@@ -414,6 +414,16 @@ export default function LiveryEditor() {
   }
   const doUndo = useCallback(() => { const p = undo.current.pop(); if (p) { redo.current.push(items); setItems(withAlly(p)); } }, [items, withAlly]);
   const doRedo = useCallback(() => { const n = redo.current.pop(); if (n) { undo.current.push(items); setItems(withAlly(n)); } }, [items, withAlly]);
+  function mirror(it: Item, vert: boolean) {
+    if (it.locked) { setMsg({ ok: false, text: "🔒 Forma bloccata: sbloccala dai Livelli." }); return; }
+    if (it.t === "line") { patch(it.id, vert ? { y: it.y + it.h, h: -it.h } : { x: it.x + it.w, w: -it.w }); return; }
+    if (it.t === "path") {
+      const b = bbox(it), cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      patch(it.id, { pts: it.pts?.map(([x, y]) => (vert ? [x, 2 * cy - y] : [2 * cx - x, y]) as [number, number]) }); return;
+    }
+    // la specchiatura avviene dopo la rotazione: per specchiare "come si vede" si inverte anche l'angolo
+    patch(it.id, vert ? { flipV: !it.flipV, r: -it.r } : { flip: !it.flip, r: -it.r });
+  }
   function layer(id: string, dir: 1 | -1) {
     const i = items.findIndex((x) => x.id === id); const j = i + dir;
     if (i < 0 || j < 0 || j >= items.length) return; const n = [...items]; [n[i], n[j]] = [n[j], n[i]]; commit(n);
@@ -568,6 +578,8 @@ export default function LiveryEditor() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 8 }}>
         {!selected.ally && <button style={tool()} onClick={() => dup(selected)}>⧉ Duplica</button>}
         {!selected.ally && <button style={{ ...tool(), color: "#B91C1C" }} onClick={() => remove(selected)}>🗑️ Elimina</button>}
+        <button style={tool(!!selected.flip)} onClick={() => mirror(selected, false)}>↔️ Specchia</button>
+        <button style={tool(!!selected.flipV)} onClick={() => mirror(selected, true)}>↕️ Capovolgi</button>
         <button style={tool()} onClick={() => layer(selected.id, 1)}>⬆️ Porta sopra</button>
         <button style={tool()} onClick={() => layer(selected.id, -1)}>⬇️ Porta sotto</button>
       </div>
@@ -645,7 +657,7 @@ export default function LiveryEditor() {
         <input type="checkbox" checked={!!selected.glass} onChange={(e) => patch(selected.id, { glass: e.target.checked })} /> 🪟 Adesivo sui vetri (non va sulla carrozzeria)
       </label>}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
-          {!["line", "path"].includes(selected.t) && <button style={tool(!!selected.flip)} onClick={() => patch(selected.id, { flip: !selected.flip })}>↔ Specchia</button>}
+
           <button style={tool()} onClick={() => setMode("pick")}>💧 Prendi colore dal mezzo</button>
         </div>
       </div>}
@@ -924,6 +936,7 @@ export default function LiveryEditor() {
                   <span style={{ width: 1, height: 26, background: "#E2E8F0" }} />
                   {rb("➖", () => sz(1 / 1.08), "Più piccola")}{rb("➕", () => sz(1.08), "Più grande")}
                   {rb("↺", () => sl && patch(sl.id, { r: Math.round(sl.r) - (step === 20 ? 15 : step) }), `Ruota a sinistra di ${step === 20 ? 15 : step}°`)}{rb("↻", () => sl && patch(sl.id, { r: Math.round(sl.r) + (step === 20 ? 15 : step) }), `Ruota a destra di ${step === 20 ? 15 : step}°`)}
+                  {rb("↔", () => sl && mirror(sl, false), "Specchia sinistra-destra")}{rb("↕", () => sl && mirror(sl, true), "Capovolgi sopra-sotto")}
                   {rb("⬆", () => sl && layer(sl.id, 1), "Porta sopra")}{rb("⬇", () => sl && layer(sl.id, -1), "Porta sotto")}
                   {rb("⧉", () => sl && dup(sl), "Duplica")}{rb("🗑", () => sl && remove(sl), "Elimina")}
                   {!sl && <span style={{ fontSize: 12, color: "#64748B" }}>Tocca una forma sul mezzo per usare i comandi.</span>}

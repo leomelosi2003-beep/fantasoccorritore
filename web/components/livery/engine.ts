@@ -10,7 +10,8 @@ export type Item = {
   text?: string; bold?: boolean; src?: string; pts?: [number, number][]; c2?: string;
   g2?: string; gdir?: "h" | "v" | "r"; gfade?: boolean;   // sfumatura: secondo colore, direzione, verso il trasparente
   gang?: number; g3?: string;                             // gradiente: angolo (gradi) e colore centrale
-  flip?: boolean;                                         // specchiata
+  flip?: boolean;                                         // specchiata (sinistra-destra)
+  flipV?: boolean;                                        // capovolta (sopra-sotto)
   ally?: boolean;                                         // logo dell'alleanza (obbligatorio)
   glass?: boolean;                                        // adesivo: sta sopra tutto, anche sui vetri
   stk?: string;                                           // tipo di adesivo
@@ -389,7 +390,7 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
         g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const [x, y] of pts.slice(1)) g.lineTo(x, y); g.stroke();
       }
     } else {
-      g.translate(cx, cy); g.rotate((it.r * Math.PI) / 180); if (it.flip) g.scale(-1, 1);
+      g.translate(cx, cy); g.rotate((it.r * Math.PI) / 180); if (it.flip) g.scale(-1, 1); if (it.flipV) g.scale(1, -1);
       const w = Math.abs(it.w), h = Math.abs(it.h);
       if (FILLABLE.includes(it.t)) {
         shapePath(g, it.t, w, h);
