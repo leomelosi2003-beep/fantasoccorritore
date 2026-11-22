@@ -47,6 +47,7 @@ export default function Classifica() {
   const [rows, setRows] = useState<Row[]>([]);
   const [tab, setTab] = useState<Key>("season_points");
   const [livTab, setLivTab] = useState(false);
+  useEffect(() => { try { if (new URLSearchParams(window.location.search).get("livree")) setLivTab(true); } catch { /* */ } }, []);
   const [allyTab, setAllyTab] = useState(false);
   const [openAlly, setOpenAlly] = useState<string | null>(null);
   const [allyAwards, setAllyAwards] = useState<{ season: string; rank: number; alliance_name: string; points: number; prize_funds: number; prize_note: string | null }[]>([]);

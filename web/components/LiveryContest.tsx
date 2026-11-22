@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { typeColors } from "@/lib/profileStyle";
 
 type Entry = { livery_id: string; org_id: string; org_name: string; org_type: string; livery_name: string; model_name: string; image_url: string; votes: number; my_vote: boolean; mine: boolean };
+type Run = { season: string; ends_at: string; grp: number; livery_id: string; org_id: string; org_name: string; org_type: string; livery_name: string; model_name: string; image_url: string; base_votes: number; runoff_votes: number; my_vote: boolean; mine: boolean };
+const PRIZES = ["1.000.000 €", "500.000 €", "250.000 €"];
 type Award = { season: string; rank: number; org_name: string; livery_name: string; model_name: string; image_url: string | null; votes: number };
 const MEDAL = ["🥇", "🥈", "🥉"];
 const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
@@ -16,10 +18,18 @@ export default function LiveryContest() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [big, setBig] = useState<Entry | null>(null);
+  const [run, setRun] = useState<Run[]>([]);
   const load = useCallback(async () => {
-    const [{ data: a }, { data: b }] = await Promise.all([supabase.rpc("livery_contest"), supabase.rpc("livery_hall")]);
-    setList((a as Entry[]) ?? []); setHall((b as Award[]) ?? []);
+    const [{ data: a }, { data: b }, { data: c }] = await Promise.all([supabase.rpc("livery_contest"), supabase.rpc("livery_hall"), supabase.rpc("livery_runoff_state")]);
+    setList((a as Entry[]) ?? []); setHall((b as Award[]) ?? []); setRun((c as Run[]) ?? []);
   }, []);
+  async function voteRun(r: Run) {
+    setBusy(r.livery_id); setMsg(null);
+    const { error } = await supabase.rpc("vote_livery_runoff", { p_livery: r.livery_id });
+    setBusy(null);
+    if (error) setMsg(error.message.includes("OWN_LIVERY") ? "Non puoi votare le tue livree." : error.message.includes("RUNOFF_CLOSED") ? "Lo spareggio è finito." : error.message);
+    load();
+  }
   useEffect(() => { load(); }, [load]);
   const used = list.filter((e) => e.my_vote).length;
   async function vote(e: Entry) {
@@ -36,8 +46,32 @@ export default function LiveryContest() {
     <div>
       <div style={{ background: "linear-gradient(120deg, #13294B, #1E3A8A 60%, #F59E0B)", color: "#fff", borderRadius: 14, padding: 14, marginBottom: 12 }}>
         <div style={{ fontWeight: 900, fontSize: 18 }}>🎨 Le livree più belle</div>
-        <div style={{ fontSize: 13.5, opacity: 0.95 }}>Stagione di {seasonName(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)} · finisce tra {days} {days === 1 ? "giorno" : "giorni"}. Hai <b>{5 - used} voti</b> su 5 (non alle tue). Le prime 3 vanno nell&apos;albo d&apos;oro.</div>
+        <div style={{ fontSize: 13.5, opacity: 0.95 }}>Stagione di {seasonName(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)} · finisce tra {days} {days === 1 ? "giorno" : "giorni"}. Hai <b>{5 - used} voti</b> su 5 (non alle tue). Le prime 3 vanno nell&apos;albo d&apos;oro e vincono 🥇 1.000.000 €, 🥈 500.000 €, 🥉 250.000 €.</div>
       </div>
+      {run.length > 0 && <div style={{ background: "#FFF7ED", border: "2px solid #F59E0B", borderRadius: 14, padding: 12, marginBottom: 12 }}>
+        <div style={{ fontWeight: 900, fontSize: 16, color: "#92400E" }}>⚖️ Spareggio della stagione {seasonName(run[0].season)}</div>
+        <div style={{ fontSize: 13, color: "#78350F", marginBottom: 8 }}>Queste livree hanno gli stessi voti e si giocano il podio. Scegli la più bella in ogni gruppo (puoi cambiare idea). Finisce {new Date(run[0].ends_at).toLocaleString("it-IT", { weekday: "long", hour: "2-digit", minute: "2-digit" })}.</div>
+        {Array.from(new Set(run.map((r) => r.grp))).map((g) => (
+          <div key={g} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: "#92400E", marginBottom: 4 }}>Pari a ❤️ {run.find((r) => r.grp === g)!.base_votes} voti</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+              {run.filter((r) => r.grp === g).map((r) => (
+                <div key={r.livery_id} style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: r.my_vote ? "2px solid #BE123C" : "2px solid transparent" }}>
+                  <img src={r.image_url} alt="" style={{ width: "100%", height: 80, objectFit: "contain", background: "linear-gradient(#EEF2F6, #DDE5EE)", display: "block" }} />
+                  <div style={{ padding: "6px 8px" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: "#13294B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.livery_name}</div>
+                    <div style={{ fontSize: 11.5, color: "#64748B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.org_name}</div>
+                    <div style={{ display: "flex", alignItems: "center", marginTop: 4 }}>
+                      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: "#92400E" }}>⚖️ {r.runoff_votes}</span>
+                      {r.mine ? <span style={{ fontSize: 12, color: "#64748B" }}>la tua</span>
+                        : <button disabled={busy === r.livery_id} onClick={() => voteRun(r)} style={{ padding: "5px 10px", borderRadius: 999, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12.5,
+                            background: r.my_vote ? "#BE123C" : "#FFE4E6", color: r.my_vote ? "#fff" : "#BE123C" }}>{r.my_vote ? "✔ Scelta" : "Scegli"}</button>}
+                    </div>
+                  </div>
+                </div>))}
+            </div>
+          </div>))}
+      </div>}
       {msg && <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: 10, marginBottom: 10, fontWeight: 600 }}>{msg}</div>}
       {!list.length && <div style={{ background: "#fff", borderRadius: 14, padding: 16, color: "#64748B" }}>Nessuna livrea ancora: creane una nell&apos;Editor livrea!</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
@@ -71,7 +105,7 @@ export default function LiveryContest() {
               {hall.filter((h) => h.season === s).map((h) => (
                 <div key={h.rank} style={{ background: "#FFFBEB", borderRadius: 10, padding: 6, textAlign: "center", fontSize: 12 }}>
                   {h.image_url && <img src={h.image_url} alt="" style={{ width: "100%", height: 50, objectFit: "contain" }} />}
-                  <div>{MEDAL[h.rank - 1]} <b>{h.org_name}</b></div><div style={{ color: "#64748B" }}>{h.livery_name} · ❤️ {h.votes}</div>
+                  <div>{MEDAL[h.rank - 1]} <b>{h.org_name}</b></div><div style={{ color: "#64748B" }}>{h.livery_name} · ❤️ {h.votes}</div>{PRIZES[h.rank - 1] && <div style={{ color: "#92400E", fontWeight: 700 }}>💰 {PRIZES[h.rank - 1]}</div>}
                 </div>))}
             </div>
           </div>))}

@@ -957,6 +957,11 @@ export default function GameMap() {
         list.push({ id: i.id, href: "/alleanza", text: `🤝 Sei invitato nell'alleanza «${i.alliances?.name ?? "?"}»` });
       for (const o of (off.data as unknown as { id: string; price: number; buyer: { name: string } | null }[]) ?? [])
         list.push({ id: o.id, href: "/offerte", text: `💼 ${o.buyer?.name ?? "Un'associazione"} vuole comprarti per ${o.price.toLocaleString("it-IT")} €` });
+      // spareggio del concorso livree: avviso a tutti finché non hanno scelto in ogni gruppo
+      const { data: ro } = await supabase.rpc("livery_runoff_state");
+      const runs = (ro as { grp: number; my_vote: boolean; mine: boolean }[] | null) ?? [];
+      const open = Array.from(new Set(runs.map((r) => r.grp))).filter((g) => !runs.some((r) => r.grp === g && r.my_vote) && runs.some((r) => r.grp === g && !r.mine));
+      if (open.length) list.push({ id: "livery-runoff", href: "/classifica?livree=1", text: "⚖️ Pareggio nel concorso livree: vota la più bella tra le livree a pari voti!" });
       setNotes(list);
     }
     loadNotes();
