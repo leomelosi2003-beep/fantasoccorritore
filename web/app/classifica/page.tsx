@@ -138,10 +138,10 @@ export default function Classifica() {
           </div>
           <div style={{ background: "linear-gradient(135deg,#1E3A8A,#1D4ED8)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione</div>
-            <div>🥇 <b>30.000.000 €</b> + 2 ambulanze con kit completo</div>
-            <div>🥈 <b>5.000.000 €</b> + 1 motorino</div>
-            <div>🥉 <b>1.000.000 €</b></div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>I soldi si dividono in parti uguali tra i membri; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
+            <div>🥇 <b>30.000.000 € a ogni membro</b> + 2 ambulanze con kit completo</div>
+            <div>🥈 <b>5.000.000 € a ogni membro</b> + 1 motorino</div>
+            <div>🥉 <b>1.000.000 € a ogni membro</b></div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Ogni associazione dell&apos;alleanza riceve la cifra intera; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
           </div>
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
             {allyRows.map((a, i) => (
