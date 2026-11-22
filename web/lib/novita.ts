@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-22a", date: "22 novembre 2026", title: "🤖 Modalità automatica a metà prezzo",
+    items: ["La modalità automatica a turni ora costa la metà all'ora per ogni sede aperta."],
+  },
+  {
     id: "2026-11-21o", date: "21 novembre 2026", title: "🎁 Premi per le alleanze migliori",
     items: ["A fine stagione (fine mese) le prime 3 alleanze della classifica «🤝 Alleanze» vincono: 🥇 30 milioni + 2 ambulanze con kit completo, 🥈 5 milioni + 1 motorino, 🥉 1 milione.",
             "I soldi si dividono tra i membri; i mezzi vanno al membro con più punti."],
