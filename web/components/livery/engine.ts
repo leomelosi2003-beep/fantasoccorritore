@@ -2,7 +2,8 @@
 export type Kind = "rect" | "ellipse" | "line" | "path" | "text" | "image" | "checker"
   | "roundrect" | "tri" | "diamond" | "star" | "hex" | "chevron" | "arrow" | "wave" | "swoosh" | "heart" | "sticker"
   | "pent" | "oct" | "plus" | "trap" | "para" | "bolt" | "ring" | "halfc" | "crescent" | "drop" | "shield"
-  | "stripes" | "polka" | "zigzag" | "grid";
+  | "stripes" | "polka" | "zigzag" | "grid"
+  | "sol" | "maltese" | "star6" | "flame" | "cloud" | "tag";
 export type Item = {
   id: string; t: Kind; x: number; y: number; w: number; h: number; r: number;
   fill: string; stroke: string; sw: number; op: number;
@@ -13,6 +14,7 @@ export type Item = {
   ally?: boolean;                                         // logo dell'alleanza (obbligatorio)
   glass?: boolean;                                        // adesivo: sta sopra tutto, anche sui vetri
   stk?: string;                                           // tipo di adesivo
+  locked?: boolean;                                       // bloccata: non si sposta e non si prende toccando il disegno
 };
 export type Design = { v: 1; w: number; h: number; items: Item[] };
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -26,6 +28,8 @@ export const SHAPES: { t: Kind; icon: string; name: string }[] = [
   { t: "trap", icon: "⏢", name: "Trapezio" }, { t: "para", icon: "▱", name: "Parallelogr." }, { t: "bolt", icon: "⚡", name: "Fulmine" },
   { t: "ring", icon: "◯", name: "Anello" }, { t: "halfc", icon: "◗", name: "Mezzo cerchio" }, { t: "crescent", icon: "☾", name: "Luna" },
   { t: "drop", icon: "💧", name: "Goccia" }, { t: "shield", icon: "🛡", name: "Scudo" }, { t: "line", icon: "╱", name: "Linea" },
+  { t: "sol", icon: "✳️", name: "Stella della vita" }, { t: "maltese", icon: "✠", name: "Croce di Malta" }, { t: "star6", icon: "✶", name: "Stella a 6 punte" },
+  { t: "flame", icon: "🔥", name: "Fiamma" }, { t: "cloud", icon: "☁️", name: "Nuvola" }, { t: "tag", icon: "🏷️", name: "Etichetta" },
 ];
 // motivi: riempiono un rettangolo con due colori (fill e c2)
 export const PATTERNS: { t: Kind; icon: string; name: string }[] = [
@@ -46,7 +50,7 @@ export const STICKERS: { stk: string; icon: string; name: string; w: number; h: 
   { stk: "glasstext", icon: "🪟", name: "Scritta", w: 3.2, h: 0.7, fill: "#FFFFFF", c2: "#FFFFFF", text: "AMBULANZA" },
   { stk: "dots", icon: "⬤", name: "Pallini riflettenti", w: 3, h: 0.5, fill: "#FACC15", c2: "#FACC15" },
 ];
-export const FILLABLE: Kind[] = ["rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh",
+export const FILLABLE: Kind[] = ["maltese", "star6", "flame", "cloud", "tag", "rect", "roundrect", "ellipse", "tri", "diamond", "hex", "star", "heart", "chevron", "arrow", "wave", "swoosh",
   "pent", "oct", "plus", "trap", "para", "bolt", "ring", "halfc", "crescent", "drop", "shield"];
 
 // ---------- livree pronte da cui partire (posizioni in proporzione al mezzo) ----------
@@ -329,6 +333,27 @@ function shapePath(g: CanvasRenderingContext2D, t: Kind, w: number, h: number) {
   else if (t === "crescent") { g.ellipse(0, 0, W2, H2, 0, Math.PI / 2, (Math.PI * 3) / 2); g.ellipse(-W2 * 0.35, 0, W2 * 0.55, H2, 0, (Math.PI * 3) / 2, Math.PI / 2, true); g.closePath(); }
   else if (t === "drop") { g.moveTo(0, -H2); g.bezierCurveTo(W2 * 0.4, -H2 * 0.3, W2, H2 * 0.15, W2, H2 * 0.4); g.arc(0, H2 * 0.4, W2, 0, Math.PI); g.bezierCurveTo(-W2, H2 * 0.15, -W2 * 0.4, -H2 * 0.3, 0, -H2); g.closePath(); }
   else if (t === "shield") { g.moveTo(-W2, -H2); g.lineTo(W2, -H2); g.lineTo(W2, 0); g.quadraticCurveTo(W2, H2 * 0.7, 0, H2); g.quadraticCurveTo(-W2, H2 * 0.7, -W2, 0); g.closePath(); }
+  else if (t === "star6") poly(Array.from({ length: 12 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI / 6) * i, k = i % 2 ? 0.55 : 1; return [Math.cos(a) * W2 * k, Math.sin(a) * H2 * k] as [number, number]; }));
+  else if (t === "maltese") {
+    // quattro braccia a coda di rondine
+    for (let q = 0; q < 4; q++) {
+      const a = (Math.PI / 2) * q, c = Math.cos(a), sn = Math.sin(a);
+      const P = (u: number, v: number): [number, number] => [(u * c - v * sn) * W2, (u * sn + v * c) * H2];
+      const pts = [P(0, 0), P(1, -0.55), P(0.78, 0), P(1, 0.55)];
+      g.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) g.lineTo(p[0], p[1]); g.closePath();
+    }
+  }
+  else if (t === "flame") {
+    g.moveTo(0, H2); g.bezierCurveTo(-W2 * 1.05, H2, -W2 * 0.9, -H2 * 0.1, -W2 * 0.2, -H2 * 0.35);
+    g.bezierCurveTo(-W2 * 0.25, -H2 * 0.05, -W2 * 0.05, H2 * 0.05, 0, -H2 * 0.1); g.bezierCurveTo(W2 * 0.1, -H2 * 0.5, -W2 * 0.05, -H2 * 0.8, W2 * 0.15, -H2);
+    g.bezierCurveTo(W2 * 0.95, -H2 * 0.45, W2 * 1.05, H2, 0, H2); g.closePath();
+  }
+  else if (t === "cloud") {
+    g.moveTo(-W2 * 0.7, H2 * 0.6); g.arc(-W2 * 0.55, H2 * 0.1, H2 * 0.5, Math.PI * 0.6, Math.PI * 1.5);
+    g.arc(-W2 * 0.1, -H2 * 0.2, H2 * 0.62, Math.PI * 1.15, Math.PI * 1.9); g.arc(W2 * 0.45, 0, H2 * 0.55, Math.PI * 1.3, Math.PI * 0.4);
+    g.closePath();
+  }
+  else if (t === "tag") { poly([[-W2, -H2 * 0.6], [W2 * 0.55, -H2 * 0.6], [W2, 0], [W2 * 0.55, H2 * 0.6], [-W2, H2 * 0.6]]); g.moveTo(W2 * 0.5, 0); g.arc(W2 * 0.4, 0, Math.min(w, h) * 0.07, 0, Math.PI * 2, true); }
   else if (t === "heart") {
     g.moveTo(0, H2); g.bezierCurveTo(-W2 * 1.1, H2 * 0.1, -W2 * 0.9, -H2 * 1.1, 0, -H2 * 0.45);
     g.bezierCurveTo(W2 * 0.9, -H2 * 1.1, W2 * 1.1, H2 * 0.1, 0, H2); g.closePath();
@@ -409,6 +434,18 @@ export function drawItems(g: CanvasRenderingContext2D, items: Item[]) {
         g.restore();
       } else if (it.t === "sticker") {
         drawSticker(g, it, w, h);
+      } else if (it.t === "sol") {
+        // Stella della vita: tre bracci (colore + bordo all'esterno) e bastone di Esculapio col serpente (secondo colore)
+        const bw = w * 0.3, bh = h;
+        const arms = () => { g.beginPath(); for (const a of [0, 60, 120]) { g.save(); g.rotate((a * Math.PI) / 180); g.rect(-bw / 2, -bh / 2, bw, bh); g.restore(); } };
+        if (it.sw > 0) { arms(); g.strokeStyle = it.stroke; g.lineWidth = it.sw * 2; g.lineJoin = "miter"; g.stroke(); }
+        arms(); g.fillStyle = fillOf(g, it, w, h); g.fill("nonzero");
+        const c2 = it.c2 ?? "#FFFFFF";
+        g.fillStyle = c2; g.fillRect(-w * 0.025, -h * 0.36, w * 0.05, h * 0.72);                 // bastone
+        g.strokeStyle = c2; g.lineWidth = Math.max(1.5, w * 0.035); g.lineCap = "round"; g.beginPath();
+        for (let i = 0; i <= 40; i++) { const v = i / 40, yy = h * 0.3 - v * h * 0.58, xx = Math.sin(v * Math.PI * 3) * w * 0.07; i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+        g.stroke();                                                                                // serpente
+        g.beginPath(); g.ellipse(Math.sin(Math.PI * 3) * w * 0.07 + w * 0.02, -h * 0.29, w * 0.045, h * 0.03, 0, 0, Math.PI * 2); g.fill();
       } else if (it.t === "image" && it.src) {
         const im = imgCache.get(it.src);
         if (im?.complete) g.drawImage(im, -w / 2, -h / 2, w, h);

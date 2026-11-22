@@ -276,6 +276,7 @@ export default function LiveryEditor() {
       PATTERN_KINDS.includes(t) ? { ...base, x: W * 0.05, y: H * 0.5, w: W * 0.9, h: H * 0.1, fill: "#F97316", c2: "#FFFFFF" } :
       t === "wave" ? { ...base, x: W * 0.05, y: H * 0.45, w: W * 0.9, h: H * 0.12, fill: "#0EA5E9" } :
       t === "swoosh" ? { ...base, x: W * 0.15, y: H * 0.3, w: W * 0.7, h: H * 0.35, fill: "#F97316", g2: "#FACC15", gdir: "h" } :
+      t === "sol" ? { ...base, w: H * 0.22, h: H * 0.22, fill: "#1D4ED8", c2: "#FFFFFF", stroke: "#FFFFFF", sw: 3 } :
       t === "chevron" || t === "arrow" ? { ...base, w: H * 0.3, h: H * 0.22, fill: "#FACC15" } :
       t === "text" ? { ...base, x: W * 0.3, y: H * 0.42, w: W * 0.4, h: H * 0.09, fill: "#1D4ED8", text: "AMBULANZA", bold: true } : base;
     const fin0 = onGlass ? { ...it, glass: true, x: W * 0.3, y: H * 0.22, w: Math.min(it.w, H * 0.2), h: Math.min(it.h, H * 0.2), g2: undefined } : it;
@@ -344,6 +345,7 @@ export default function LiveryEditor() {
     }
     const tgt = (e.target as Element).closest?.("[data-h],[data-nudge]");
     const nudgeAttr = tgt?.getAttribute("data-nudge");
+    if ((nudgeAttr || tgt?.getAttribute("data-h")) && selected?.locked) { setMsg({ ok: false, text: "🔒 Forma bloccata: sbloccala dai Livelli per spostarla." }); return; }
     if (nudgeAttr && selected) {           // freccette sul disegno
       const [nx, ny] = nudgeAttr.split(",").map(Number); const ddx = nx * step, ddy = ny * step;
       patch(selected.id, { x: selected.x + ddx, y: selected.y + ddy, pts: selected.pts?.map(([px, py]) => [px + ddx, py + ddy] as [number, number]) });
@@ -365,7 +367,7 @@ export default function LiveryEditor() {
       return Math.abs(lx) <= Math.abs(it.w) / 2 + pad && Math.abs(ly) <= Math.abs(it.h) / 2 + pad;
     };
     const pad0 = 6 / (fit * view.z);
-    const hit = (selected && inside(selected, pad0) ? selected : null) ?? [...items].reverse().find((it) => inside(it, Math.max(pad0, it.sw / 2)));
+    const hit = (selected && !selected.locked && inside(selected, pad0) ? selected : null) ?? [...items].reverse().find((it) => !it.locked && inside(it, Math.max(pad0, it.sw / 2)));
     setSelId(hit?.id ?? null); if (hit) setSide("props");
     if (hit) { drag.current = { kind: "move", id: hit.id, sx: x, sy: y, orig: { ...hit, pts: hit.pts?.map((p) => [...p] as [number, number]) } }; undo.current.push(items); redo.current = []; }
   }
@@ -528,6 +530,17 @@ export default function LiveryEditor() {
         {selected.text !== undefined && <input value={selected.text ?? ""} onChange={(e) => live(selected.id, { text: e.target.value.slice(0, 30) })} placeholder="Scritta"
           style={{ ...sel, boxSizing: "border-box", marginTop: 6 }} />}
       </div>}
+      {selected.t === "sol" && <div style={{ marginBottom: 8 }}>
+        <span style={lbl}>Colori stella della vita</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 5 }}>
+          <span style={{ fontSize: 12 }}>Stella</span><input type="color" value={selected.fill} onChange={(e) => live(selected.id, { fill: e.target.value })} />
+          <span style={{ fontSize: 12 }}>Bastone e serpente</span><input type="color" value={selected.c2 ?? "#ffffff"} onChange={(e) => live(selected.id, { c2: e.target.value })} />
+          <span style={{ fontSize: 12 }}>Bordo</span><input type="color" value={selected.stroke} onChange={(e) => live(selected.id, { stroke: e.target.value, sw: selected.sw || 3 })} />
+        </div>
+        {swatches((c) => patch(selected.id, { fill: c }), selected.fill)}
+        <span style={{ ...lbl, marginTop: 6 }}>Spessore bordo {selected.sw}</span>
+        <input type="range" min={0} max={20} value={selected.sw} onChange={(e) => live(selected.id, { sw: +e.target.value })} style={{ width: "100%" }} />
+      </div>}
       {(isFillable || PATTERN_KINDS.includes(selected.t)) && <div style={{ marginBottom: 8 }}>
         <span style={lbl}>{PATTERN_KINDS.includes(selected.t) ? "Colori del motivo" : "Colore"}</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
@@ -541,8 +554,15 @@ export default function LiveryEditor() {
         <input type="range" min={10} max={Math.round(W * 1.2)} value={Math.round(Math.abs(selected.w))}
                onChange={(e) => { const nw = +e.target.value, k = selected.h / (selected.w || 1), cx = selected.x + selected.w / 2, cy = selected.y + selected.h / 2;
                  live(selected.id, { w: nw, h: nw * k, x: cx - nw / 2, y: cy - (nw * k) / 2 }); }} style={{ width: "100%" }} /></div>}
-      {!["line", "path"].includes(selected.t) && <div style={{ marginBottom: 8 }}><span style={lbl}>Rotazione {Math.round(selected.r)}°</span>
-        <input type="range" min={-180} max={180} value={selected.r} onChange={(e) => live(selected.id, { r: +e.target.value })} style={{ width: "100%" }} /></div>}
+      {!["line", "path"].includes(selected.t) && <div style={{ marginBottom: 8 }}><span style={lbl}>Rotazione</span>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button style={{ ...tool(), padding: "3px 7px" }} title="Un grado a sinistra" onClick={() => patch(selected.id, { r: Math.round(selected.r) - 1 })}>−1°</button>
+          <input type="range" min={-180} max={180} step={1} value={selected.r} onChange={(e) => live(selected.id, { r: +e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+          <button style={{ ...tool(), padding: "3px 7px" }} title="Un grado a destra" onClick={() => patch(selected.id, { r: Math.round(selected.r) + 1 })}>+1°</button>
+          <input type="number" min={-180} max={180} step={1} value={Math.round(selected.r)} onChange={(e) => { let v = +e.target.value; if (!Number.isFinite(v)) return; v = ((v + 180) % 360 + 360) % 360 - 180; patch(selected.id, { r: v }); }}
+                 style={{ width: 54, padding: "3px 4px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 13 }} />°
+          <button style={{ ...tool(), padding: "3px 7px" }} title="Dritta" onClick={() => patch(selected.id, { r: 0 })}>0°</button>
+        </div></div>}
       <div style={{ marginBottom: 8 }}><span style={lbl}>Trasparenza {Math.round((1 - selected.op) * 100)}%</span>
         <input type="range" min={10} max={100} value={Math.round(selected.op * 100)} onChange={(e) => live(selected.id, { op: +e.target.value / 100 })} style={{ width: "100%" }} /></div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 8 }}>
@@ -648,6 +668,8 @@ export default function LiveryEditor() {
              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 8, cursor: "pointer", background: it.id === selId ? "#DBEAFE" : "#F8FAFC", border: it.id === selId ? "1px solid #2563EB" : "1px solid transparent" }}>
           <span style={{ width: 18, height: 18, borderRadius: 4, background: it.t === "image" ? "#E2E8F0" : (it.fill !== "none" ? it.fill : it.stroke), border: "1px solid #CBD5E1", flexShrink: 0 }} />
           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.ally ? "🤝 Logo alleanza" : it.t === "text" ? `Testo «${it.text}»` : KIND_NAME[it.t]}</span>
+          <button style={{ ...tool(!!it.locked), padding: "2px 6px" }} title={it.locked ? "Sblocca" : "Blocca (non si sposta e non si prende toccando)"}
+                  onClick={(e) => { e.stopPropagation(); patch(it.id, { locked: !it.locked }); }}>{it.locked ? "🔒" : "🔓"}</button>
           <button style={{ ...tool(), padding: "2px 6px" }} onClick={(e) => { e.stopPropagation(); layer(it.id, 1); }}>↑</button>
           <button style={{ ...tool(), padding: "2px 6px" }} onClick={(e) => { e.stopPropagation(); layer(it.id, -1); }}>↓</button>
           {!it.ally && <button style={{ ...tool(), padding: "2px 6px", color: "#B91C1C" }} onClick={(e) => { e.stopPropagation(); remove(it); }}>✕</button>}
@@ -888,8 +910,8 @@ export default function LiveryEditor() {
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", padding: "8px 10px", borderTop: "1px solid #E2E8F0", background: "#F8FAFC" }}>
               {(() => {
                 const sl = selected; const dis = !sl || mode !== "select";
-                const mv = (dx: number, dy: number) => sl && patch(sl.id, { x: sl.x + dx * step, y: sl.y + dy * step, pts: sl.pts?.map(([x, y]) => [x + dx * step, y + dy * step] as [number, number]) });
-                const sz = (k: number) => { if (!sl || sl.t === "path") return; const cx = sl.x + sl.w / 2, cy = sl.y + sl.h / 2, nw = Math.max(6, sl.w * k), nh = Math.max(4, sl.h * k); patch(sl.id, { w: nw, h: nh, x: cx - nw / 2, y: cy - nh / 2 }); };
+                const mv = (dx: number, dy: number) => sl && !sl.locked && patch(sl.id, { x: sl.x + dx * step, y: sl.y + dy * step, pts: sl.pts?.map(([x, y]) => [x + dx * step, y + dy * step] as [number, number]) });
+                const sz = (k: number) => { if (!sl || sl.locked || sl.t === "path") return; const cx = sl.x + sl.w / 2, cy = sl.y + sl.h / 2, nw = Math.max(6, sl.w * k), nh = Math.max(4, sl.h * k); patch(sl.id, { w: nw, h: nh, x: cx - nw / 2, y: cy - nh / 2 }); };
                 const rb = (ch: string, fn: () => void, title: string, big = false) => <button title={title} disabled={dis} onClick={fn}
                   style={{ ...tool(), padding: big ? "6px 12px" : "6px 9px", fontSize: big ? 17 : 14, opacity: dis ? 0.4 : 1, minWidth: 38 }}>{ch}</button>;
                 return <>
@@ -901,7 +923,7 @@ export default function LiveryEditor() {
                   </div>
                   <span style={{ width: 1, height: 26, background: "#E2E8F0" }} />
                   {rb("➖", () => sz(1 / 1.08), "Più piccola")}{rb("➕", () => sz(1.08), "Più grande")}
-                  {rb("↺", () => sl && patch(sl.id, { r: Math.round(sl.r - 15) }), "Ruota a sinistra")}{rb("↻", () => sl && patch(sl.id, { r: Math.round(sl.r + 15) }), "Ruota a destra")}
+                  {rb("↺", () => sl && patch(sl.id, { r: Math.round(sl.r) - (step === 20 ? 15 : step) }), `Ruota a sinistra di ${step === 20 ? 15 : step}°`)}{rb("↻", () => sl && patch(sl.id, { r: Math.round(sl.r) + (step === 20 ? 15 : step) }), `Ruota a destra di ${step === 20 ? 15 : step}°`)}
                   {rb("⬆", () => sl && layer(sl.id, 1), "Porta sopra")}{rb("⬇", () => sl && layer(sl.id, -1), "Porta sotto")}
                   {rb("⧉", () => sl && dup(sl), "Duplica")}{rb("🗑", () => sl && remove(sl), "Elimina")}
                   {!sl && <span style={{ fontSize: 12, color: "#64748B" }}>Tocca una forma sul mezzo per usare i comandi.</span>}
