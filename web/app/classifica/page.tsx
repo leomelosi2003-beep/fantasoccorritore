@@ -138,10 +138,11 @@ export default function Classifica() {
           </div>
           <div style={{ background: "linear-gradient(135deg,#1E3A8A,#1D4ED8)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione</div>
-            <div>🥇 <b>30.000.000 € a ogni membro</b> + 2 ambulanze con kit completo</div>
-            <div>🥈 <b>5.000.000 € a ogni membro</b> + 1 motorino</div>
-            <div>🥉 <b>1.000.000 € a ogni membro</b></div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Ogni associazione dell&apos;alleanza riceve la cifra intera; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "2px 12px" }}>
+              {[20, 15, 12, 10, 8, 6, 5, 4, 3, 2].map((m, i) => (
+                <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m} milioni</b>{i === 0 ? " + 2 ambulanze con kit completo" : i === 1 ? " + 1 motorino" : ""}</div>))}
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Premi per le prime 10 alleanze: ogni associazione dell&apos;alleanza riceve la cifra intera; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
           </div>
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
             {allyRows.map((a, i) => (
@@ -171,7 +172,7 @@ export default function Classifica() {
             {[...new Set(allyAwards.map((a) => a.season))].map((se) => (
               <div key={se} style={{ borderTop: "1px solid #f0f0f0", padding: "8px 0", fontSize: 13 }}>
                 <div style={{ fontWeight: 700, textTransform: "capitalize" }}>{monthName(se)}</div>
-                {allyAwards.filter((a) => a.season === se).map((a) => <div key={a.rank} style={{ color: "#555" }}>{MEDAL[a.rank - 1]} {a.alliance_name} · {Number(a.points).toLocaleString("it-IT")} pt</div>)}
+                {allyAwards.filter((a) => a.season === se).map((a) => <div key={a.rank} style={{ color: "#555" }}>{MEDAL[a.rank - 1] ?? `${a.rank}°`} {a.alliance_name} · {Number(a.points).toLocaleString("it-IT")} pt</div>)}
               </div>))}
           </div>}
         </div> : livTab ? <div style={{ marginTop: 10 }}><LiveryContest /></div> : <>
