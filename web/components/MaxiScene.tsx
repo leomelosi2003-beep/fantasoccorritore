@@ -21,11 +21,12 @@ export type SceneData = {
   event_id?: string | null; event_kind?: string | null; slots?: number | null; show_at?: string | null; inc_every?: number;    // grandi eventi veri
 };
 export function evKindOf(k?: string | null): string { return k === "calcio" ? "ev-stadio" : k === "basket" || k === "teatro" ? "ev-arena" : "ev-concerto"; }
-type EvExtra = { spots: V3[]; lights: V3[]; victims: V3[]; led?: [number, number, number, number, number]; pitch?: boolean; people: number; forum?: boolean };
-/** concerto al Modigliani Forum di Livorno: si vede il palazzetto da fuori con la gente che entra */
-export function isForumConcert(d: { venue?: string | null; title?: string; description?: string | null; event_kind?: string | null }): boolean {
+type EvExtra = { spots: V3[]; lights: V3[]; victims: V3[]; led?: [number, number, number, number, number]; pitch?: boolean; people: number; forum?: "concerto" | "partita" | "teatro" };
+/** eventi al Modigliani Forum di Livorno: si vede la cupola da fuori con la gente che entra; effetti diversi per concerto, partita o spettacolo */
+export function forumKindOf(d: { venue?: string | null; title?: string; description?: string | null; event_kind?: string | null }): string | null {
   const txt = `${d.venue ?? ""} ${d.title ?? ""} ${d.description ?? ""}`.toLowerCase();
-  return txt.includes("modigliani") && evKindOf(d.event_kind) === "ev-concerto";
+  if (!txt.includes("modigliani")) return null;
+  return d.event_kind === "basket" || d.event_kind === "calcio" ? "ev-modigliani-partita" : d.event_kind === "teatro" ? "ev-modigliani-teatro" : "ev-modigliani";
 }
 
 type V3 = [number, number, number];
@@ -236,7 +237,7 @@ function buildScene(kind: string, seed: number) {
              lights: [[-60, 26, -78], [60, 26, -78], [-60, 26, 8], [60, 26, 8]], victims: [[-30, 0, -3], [-10, 0, -3], [15, 0, -3], [35, 0, -3], [-46, 0, -20], [46, 0, -50]],
              pitch: true, people: (6 + Math.floor(r() * 9)) * 1000 };
       break; }
-    case "ev-modigliani": {
+    case "ev-modigliani": case "ev-modigliani-partita": case "ev-modigliani-teatro": {
       // la cupola si disegna a spicchi nel ciclo di disegno; qui solo l'ingresso: base blu con le porte e vetrata scura sopra
       boxes.push({ c: [0, 1.5, -14.5], s: [40, 3, 3], yaw: 0, fill: "rgba(37,99,235,.75)", edge: "rgba(147,197,253,.9)" });
       boxes.push({ c: [0, 4.6, -15], s: [40, 3.2, 3], yaw: 0, fill: "rgba(30,41,59,.88)", edge: "rgba(148,163,184,.85)" });
@@ -247,7 +248,8 @@ function buildScene(kind: string, seed: number) {
       lines.push([[-90, 0.05, 14], [90, 0.05, 14]]);                                                       // marciapiede del piazzale
       for (let i = 0; i < 140; i++) { const x = (r() - 0.5) * 110, z = -4 + r() * 18; if (Math.abs(x) < 18 && z < 4) continue; crowd.push([x, 0, z]); }   // gente sul piazzale
       ev = { spots: [[-40, 0, 27], [40, 0, 27], [0, 0, 27], [-64, 0, 4], [64, 0, 4], [-20, 0, 27], [20, 0, 27], [-58, 0, 27], [58, 0, 27]],
-             lights: [[-22, 22, -56], [-8, 26.5, -56], [8, 26.5, -56], [22, 22, -56]], victims: crowd.slice(0, 40), people: (5 + Math.floor(r() * 4)) * 1000, forum: true };
+             lights: [[-22, 22, -56], [-8, 26.5, -56], [8, 26.5, -56], [22, 22, -56]], victims: crowd.slice(0, 40), people: (5 + Math.floor(r() * 4)) * 1000,
+             forum: kind === "ev-modigliani-partita" ? "partita" : kind === "ev-modigliani-teatro" ? "teatro" : "concerto" };
       break; }
     case "ev-arena":
       house(0, -38, 80, 16, 44);
@@ -341,7 +343,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
     const sev = Math.max(1, Math.min(3, Math.round(data.fire?.severity ?? 2)));
     const PC = data.venue === "PC";                                          // protezione civile
     const EV = !!data.event_id;                                              // grande evento vero (concerto, partita...)
-    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : EV ? (isForumConcert(data) ? "ev-modigliani" : evKindOf(data.event_kind)) : scenarioOf(data.title);
+    const kind = FIRE ? "incendio" + sev : PC ? pcKindOf(data.title) : EV ? (forumKindOf(data) ?? evKindOf(data.event_kind)) : scenarioOf(data.title);
     let fireR = 12 + sev * 5 + (data.fire?.intensity ?? 50) * 0.18;               // raggio del fronte (si muove piano verso quello vero)
     const scene = buildScene(kind, seed);
     const X = PC ? scene.pc : null;
@@ -1295,7 +1297,19 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
         dome(0, CZ, 5, 2.6, 26.6, 14, 3, (sh) => `rgba(${Math.round(150 + sh * 70)},${Math.round(75 + sh * 40)},${Math.round(30 + sh * 20)},.97)`, "rgba(253,186,116,.6)");
         const fLive = now >= evShow;
         const sg = P([0, 7.2, -15]);
-        if (sg) draws.push({ z: sg[2] - 3, fn: () => { ctx.font = "900 12px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.fillStyle = fLive ? `hsla(${(t / 20) % 360},90%,72%,.95)` : "#E2E8F0"; ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]); } });
+        const FK = E.forum;
+        if (sg) draws.push({ z: sg[2] - 3, fn: () => {
+          ctx.font = "900 12px ui-monospace,monospace"; ctx.textAlign = "center";
+          ctx.fillStyle = !fLive ? "#E2E8F0" : FK === "concerto" ? `hsla(${(t / 20) % 360},90%,72%,.95)` : FK === "partita" ? "#FCA5A5" : "#FDE68A";
+          ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]);
+          if (FK === "partita" && fLive) {                                       // tabellone col punteggio che sale
+            const m = Math.floor((now - evShow) / 1000 / 20), home = 2 * m + (m % 3 === 0 ? 1 : 0), away = 2 * m - (m % 4) + (m > 3 ? 1 : 0);
+            const txt = `LIVORNO ${home} – ${Math.max(0, away)} OSPITI`;
+            ctx.font = "800 11px ui-monospace,monospace"; const tw = ctx.measureText(txt).width;
+            ctx.fillStyle = "rgba(15,23,42,.9)"; ctx.fillRect(sg[0] - tw / 2 - 6, sg[1] - 30, tw + 12, 17);
+            ctx.fillStyle = "#FBBF24"; ctx.fillText(txt, sg[0], sg[1] - 17);
+          }
+        } });
         // gente che entra: dal piazzale e dal parcheggio verso i tornelli e le porte
         const flow = fLive ? 34 : 90;
         for (let k = 0; k < flow; k++) {
@@ -1305,7 +1319,7 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           if (u < 0.75) { const v = u / 0.75; p = [sx + (gx - sx) * v, 0, sz + (-6 - sz) * v]; }
           else { const v = (u - 0.75) / 0.25; p = [gx, 0, -6 - v * 7]; }
           if (p[2] < -12.6) continue;                                              // è entrato
-          figure(p, "walk", ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#E2E8F0"][k % 6], t / 1000 + k);
+          figure(p, "walk", (FK === "partita" ? ["#7F1D1D", "#F1F5F9", "#991B1B", "#1D4ED8", "#7F1D1D", "#E2E8F0"] : FK === "teatro" ? ["#1E293B", "#7C3AED", "#0F172A", "#B45309", "#334155", "#E2E8F0"] : ["#F472B6", "#A78BFA", "#60A5FA", "#34D399", "#FBBF24", "#E2E8F0"])[k % 6], t / 1000 + k);
         }
         for (const x of [-17.5, 17.5]) figure([x, 0, -6.5], "stand", "#FACC15", t / 1000 + x);   // steward ai tornelli
       }
@@ -1321,7 +1335,27 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             poly([[xa, y0, z], [xb, y0, z], [xb, y1, z], [xa, y1, z]], undefined, `hsla(${(t / 8 + k * 36) % 360},90%,60%,.55)`);
           }
         }
-        if (E.forum) {
+        if (E.forum === "partita" && live) {
+          // partita: boato a ondate, luce bianca dalle porte, cori che salgono dalla cupola
+          const roar = Math.pow(Math.max(0, Math.sin(t / 2700) * Math.sin(t / 1100)), 2);
+          const door = [P([-20, 0.2, -12.9]), P([20, 0.2, -12.9]), P([20, 3, -12.9]), P([-20, 3, -12.9])];
+          if (door.every(Boolean)) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(254,243,199,${0.2 + roar * 0.4})`;
+            ctx.beginPath(); door.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1]) : ctx.moveTo(q![0], q![1]))); ctx.closePath(); ctx.fill(); ctx.restore(); }
+          ctx.textAlign = "center";
+          const CH = ["OLÈ!", "DAI LIVORNO!", "🏀", "CANESTRO!", "DIFESA!", "📣"];
+          for (let k = 0; k < 7; k++) {
+            const u = ((t / 3600) + k / 7) % 1, q = P([-28 + (k * 19) % 56, 30 + u * 18, -50 - (k % 3) * 5]);
+            if (q) { ctx.font = `800 ${11 + roar * 6}px system-ui,sans-serif`; ctx.fillStyle = k % 2 ? `rgba(254,202,202,${(1 - u) * 0.95})` : `rgba(255,255,255,${(1 - u) * 0.9})`; ctx.fillText(CH[k % CH.length], q[0], q[1]); }
+          }
+        }
+        if (E.forum === "teatro" && live) {
+          const door = [P([-20, 0.2, -12.9]), P([20, 0.2, -12.9]), P([20, 3, -12.9]), P([-20, 3, -12.9])];
+          if (door.every(Boolean)) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(251,191,36,${0.18 + Math.sin(t / 1500) * 0.05})`;
+            ctx.beginPath(); door.forEach((q, k) => (k ? ctx.lineTo(q![0], q![1]) : ctx.moveTo(q![0], q![1]))); ctx.closePath(); ctx.fill(); ctx.restore(); }
+          ctx.textAlign = "center"; ctx.font = "700 13px system-ui,sans-serif";
+          for (let k = 0; k < 5; k++) { const u = ((t / 5200) + k / 5) % 1, q = P([-20 + k * 10, 30 + u * 16, -52]); if (q) { ctx.fillStyle = `rgba(253,230,138,${(1 - u) * 0.85})`; ctx.fillText(k % 2 ? "🎭" : "✨", q[0], q[1]); } }
+        }
+        if (E.forum === "concerto") {
           if (live) {
             // musica che "esce" dal palazzetto: luce dalle porte che pulsa a tempo, note che salgono, onde dal tetto
             const beat = Math.pow(Math.max(0, Math.sin(t / 230)), 6);
@@ -1364,6 +1398,12 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
             const src = P(L0); if (!src) return;
             const beams = E.pitch ? 1 : 2;
             for (let b = 0; b < beams; b++) {
+              if (E.forum === "teatro") continue;
+              if (E.forum === "partita") {                                      // fari bianchi quasi fermi
+                const top = P([L0[0] * 1.6, 100, L0[2] + 10 + Math.sin(t / 4000 + i) * 4]); if (!top) continue;
+                const g3 = ctx.createLinearGradient(src[0], src[1], top[0], top[1]); g3.addColorStop(0, "rgba(255,255,255,.35)"); g3.addColorStop(1, "rgba(255,255,255,0)");
+                ctx.strokeStyle = g3; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(src[0], src[1]); ctx.lineTo(top[0], top[1]); ctx.stroke(); continue;
+              }
               if (E.forum) {                                                    // fasci di luce dal tetto verso il cielo
                 const sw = Math.sin(t / 1300 + i * 1.9 + b * 2.4) * 30, top = P([L0[0] + sw, 110, L0[2] + Math.cos(t / 1700 + i + b) * 20]);
                 if (!top) continue; const hue2 = (t / 25 + i * 70 + b * 140) % 360;

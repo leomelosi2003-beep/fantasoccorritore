@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-22h", date: "22 novembre 2026", title: "🏟️ Modigliani Forum per tutti gli eventi",
+    items: ["Ogni evento al Modigliani Forum mostra la cupola del palazzetto. Partita: tifosi amaranto, tabellone col punteggio, fari bianchi e cori. Concerto: luci colorate e note. Spettacolo: luce calda e 🎭."],
+  },
+  {
     id: "2026-11-22g", date: "22 novembre 2026", title: "🎨 Premi e spareggio del concorso livree",
     items: ["Le 3 livree più votate del mese vincono 🥇 1.000.000 €, 🥈 500.000 € e 🥉 250.000 €.",
             "Se c'è un pareggio che decide il podio parte uno spareggio di 24 ore: arriva un avviso a tutti e in Classifica → 🎨 Livree si sceglie la più bella tra quelle a pari voti. Le livree senza voti restano fuori."],

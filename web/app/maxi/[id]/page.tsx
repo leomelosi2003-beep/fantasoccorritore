@@ -12,7 +12,7 @@ const DEMO: Record<string, string> = {
   autobus: "Scontro tra due autobus", terremoto: "Scossa di terremoto",
   incendio1: "🔥 Sterpaglie", incendio2: "🔥 Bosco", incendio3: "🔥 Interfaccia",
   ...Object.fromEntries(Object.keys(PC_TITLES).map((k) => [k, "🦺 " + PC_TITLES[k]])),
-  "ev-concerto": "🎤 Concerto all'aperto", "ev-stadio": "⚽ Partita allo stadio", "ev-arena": "🏟️ Palazzetto", "ev-modigliani": "🎶 Concerto al Modigliani Forum",
+  "ev-concerto": "🎤 Concerto all'aperto", "ev-stadio": "⚽ Partita allo stadio", "ev-arena": "🏟️ Palazzetto", "ev-modigliani": "🎶 Concerto al Modigliani Forum", "ev-modigliani-partita": "🏀 Partita al Modigliani Forum", "ev-modigliani-teatro": "🎭 Spettacolo al Modigliani Forum",
 };
 // titolo vero di una missione di protezione civile per ogni scenario di prova
 const PC_DEMO_TITLE: Record<string, string> = {
@@ -28,9 +28,9 @@ function demoEv(s: string): SceneData {
     id: "ev" + i, call_sign: c, org_name: "x", mine: i < 2, status: "in_viaggio", assigned_at: new Date(t0 + i * 5000).toISOString(),
     arrives_at: new Date(t0 + i * 5000 + 20000).toISOString(), base_lat: 43.55 + Math.sin(i * 2) * 0.2, base_lng: 10.32 + Math.cos(i * 2) * 0.2,
   })).filter((v) => Date.parse(v.assigned_at) <= Date.now());
-  const kind = s === "ev-stadio" ? "calcio" : s === "ev-arena" ? "basket" : "concerto";
-  return { id: "demo-" + s, title: s === "ev-stadio" ? "Livorno – Prova (partita)" : s === "ev-arena" ? "Partita di basket – Prova" : s === "ev-modigliani" ? "Concerto al Modigliani Forum – Prova" : "Festival in piazza – Prova",
-           venue: s === "ev-modigliani" ? "Modigliani Forum" : "Prova", lat: 43.55, lng: 10.32, created_at: new Date(t0).toISOString(), ends_at: new Date(t0 + 4 * 3600000).toISOString(),
+  const kind = s === "ev-stadio" ? "calcio" : s === "ev-arena" || s === "ev-modigliani-partita" ? "basket" : s === "ev-modigliani-teatro" ? "teatro" : "concerto";
+  return { id: "demo-" + s, title: s === "ev-stadio" ? "Livorno – Prova (partita)" : s === "ev-arena" ? "Partita di basket – Prova" : s === "ev-modigliani" ? "Concerto al Modigliani Forum – Prova" : s === "ev-modigliani-partita" ? "Partita al Modigliani Forum – Prova" : s === "ev-modigliani-teatro" ? "Spettacolo al Modigliani Forum – Prova" : "Festival in piazza – Prova",
+           venue: s.startsWith("ev-modigliani") ? "Modigliani Forum" : "Prova", lat: 43.55, lng: 10.32, created_at: new Date(t0).toISOString(), ends_at: new Date(t0 + 4 * 3600000).toISOString(),
            event_id: "demo", event_kind: kind, slots: 5, show_at: new Date(t0 + 30000).toISOString(), inc_every: 120, vehicles };
 }
 // prova protezione civile: 4 mezzi maxi con moduli diversi, il lavoro avanza in 3 minuti
