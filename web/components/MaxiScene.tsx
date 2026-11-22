@@ -18,6 +18,7 @@ export type SceneData = {
   shuttle?: { scene: number; hosp: number; travel: number };   // solo per la scena di prova
   venue?: string | null; fire?: { severity: number; intensity: number; base_radius?: number } | null;   // incendi boschivi
   patients?: { injured: number; transported: number } | null;   // feriti della maxi (dal server)
+  score?: { team1: string; team2: string; score1: number; score2: number } | null;   // punteggio reale della partita
   event_id?: string | null; event_kind?: string | null; slots?: number | null; show_at?: string | null; inc_every?: number;    // grandi eventi veri
 };
 export function evKindOf(k?: string | null): string { return k === "calcio" ? "ev-stadio" : k === "basket" || k === "teatro" ? "ev-arena" : "ev-concerto"; }
@@ -1303,8 +1304,8 @@ export default function MaxiScene({ data, serverOffset = 0, view = 0, viewKey = 
           ctx.fillStyle = !fLive ? "#E2E8F0" : FK === "concerto" ? `hsla(${(t / 20) % 360},90%,72%,.95)` : FK === "partita" ? "#FCA5A5" : "#FDE68A";
           ctx.fillText("MODIGLIANI FORUM", sg[0], sg[1]);
           if (FK === "partita" && fLive) {                                       // tabellone col punteggio che sale
-            const m = Math.floor((now - evShow) / 1000 / 20), home = 2 * m + (m % 3 === 0 ? 1 : 0), away = 2 * m - (m % 4) + (m > 3 ? 1 : 0);
-            const txt = `LIVORNO ${home} – ${Math.max(0, away)} OSPITI`;
+            const sc = d.score, short = (n: string) => n.split(/\s+/).filter((w) => w.length > 2 && !/^\d+$/.test(w)).slice(-1)[0]?.toUpperCase() ?? n.toUpperCase();
+            const txt = sc ? `${short(sc.team1)} ${sc.score1} – ${sc.score2} ${short(sc.team2)}` : "PARTITA IN CORSO";
             ctx.font = "800 11px ui-monospace,monospace"; const tw = ctx.measureText(txt).width;
             ctx.fillStyle = "rgba(15,23,42,.9)"; ctx.fillRect(sg[0] - tw / 2 - 6, sg[1] - 30, tw + 12, 17);
             ctx.fillStyle = "#FBBF24"; ctx.fillText(txt, sg[0], sg[1] - 17);

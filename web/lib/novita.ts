@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-22i", date: "22 novembre 2026", title: "🏀 Punteggio reale delle partite",
+    items: ["Negli eventi delle partite in alto c'è il punteggio vero, preso dalla Lega Basket e aggiornato ogni 2 minuti; al Modigliani compare anche sul tabellone sopra l'ingresso."],
+  },
+  {
     id: "2026-11-22h", date: "22 novembre 2026", title: "🏟️ Modigliani Forum per tutti gli eventi",
     items: ["Ogni evento al Modigliani Forum mostra la cupola del palazzetto. Partita: tifosi amaranto, tabellone col punteggio, fari bianchi e cori. Concerto: luci colorate e note. Spettacolo: luce calda e 🎭."],
   },

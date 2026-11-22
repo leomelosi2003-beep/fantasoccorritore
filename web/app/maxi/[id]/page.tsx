@@ -99,6 +99,20 @@ function MaxiInner() {
   const [err, setErr] = useState<string | null>(null);
   const [view, setView] = useState(0);
   const [viewKey, setViewKey] = useState(0);
+  const [score, setScore] = useState<{ team1: string; team2: string; score1: number; score2: number; updated_at: string } | null>(null);
+  const isMatch = data?.event_id && (data.event_kind === "basket" || data.event_kind === "calcio");
+  // punteggio reale della partita (aggiornato dal server ogni 2 minuti)
+  useEffect(() => {
+    if (demo || !isMatch) return;
+    let alive = true;
+    const load = async () => {
+      const { data: d } = await supabase.rpc("event_live_score", { p_mission: id });
+      if (alive) setScore(((d as typeof score[]) ?? [])[0] ?? null);
+    };
+    load();
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, [id, demo, isMatch]);
 
   useEffect(() => {
     if (demo) {
@@ -123,7 +137,15 @@ function MaxiInner() {
 
   return (
     <main style={{ position: "fixed", inset: 0, background: "#050B18" }}>
-      {data && <MaxiScene data={data} serverOffset={offset} view={view} viewKey={viewKey} />}
+      {data && <MaxiScene data={score ? { ...data, score } : data} serverOffset={offset} view={view} viewKey={viewKey} />}
+      {isMatch && <div style={{ position: "absolute", top: 54, left: "50%", transform: "translateX(-50%)", background: "rgba(5,11,24,.82)", border: "1px solid rgba(251,191,36,.6)",
+                                borderRadius: 12, padding: "6px 14px", color: "#fff", textAlign: "center", fontFamily: "system-ui,sans-serif", zIndex: 5, maxWidth: "70vw" }}>
+        {score ? <>
+          <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {score.team1} <span style={{ color: "#FBBF24", fontSize: 20, margin: "0 6px" }}>{score.score1} – {score.score2}</span> {score.team2}</div>
+          <div style={{ fontSize: 10.5, opacity: 0.65 }}>{data.event_kind === "basket" ? "🏀" : "⚽"} punteggio reale · aggiornato alle {new Date(score.updated_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</div>
+        </> : <div style={{ fontSize: 12.5, opacity: 0.8 }}>{data.event_kind === "basket" ? "🏀" : "⚽"} Punteggio reale: in attesa dei primi dati</div>}
+      </div>}
       <div style={{ position: "absolute", top: 54, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
         {VIEWS.map((v, i) => ((data?.venue === "AIB" || data?.venue === "PC") && i === 3) ? null : (
           <button key={v.name} onClick={() => { setView(i); setViewKey((k) => k + 1); }}
