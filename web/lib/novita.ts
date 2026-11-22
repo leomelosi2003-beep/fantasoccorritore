@@ -4,9 +4,9 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
-    id: "2026-11-22e", date: "22 novembre 2026", title: "🎁 Premi alleanza fino al 10° posto",
-    items: ["A fine stagione premiate le prime 10 alleanze, cifra intera a ogni membro: 20, 15, 12, 10, 8, 6, 5, 4, 3 e 2 milioni.",
-            "Alla 1ª anche 2 ambulanze con kit completo, alla 2ª un motorino (al membro con più punti)."],
+    id: "2026-11-22f", date: "22 novembre 2026", title: "🎁 Premi di stagione e premi alleanza",
+    items: ["Classifiche Stagione, Reputazione e Rivelazione: a fine mese premiati i primi 10 di ognuna con 20, 15, 12, 10, 8, 6, 5, 4, 3 e 2 milioni.",
+            "Classifica Alleanze: premi solo alle prime 3, a ogni membro: 🥇 30 milioni + 2 ambulanze con kit completo, 🥈 5 milioni + 1 motorino, 🥉 1 milione."],
   },
   {
     id: "2026-11-22d", date: "22 novembre 2026", title: "🎁 Premi alleanza a testa",

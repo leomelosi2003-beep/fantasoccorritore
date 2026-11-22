@@ -138,11 +138,10 @@ export default function Classifica() {
           </div>
           <div style={{ background: "linear-gradient(135deg,#1E3A8A,#1D4ED8)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "2px 12px" }}>
-              {[20, 15, 12, 10, 8, 6, 5, 4, 3, 2].map((m, i) => (
-                <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m} milioni</b>{i === 0 ? " + 2 ambulanze con kit completo" : i === 1 ? " + 1 motorino" : ""}</div>))}
-            </div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Premi per le prime 10 alleanze: ogni associazione dell&apos;alleanza riceve la cifra intera; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
+            <div>🥇 <b>30.000.000 € a ogni membro</b> + 2 ambulanze con kit completo</div>
+            <div>🥈 <b>5.000.000 € a ogni membro</b> + 1 motorino</div>
+            <div>🥉 <b>1.000.000 € a ogni membro</b></div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Ogni associazione dell&apos;alleanza riceve la cifra intera; i mezzi vanno al membro che ha fatto più punti e arrivano nella sua sede principale.</div>
           </div>
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
             {allyRows.map((a, i) => (
@@ -180,6 +179,13 @@ export default function Classifica() {
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}
         </div>
+        {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "2px 12px" }}>
+            {[20, 15, 12, 10, 8, 6, 5, 4, 3, 2].map((m, i) => <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m} milioni</b></div>)}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Pagati il 1° del mese ai primi 10 di questa classifica{tab === "per_vehicle" ? " (serve almeno 300 punti di stagione)" : ""}.</div>
+        </div>}
 
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12 }}>{error}</div>}
 
