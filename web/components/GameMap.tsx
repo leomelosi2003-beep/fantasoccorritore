@@ -78,6 +78,9 @@ function alongRoute(route: RoutePoint[], now: number) {
       if (!still) {
         const road = getLeg(legKey(a, b));
         if (road) { const [lat, lng] = pointAt(road, f); return { lat, lng, moving: true, text, until: b.ms, leg: i, f }; }
+        // strada non ancora scaricata: niente linea dritta (taglierebbe campi e mare), il mezzo aspetta all'inizio del tratto
+        const sea = isSea(a) || isSea(b) || ferrySeg(a, b) || la.startsWith("✈️") || lb.startsWith("✈️") || lb.startsWith("Eli") || la.startsWith("Eli") || lb === "Elisoccorso sul posto";
+        if (!sea && Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) > 0.004) return { lat: a.lat, lng: a.lng, moving: true, text, until: b.ms, leg: i, f };
       }
       return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, moving: !still, text, until: b.ms, leg: i, f };
     }
@@ -179,7 +182,7 @@ function remainingPath(route: RoutePoint[], leg: number, f: number): LatLng[][] 
     const from = i === leg ? f : 0;
     if (isSea(a) || isSea(b) || ferrySeg(a, b)) { out.push([[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]); continue; }
     const road = getLeg(legKey(a, b));
-    out.push(road ? slice(road, from) : [[a.lat + (b.lat - a.lat) * from, a.lng + (b.lng - a.lng) * from], [b.lat, b.lng]]);
+    if (road) out.push(slice(road, from));      // senza strada scaricata non si disegna una linea dritta
   }
   return out;
 }

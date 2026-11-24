@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-24e", date: "24 novembre 2026", title: "🛣️ Basta mezzi che tagliano per i campi e per il mare",
+    items: ["Finché la strada di un tratto non è stata scaricata il mezzo resta fermo all'inizio del tratto invece di andare in linea dritta (che a volte passava sul mare); appena arriva la strada riparte lungo la via giusta."],
+  },
+  {
     id: "2026-11-24d", date: "24 novembre 2026", title: "🗞️ Interviste, comunicati e nuovi loghi sul FantaGiornale 24",
     items: ["Ogni associazione può pubblicare un comunicato stampa (uno ogni 6 ore) con «✍️ Scrivi un comunicato».",
             "Ogni giorno il direttore chiede un'intervista a qualche associazione: arriva un avviso sulla mappa, si risponde alle domande entro 48 ore e l'intervista esce in prima pagina.",
