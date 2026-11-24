@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-24b", date: "24 novembre 2026", title: "⛽ Pieno automatico sistemato",
+    items: ["Con la cisterna automatica accesa i mezzi fermi in sede ora fanno il pieno ogni 2 minuti: prima a volte rientravano dal servizio e restavano a secco anche con la cisterna piena."],
+  },
+  {
     id: "2026-11-24a", date: "24 novembre 2026", title: "📰 Esce il FantaGiornale 24",
     items: ["Le Notizie diventano un vero giornale: prima pagina con l'ultim'ora (maxi emergenze e incendi), i numeri della giornata, le livree nuove con le foto, le sedi appena aperte, eventi e partite, la corsa al titolo del mese, i nuovi arrivati e la cronaca dal territorio."],
   },
