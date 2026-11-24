@@ -1392,7 +1392,7 @@ export default function GameMap() {
               ["Gioco", [
                 ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
                 ["🆕", "Novità del gioco", "#7C3AED", "/novita"],
-                ["📰", "Notizie", "#374151", "/notizie"],
+                ["📰", "FantaGiornale 24", "#374151", "/notizie"],
                 ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
                 ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
               ]],

@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-24a", date: "24 novembre 2026", title: "📰 Esce il FantaGiornale 24",
+    items: ["Le Notizie diventano un vero giornale: prima pagina con l'ultim'ora (maxi emergenze e incendi), i numeri della giornata, le livree nuove con le foto, le sedi appena aperte, eventi e partite, la corsa al titolo del mese, i nuovi arrivati e la cronaca dal territorio."],
+  },
+  {
     id: "2026-11-22i", date: "22 novembre 2026", title: "🏀 Punteggio reale delle partite",
     items: ["Negli eventi delle partite in alto c'è il punteggio vero, preso dalla Lega Basket e aggiornato ogni 2 minuti; al Modigliani compare anche sul tabellone sopra l'ingresso."],
   },
