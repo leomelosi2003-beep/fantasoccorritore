@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-24c", date: "24 novembre 2026", title: "🖼️ Banner: foto rimpicciolibile",
+    items: ["Nel ritaglio del banner la foto ora si può rimpicciolire quanto vuoi (anche «⤢ Tutta» per vederla intera): lo spazio intorno si riempie con la foto sfocata o con un colore a scelta."],
+  },
+  {
     id: "2026-11-24b", date: "24 novembre 2026", title: "⛽ Pieno automatico sistemato",
     items: ["Con la cisterna automatica accesa i mezzi fermi in sede ora fanno il pieno ogni 2 minuti: prima a volte rientravano dal servizio e restavano a secco anche con la cisterna piena."],
   },

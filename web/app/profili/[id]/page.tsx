@@ -28,6 +28,8 @@ function BannerCropper({ src, onDone, onCancel }: { src: string; onDone: (b: Blo
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const [bg, setBg] = useState<string>("blur");          // sfondo dove la foto non arriva: sfocato o un colore
+  const ZMIN = 0.15, ZMAX = 4;
   useEffect(() => { const i = new Image(); i.onload = () => setImg(i); i.src = src; }, [src]);
   useEffect(() => {
     const f = () => setFw(frame.current?.clientWidth ?? 600); f();
@@ -37,7 +39,9 @@ function BannerCropper({ src, onDone, onCancel }: { src: string; onDone: (b: Blo
   const base = img ? Math.max(fw / img.naturalWidth, fh / img.naturalHeight) : 1;
   const sc = base * zoom;
   const iw = (img?.naturalWidth ?? 0) * sc, ih = (img?.naturalHeight ?? 0) * sc;
-  const clamp = (x: number, y: number) => ({ x: Math.min(0, Math.max(fw - iw, x)), y: Math.min(0, Math.max(fh - ih, y)) });
+  // se la foto è più grande della cornice non si scopre il bordo; se è più piccola si sposta dentro la cornice
+  const clamp1 = (v: number, frameLen: number, len: number) => len >= frameLen ? Math.min(0, Math.max(frameLen - len, v)) : Math.max(0, Math.min(frameLen - len, v));
+  const clamp = (x: number, y: number) => ({ x: clamp1(x, fw, iw), y: clamp1(y, fh, ih) });
   // all'inizio e quando cambia lo zoom resta centrata
   const zoomRef = useRef(zoom);
   useEffect(() => {
@@ -52,25 +56,45 @@ function BannerCropper({ src, onDone, onCancel }: { src: string; onDone: (b: Blo
   function done() {
     if (!img) return;
     const c = document.createElement("canvas"); c.width = 1500; c.height = 500;
-    c.getContext("2d")!.drawImage(img, -pos.x / sc, -pos.y / sc, fw / sc, fh / sc, 0, 0, 1500, 500);
+    const g = c.getContext("2d")!, k = 1500 / fw;
+    if (bg === "blur") {                                   // sfondo: la stessa foto ingrandita e sfocata
+      const r = Math.max(1500 / img.naturalWidth, 500 / img.naturalHeight);
+      g.filter = "blur(24px) brightness(.85)";
+      g.drawImage(img, (1500 - img.naturalWidth * r) / 2, (500 - img.naturalHeight * r) / 2, img.naturalWidth * r, img.naturalHeight * r);
+      g.filter = "none";
+    } else { g.fillStyle = bg; g.fillRect(0, 0, 1500, 500); }
+    g.drawImage(img, pos.x * k, pos.y * k, iw * k, ih * k);
     c.toBlob((b) => b && onDone(b), "image/jpeg", 0.88);
   }
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.8)", zIndex: 3000, display: "grid", placeItems: "center", padding: 12 }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: 14, width: "min(960px, 100%)", boxSizing: "border-box" }}>
         <strong style={{ fontSize: 17, color: "#13294B" }}>✂️ Ritaglia il banner</strong>
-        <div style={{ fontSize: 13, color: "#64748B", margin: "2px 0 10px" }}>Trascina la foto per spostarla e usa lo zoom: quello che vedi nella cornice è il banner.</div>
+        <div style={{ fontSize: 13, color: "#64748B", margin: "2px 0 10px" }}>Trascina la foto per spostarla e usa lo zoom: quello che vedi nella cornice è il banner. Puoi rimpicciolirla quanto vuoi: lo spazio intorno si riempie con lo sfondo che scegli.</div>
         <div ref={frame} style={{ position: "relative", width: "100%", height: fh, overflow: "hidden", borderRadius: 10, background: "#0f172a", touchAction: "none", cursor: "grab", userSelect: "none" }}
              onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y }; }}
              onPointerMove={(e) => { const d = drag.current; if (d) setPos(clamp(d.px + e.clientX - d.x, d.py + e.clientY - d.y)); }}
              onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
-             onWheel={(e) => setZoom((z) => Math.min(4, Math.max(1, z * (e.deltaY < 0 ? 1.08 : 0.93))))}>
+             onWheel={(e) => setZoom((z) => Math.min(ZMAX, Math.max(ZMIN, z * (e.deltaY < 0 ? 1.08 : 0.93))))}>
+          {img && bg === "blur" && <img src={src} alt="" draggable={false} style={{ position: "absolute", inset: -30, width: "calc(100% + 60px)", height: "calc(100% + 60px)", objectFit: "cover", filter: "blur(14px) brightness(.85)", pointerEvents: "none" }} />}
+          {bg !== "blur" && <div style={{ position: "absolute", inset: 0, background: bg }} />}
           {img && <img src={src} alt="" draggable={false} style={{ position: "absolute", left: pos.x, top: pos.y, width: iw, height: ih, maxWidth: "none", pointerEvents: "none" }} />}
           <div style={{ position: "absolute", inset: 0, boxShadow: "inset 0 0 0 3px rgba(255,255,255,.85)", borderRadius: 10, pointerEvents: "none" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
           <span>🔍</span>
-          <input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(e) => setZoom(+e.target.value)} style={{ flex: 1 }} />
+          <button onClick={() => setZoom((z) => Math.max(ZMIN, z / 1.15))} style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 800, cursor: "pointer" }}>−</button>
+          <input type="range" min={ZMIN} max={ZMAX} step={0.01} value={zoom} onChange={(e) => setZoom(+e.target.value)} style={{ flex: 1 }} />
+          <button onClick={() => setZoom((z) => Math.min(ZMAX, z * 1.15))} style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 800, cursor: "pointer" }}>+</button>
+          <button onClick={() => img && setZoom(Math.min(fw / img.naturalWidth, fh / img.naturalHeight) / base)} title="Foto intera dentro la cornice"
+                  style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>⤢ Tutta</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", fontSize: 13 }}>
+          <span style={{ fontWeight: 700, color: "#334155" }}>Sfondo:</span>
+          <button onClick={() => setBg("blur")} style={{ padding: "4px 10px", borderRadius: 8, border: bg === "blur" ? "2px solid #2563EB" : "1px solid #CBD5E1", background: "#fff", cursor: "pointer", fontWeight: 600 }}>🌫️ Foto sfocata</button>
+          {["#FFFFFF", "#0F172A", "#13294B", "#B91C1C", "#16A34A"].map((c) => (
+            <button key={c} onClick={() => setBg(c)} title={c} style={{ width: 26, height: 26, borderRadius: 7, background: c, cursor: "pointer", border: bg === c ? "3px solid #2563EB" : "1px solid #CBD5E1" }} />))}
+          <input type="color" value={bg === "blur" ? "#ffffff" : bg} onChange={(e) => setBg(e.target.value)} title="Altro colore" />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
           <button onClick={onCancel} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", fontWeight: 700, cursor: "pointer" }}>Annulla</button>
