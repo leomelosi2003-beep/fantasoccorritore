@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-24f", date: "24 novembre 2026", title: "🚐 D-Daily Comando Maxi: carrozzeria pulita nell'editor",
+    items: ["Nell'editor delle livree il D-Daily Comando Maxi parte da una carrozzeria bianca pulita, con le ombre giuste e senza pezzi di strisce e scacchi rimasti."],
+  },
+  {
     id: "2026-11-24e", date: "24 novembre 2026", title: "🛣️ Basta mezzi che tagliano per i campi e per il mare",
     items: ["Finché la strada di un tratto non è stata scaricata il mezzo resta fermo all'inizio del tratto invece di andare in linea dritta (che a volte passava sul mare); appena arriva la strada riparte lungo la via giusta."],
   },

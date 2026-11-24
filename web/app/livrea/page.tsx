@@ -147,7 +147,15 @@ export default function LiveryEditor() {
   useEffect(() => {
     if (!model?.image_url) return;
     let ok = true;
-    loadImg(model.image_url).then((img) => { if (ok) { setPaint(paintMaskOf(img)); setGlass(glassMaskOf(img)); setBlank(blankOf(img)); } }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
+    loadImg(model.image_url).then(async (img) => {
+      if (!ok) return;
+      setPaint(paintMaskOf(img)); setGlass(glassMaskOf(img));
+      // alcuni mezzi hanno una versione bianca preparata a mano (es. carrozzeria tutta colorata): si usa quella
+      const pre = await loadImg(model.image_url.replace(/\.png$/, "-blank.png")).catch(() => null);
+      if (!ok) return;
+      if (pre) { const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d")!.drawImage(pre, 0, 0, c.width, c.height); setBlank(c); }
+      else setBlank(blankOf(img));
+    }).catch(() => setMsg({ ok: false, text: "Immagine del mezzo non trovata." }));
     return () => { ok = false; };
   }, [model?.image_url]);
 
