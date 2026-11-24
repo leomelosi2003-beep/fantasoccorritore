@@ -961,6 +961,8 @@ export default function GameMap() {
       const { data: ro } = await supabase.rpc("livery_runoff_state");
       const runs = (ro as { grp: number; my_vote: boolean; mine: boolean }[] | null) ?? [];
       const open = Array.from(new Set(runs.map((r) => r.grp))).filter((g) => !runs.some((r) => r.grp === g && r.my_vote) && runs.some((r) => r.grp === g && !r.mine));
+      const { data: pr } = await supabase.rpc("my_press_request");
+      if (((pr as unknown[]) ?? []).length) list.push({ id: "press-request", href: "/notizie", text: "🎙️ Il FantaGiornale 24 vuole intervistarvi: rispondete alle domande per finire in prima pagina!" });
       if (open.length) list.push({ id: "livery-runoff", href: "/classifica?livree=1", text: "⚖️ Pareggio nel concorso livree: vota la più bella tra le livree a pari voti!" });
       setNotes(list);
     }
