@@ -218,7 +218,7 @@ export default function Classifica() {
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}
-          {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ posti e +/− punti guadagnati o persi negli ultimi/e {prevHours}; 🔥 = sta per superare chi ha davanti.</span>}
+          {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ posti e +/− punti guadagnati o persi rispetto a {prevHours} fa; 🔥 = sta per superare chi ha davanti.</span>}
         </div>
         {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
