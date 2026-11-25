@@ -183,7 +183,7 @@ export default function Classifica() {
         {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "2px 12px" }}>
-            {[20, 15, 12, 10, 8, 6, 5, 4, 3, 2].map((m, i) => <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m} milioni</b></div>)}
+            {(tab === "season_points" ? [50, 40, 32, 25, 20, 15, 12, 10, 7, 5] : [10, 8, 6.5, 5, 4, 3, 2.5, 2, 1.5, 1]).map((m, i) => <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m.toLocaleString("it-IT")} milioni</b></div>)}
           </div>
           <div style={{ fontSize: 12, opacity: 0.85, marginTop: 6 }}>Pagati il 1° del mese ai primi 10 di questa classifica{tab === "per_vehicle" ? " (serve almeno 300 punti di stagione)" : ""}.</div>
         </div>}

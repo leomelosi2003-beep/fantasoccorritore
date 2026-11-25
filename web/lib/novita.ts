@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-25a", date: "25 novembre 2026", title: "🎁 Premi di stagione più ricchi",
+    items: ["Classifica Stagione: dal 1° al 10° posto 50, 40, 32, 25, 20, 15, 12, 10, 7 e 5 milioni.",
+            "Rivelazione e Reputazione: 10, 8, 6,5, 5, 4, 3, 2,5, 2, 1,5 e 1 milione."],
+  },
+  {
     id: "2026-11-24f", date: "24 novembre 2026", title: "🚐 D-Daily Comando Maxi: carrozzeria pulita nell'editor",
     items: ["Nell'editor delle livree il D-Daily Comando Maxi parte da una carrozzeria bianca pulita, con le ombre giuste e senza pezzi di strisce e scacchi rimasti."],
   },
