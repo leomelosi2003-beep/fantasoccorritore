@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-25b", date: "25 novembre 2026", title: "▲▼ Chi sale e chi scende in classifica",
+    items: ["In tutte le classifiche (anche Alleanze) accanto alla posizione c'è ▲ verde (posti guadagnati), ▼ rossa (posti persi) o = rispetto a 24 ore fa; NEW per chi è appena entrato."],
+  },
+  {
     id: "2026-11-25a", date: "25 novembre 2026", title: "🎁 Premi di stagione più ricchi",
     items: ["Classifica Stagione: dal 1° al 10° posto 50, 40, 32, 25, 20, 15, 12, 10, 7 e 5 milioni.",
             "Rivelazione e Reputazione: 10, 8, 6,5, 5, 4, 3, 2,5, 2, 1,5 e 1 milione."],

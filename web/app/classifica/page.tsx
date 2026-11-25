@@ -47,6 +47,8 @@ export default function Classifica() {
   const [rows, setRows] = useState<Row[]>([]);
   const [tab, setTab] = useState<Key>("season_points");
   const [livTab, setLivTab] = useState(false);
+  const [prev, setPrev] = useState<{ at: string; rows: Partial<Row>[] } | null>(null);   // classifica di circa 24 ore fa
+  useEffect(() => { supabase.rpc("rank_snapshot_ago", { p_hours: 24 }).then(({ data }) => setPrev((data as typeof prev) ?? null)); }, []);
   useEffect(() => { try { if (new URLSearchParams(window.location.search).get("livree")) setLivTab(true); } catch { /* */ } }, []);
   const [allyTab, setAllyTab] = useState(false);
   const [openAlly, setOpenAlly] = useState<string | null>(null);
@@ -93,6 +95,31 @@ export default function Classifica() {
     return y - x;
   });
   const t = TABS.find((x) => x.key === tab)!;
+  // posizioni di circa 24 ore fa, calcolate con le stesse regole di adesso
+  const prevRank = (() => {
+    const m = new Map<string, number>();
+    if (!prev) return m;
+    const pr = prev.rows.filter((r) => !isSeason || Number(r.season_points ?? 0) > 0)
+      .sort((a, b) => Number(b[tab] ?? -Infinity) - Number(a[tab] ?? -Infinity));
+    pr.forEach((r, i) => r.org_id && m.set(r.org_id, i + 1));
+    return m;
+  })();
+  const prevAllyRank = (() => {
+    const m = new Map<string, number>(); if (!prev) return m;
+    const pts = new Map<string, number>();
+    for (const r of prev.rows) if (r.alliance) pts.set(r.alliance, (pts.get(r.alliance) ?? 0) + Number(r.season_points ?? 0));
+    [...pts.entries()].sort((a, b) => b[1] - a[1]).forEach(([a], i) => m.set(a, i + 1));
+    return m;
+  })();
+  const prevHours = prev ? Math.max(1, Math.round((Date.now() - new Date(prev.at).getTime()) / 3_600_000)) : 0;
+  const Move = ({ now, before }: { now: number; before?: number }) => {
+    if (!prev) return null;
+    if (before == null) return <span title="Nuova in classifica" style={{ fontSize: 10.5, fontWeight: 800, color: "#2563EB", background: "#DBEAFE", borderRadius: 6, padding: "1px 4px" }}>NEW</span>;
+    const d = before - now;
+    if (d === 0) return <span title={`Stessa posizione di ${prevHours} ore fa`} style={{ fontSize: 11, color: "#94A3B8", fontWeight: 800 }}>=</span>;
+    return <span title={`${d > 0 ? "Sale" : "Scende"} di ${Math.abs(d)} rispetto a ${prevHours} ore fa (era ${before}°)`}
+                 style={{ fontSize: 11.5, fontWeight: 800, color: d > 0 ? "#16A34A" : "#DC2626", whiteSpace: "nowrap" }}>{d > 0 ? "▲" : "▼"}{Math.abs(d)}</span>;
+  };
   // classifica alleanze: somma dei punti di stagione dei membri
   const allyRows = (() => {
     const m = new Map<string, { name: string; points: number; members: Row[] }>();
@@ -148,7 +175,8 @@ export default function Classifica() {
             {allyRows.map((a, i) => (
               <div key={a.name} style={{ borderTop: i ? "1px solid #f0f0f0" : "none", background: a.name === myAlly ? "#EFF6FF" : undefined }}>
                 <div onClick={() => setOpenAlly(openAlly === a.name ? null : a.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer" }}>
-                  <div style={{ width: 30, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666" }}>{MEDAL[i] ?? i + 1}</div>
+                  <div style={{ width: 34, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666", lineHeight: 1.05 }}>{MEDAL[i] ?? i + 1}
+                    <div style={{ lineHeight: 1 }}><Move now={i + 1} before={prevAllyRank.get(a.name)} /></div></div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>🤝 {a.name}{a.name === myAlly && <span style={{ color: "#1D4ED8" }}> (la tua)</span>}</div>
                     <div style={{ fontSize: 12, color: "#777" }}>{a.members.length} {a.members.length === 1 ? "membro" : "membri"} · media {Math.round(a.points / a.members.length).toLocaleString("it-IT")} pt {openAlly === a.name ? "▴" : "▾"}</div>
@@ -179,6 +207,7 @@ export default function Classifica() {
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}
+          {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ = posti guadagnati o persi nelle ultime {prevHours} ore.</span>}
         </div>
         {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
@@ -195,8 +224,9 @@ export default function Classifica() {
             <div key={r.org_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
                                          borderTop: i ? "1px solid #f0f0f0" : "none",
                                          background: r.org_id === me ? "#FFFBEB" : undefined }}>
-              <div style={{ width: 30, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666" }}>
+              <div style={{ width: 34, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666", lineHeight: 1.05 }}>
                 {MEDAL[i] ?? i + 1}
+                <div style={{ lineHeight: 1 }}><Move now={i + 1} before={prevRank.get(r.org_id)} /></div>
               </div>
               <FactionEmblem type={r.type} size={34} logo={r.logo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
