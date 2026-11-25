@@ -76,11 +76,18 @@ export default function Squadra() {
 
   useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
 
+  // corsi prenotati per chi era in servizio (partono al rientro)
+  const [queued, setQueued] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    const q = () => supabase.rpc("my_training_queue").then(({ data }) => setQueued(new Map(((data as { card_id: string; target: string }[]) ?? []).map((x) => [x.card_id, x.target]))));
+    q(); const t = setInterval(q, 60_000); return () => clearInterval(t);
+  }, []);
   // Corso di formazione di gruppo: 8.000 € per una classe fino a 10 soccorritori base
   async function startClass() {
     if (!classTarget || classSel.length === 0) return;
     const label = classTarget === "autista" ? "autisti" : "soccorritori avanzati";
-    if (!(await gameConfirm(`Avviare il corso per ${label} con ${classSel.length} ${classSel.length === 1 ? "persona" : "persone"}?\n\nCosto 8.000 € per tutta la classe. Dura 1 ora.`))) return;
+    const away = cards.filter((c) => classSel.includes(c.id) && c.state === "in_servizio").length;
+    if (!(await gameConfirm(`Avviare il corso per ${label} con ${classSel.length} ${classSel.length === 1 ? "persona" : "persone"}?\n\nCosto 8.000 € per tutta la classe. Dura 1 ora.${away ? `\n${away} ${away === 1 ? "è" : "sono"} in servizio: ${away === 1 ? "inizierà" : "inizieranno"} il corso appena ${away === 1 ? "rientra" : "rientrano"} in sede.` : ""}`))) return;
     setBusy(true); setError(null);
     const { error } = await supabase.rpc("training_class", { p_cards: classSel, p_target: classTarget });
     setBusy(false);
@@ -94,6 +101,8 @@ export default function Squadra() {
     }
     setClassSel([]); setClassTarget(null);
     await load();
+    const { data: qd } = await supabase.rpc("my_training_queue");
+    setQueued(new Map(((qd as { card_id: string; target: string }[]) ?? []).map((x) => [x.card_id, x.target])));
   }
 
   // Pacchetti a pagamento
@@ -316,7 +325,7 @@ export default function Squadra() {
 
         {/* Corso di formazione */}
         {tab === "corsi" && (() => {
-          const students = active.filter((c) => c.role === "soccorritore_base" && !c.lent_from && !c.lent_to && c.state !== "in_servizio");
+          const students = active.filter((c) => c.role === "soccorritore_base" && !c.lent_from && !c.lent_to && !queued.has(c.id));
           return (
             <div style={{ background: "#fff", borderRadius: 14, padding: 14, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)",
                           border: "2px solid #DDD6FE" }}>
@@ -340,11 +349,14 @@ export default function Squadra() {
                         <button key={c.id} onClick={() => setClassSel((cur) => on ? cur.filter((x) => x !== c.id) : cur.length >= 10 ? cur : [...cur, c.id])}
                                 style={{ border: on ? "2px solid #7C3AED" : "1px solid #ddd", background: on ? "#F5F3FF" : "#fff",
                                          borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontSize: 13 }}>
-                          {on ? "✅" : "⬜"} {c.first_name} {c.last_name}
+                          {on ? "✅" : "⬜"} {c.first_name} {c.last_name}{c.state === "in_servizio" && <span title="In servizio: il corso parte al rientro"> 🚑</span>}
                         </button>
                       );
                     })}
                   </div>
+                  {queued.size > 0 && <div style={{ fontSize: 12.5, color: "#6D28D9", marginTop: 8 }}>
+                    🎓 Corso al rientro: {cards.filter((c) => queued.has(c.id)).map((c) => `${c.first_name} ${c.last_name} (→ ${queued.get(c.id) === "autista" ? "autista" : "avanzato"})`).join(", ")}
+                  </div>}
                   <button onClick={startClass} disabled={busy || classSel.length === 0}
                           style={{ ...btn, marginTop: 10, background: "#7C3AED", opacity: busy || classSel.length === 0 ? 0.5 : 1 }}>
                     Avvia corso ({classSel.length}/10) · 8.000 €

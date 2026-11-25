@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-25d", date: "25 novembre 2026", title: "🎓 Corso anche per chi è in servizio",
+    items: ["Nel corso di formazione puoi scegliere anche i soccorritori in servizio (🚑): paghi subito e il corso parte da solo appena rientrano in sede."],
+  },
+  {
     id: "2026-11-25c", date: "25 novembre 2026", title: "🔥 Rimonte in classifica",
     items: ["Sotto il punteggio di ogni associazione: quanto ha guadagnato o perso (+3 pt, −5 pt…) e quanto manca per superare chi sta davanti; 🔥 se sta guadagnando più di lui e a questo ritmo lo supera a breve. Le classifiche si fotografano ogni 30 minuti."],
   },
