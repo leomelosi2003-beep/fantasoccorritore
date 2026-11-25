@@ -5,7 +5,8 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 export const NOVITA: Novita[] = [
   {
     id: "2026-11-25d", date: "25 novembre 2026", title: "🎓 Corso anche per chi è in servizio",
-    items: ["Nel corso di formazione puoi scegliere anche i soccorritori in servizio (🚑): paghi subito e il corso parte da solo appena rientrano in sede."],
+    items: ["Nel corso di formazione puoi scegliere anche i soccorritori in servizio (🚑): paghi subito e il corso parte da solo appena rientrano in sede.",
+            "Al corso autisti possono andare sia i base sia gli avanzati: i base diventano autisti base, gli avanzati autisti avanzati."],
   },
   {
     id: "2026-11-25c", date: "25 novembre 2026", title: "🔥 Rimonte in classifica",

@@ -95,7 +95,7 @@ export default function Squadra() {
       const m = error.message;
       setError(m.includes("INSUFFICIENT_FUNDS") ? "Servono 8.000 € per il corso."
         : m.includes("TOO_MANY") ? "Al massimo 10 persone per corso."
-        : m.includes("NOT_UPGRADABLE") ? "Qualcuno non può fare il corso (in servizio, in prestito o non è un soccorritore base)."
+        : m.includes("NOT_UPGRADABLE") ? "Qualcuno non può fare questo corso (in prestito, già iscritto o ruolo non adatto)."
         : friendlyError(m));
       return;
     }
@@ -325,13 +325,13 @@ export default function Squadra() {
 
         {/* Corso di formazione */}
         {tab === "corsi" && (() => {
-          const students = active.filter((c) => c.role === "soccorritore_base" && !c.lent_from && !c.lent_to && !queued.has(c.id));
+          const students = active.filter((c) => (c.role === "soccorritore_base" || (classTarget === "autista" && c.role === "soccorritore_avanzato")) && !c.lent_from && !c.lent_to && !queued.has(c.id));
           return (
             <div style={{ background: "#fff", borderRadius: 14, padding: 14, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)",
                           border: "2px solid #DDD6FE" }}>
               <div style={{ fontWeight: 800, fontSize: 17 }}>📚 Corso di formazione · 8.000 €</div>
               <div style={{ fontSize: 13, color: "#555", margin: "2px 0 10px" }}>
-                Un corso vale per tutta la classe: fino a 10 soccorritori base insieme. Dura 1 ora.
+                Un corso vale per tutta la classe: fino a 10 persone insieme. Dura 1 ora. Al corso autisti possono andare base e avanzati: i base diventano autisti base, gli avanzati autisti avanzati.
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {([["autista", "🚑 Corso autisti"], ["soccorritore_avanzato", "💉 Corso soccorritori avanzati"]] as const).map(([t, l]) => (
@@ -341,7 +341,7 @@ export default function Squadra() {
               </div>
               {classTarget && (
                 <div style={{ marginTop: 10 }}>
-                  {students.length === 0 && <div style={{ fontSize: 14, color: "#888" }}>Nessun soccorritore base disponibile per il corso.</div>}
+                  {students.length === 0 && <div style={{ fontSize: 14, color: "#888" }}>Nessun soccorritore disponibile per il corso.</div>}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {students.map((c) => {
                       const on = classSel.includes(c.id);
@@ -349,7 +349,7 @@ export default function Squadra() {
                         <button key={c.id} onClick={() => setClassSel((cur) => on ? cur.filter((x) => x !== c.id) : cur.length >= 10 ? cur : [...cur, c.id])}
                                 style={{ border: on ? "2px solid #7C3AED" : "1px solid #ddd", background: on ? "#F5F3FF" : "#fff",
                                          borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontSize: 13 }}>
-                          {on ? "✅" : "⬜"} {c.first_name} {c.last_name}{c.state === "in_servizio" && <span title="In servizio: il corso parte al rientro"> 🚑</span>}
+                          {on ? "✅" : "⬜"} {c.first_name} {c.last_name}{classTarget === "autista" && <span style={{ color: "#64748B" }}> · {c.role === "soccorritore_avanzato" ? "→ autista avanzato" : "→ autista base"}</span>}{c.state === "in_servizio" && <span title="In servizio: il corso parte al rientro"> 🚑</span>}
                         </button>
                       );
                     })}
