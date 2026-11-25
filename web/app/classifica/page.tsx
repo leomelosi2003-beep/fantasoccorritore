@@ -111,13 +111,24 @@ export default function Classifica() {
     [...pts.entries()].sort((a, b) => b[1] - a[1]).forEach(([a], i) => m.set(a, i + 1));
     return m;
   })();
-  const prevHours = prev ? Math.max(1, Math.round((Date.now() - new Date(prev.at).getTime()) / 3_600_000)) : 0;
+  const prevVal = new Map<string, number>((prev?.rows ?? []).filter((r) => r.org_id).map((r) => [r.org_id!, Number(r[tab] ?? 0)]));
+  const fmtDelta = (d: number) => {
+    const sgn = d > 0 ? "+" : "−", a = Math.abs(d);
+    if (tab === "earnings_7d" || tab === "wealth") return `${sgn}${a >= 1e6 ? (a / 1e6).toLocaleString("it-IT", { maximumFractionDigits: 1 }) + " mln" : a >= 1000 ? Math.round(a / 1000).toLocaleString("it-IT") + "k" : Math.round(a)} €`;
+    if (tab === "growth_pct") return `${sgn}${a.toLocaleString("it-IT", { maximumFractionDigits: 1 })} punti %`;
+    if (tab === "reputation") return `${sgn}${Math.round(a)} ⭐`;
+    if (tab === "stolen_7d") return `${sgn}${Math.round(a)}`;
+    if (tab === "per_vehicle") return `${sgn}${a.toLocaleString("it-IT", { maximumFractionDigits: 1 })} pt/mezzo`;
+    return `${sgn}${Math.round(a).toLocaleString("it-IT")} pt`;
+  };
+  const prevMin = prev ? Math.max(1, Math.round((Date.now() - new Date(prev.at).getTime()) / 60_000)) : 0;
+  const prevHours = prevMin >= 90 ? `${Math.round(prevMin / 60)} ore` : `${prevMin} minuti`;
   const Move = ({ now, before }: { now: number; before?: number }) => {
     if (!prev) return null;
     if (before == null) return <span title="Nuova in classifica" style={{ fontSize: 10.5, fontWeight: 800, color: "#2563EB", background: "#DBEAFE", borderRadius: 6, padding: "1px 4px" }}>NEW</span>;
     const d = before - now;
-    if (d === 0) return <span title={`Stessa posizione di ${prevHours} ore fa`} style={{ fontSize: 11, color: "#94A3B8", fontWeight: 800 }}>=</span>;
-    return <span title={`${d > 0 ? "Sale" : "Scende"} di ${Math.abs(d)} rispetto a ${prevHours} ore fa (era ${before}°)`}
+    if (d === 0) return <span title={`Stessa posizione di ${prevHours} fa`} style={{ fontSize: 11, color: "#94A3B8", fontWeight: 800 }}>=</span>;
+    return <span title={`${d > 0 ? "Sale" : "Scende"} di ${Math.abs(d)} rispetto a ${prevHours} fa (era ${before}°)`}
                  style={{ fontSize: 11.5, fontWeight: 800, color: d > 0 ? "#16A34A" : "#DC2626", whiteSpace: "nowrap" }}>{d > 0 ? "▲" : "▼"}{Math.abs(d)}</span>;
   };
   // classifica alleanze: somma dei punti di stagione dei membri
@@ -207,7 +218,7 @@ export default function Classifica() {
         <div style={{ fontSize: 13, color: "#666", margin: "8px 2px 12px" }}>
           {isSeason && <b style={{ color: "#B45309" }}>Stagione di {monthName(new Date().toISOString().slice(0, 8) + "01")} · {endOfSeason}. </b>}
           {t.hint}
-          {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ = posti guadagnati o persi nelle ultime {prevHours} ore.</span>}
+          {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ posti e +/− punti guadagnati o persi negli ultimi/e {prevHours}; 🔥 = sta per superare chi ha davanti.</span>}
         </div>
         {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
@@ -240,9 +251,26 @@ export default function Classifica() {
                     : r.hidden ? "statistiche nascoste" : `${r.services_7d ?? 0} servizi in 7 giorni`}{r.alliance && <> · 🤝 {r.alliance}</>}
                 </div>
               </div>
-              <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap",
-                            color: tab === "growth_pct" && r.growth_pct !== null ? (r.growth_pct >= 0 ? "#15803D" : "#B91C1C") : "#111" }}>
-                {value(r, tab)}
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: "nowrap",
+                              color: tab === "growth_pct" && r.growth_pct !== null ? (r.growth_pct >= 0 ? "#15803D" : "#B91C1C") : "#111" }}>
+                  {value(r, tab)}
+                </div>
+                {!r.hidden && (() => {
+                  const cur = Number(r[tab] ?? 0), was = prevVal.get(r.org_id);
+                  const d = was == null ? null : cur - was;
+                  const up = i > 0 ? sorted[i - 1] : null;
+                  const gap = up ? Number(up[tab] ?? 0) - cur : 0;
+                  // rimonta: guadagna più di chi sta sopra e lo raggiunge presto
+                  const upD = up ? Number(up[tab] ?? 0) - (prevVal.get(up.org_id) ?? Number(up[tab] ?? 0)) : 0;
+                  const close = up && d != null && d > upD && gap > 0 && gap <= (d - upD) * 3;
+                  return <div style={{ fontSize: 11.5, whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                    {d != null && d !== 0 && <span style={{ fontWeight: 800, color: d > 0 ? "#16A34A" : "#DC2626" }}>{fmtDelta(d)}</span>}
+                    {d != null && d !== 0 && <span style={{ color: "#94A3B8" }}> in {prevMin >= 90 ? `${Math.round(prevMin / 60)}h` : `${prevMin} min`}</span>}
+                    {up && gap > 0 && <div style={{ color: close ? "#EA580C" : "#94A3B8", fontWeight: close ? 800 : 500 }}>
+                      {close ? "🔥 " : ""}a {fmtDelta(gap).slice(1)} dal {i}°</div>}
+                  </div>;
+                })()}
               </div>
             </div>
           ))}

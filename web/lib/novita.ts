@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-25c", date: "25 novembre 2026", title: "🔥 Rimonte in classifica",
+    items: ["Sotto il punteggio di ogni associazione: quanto ha guadagnato o perso (+3 pt, −5 pt…) e quanto manca per superare chi sta davanti; 🔥 se sta guadagnando più di lui e a questo ritmo lo supera a breve. Le classifiche si fotografano ogni 30 minuti."],
+  },
+  {
     id: "2026-11-25b", date: "25 novembre 2026", title: "▲▼ Chi sale e chi scende in classifica",
     items: ["In tutte le classifiche (anche Alleanze) accanto alla posizione c'è ▲ verde (posti guadagnati), ▼ rossa (posti persi) o = rispetto a 24 ore fa; NEW per chi è appena entrato."],
   },
