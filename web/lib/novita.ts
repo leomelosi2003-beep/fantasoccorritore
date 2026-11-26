@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26q", date: "26 novembre 2026", title: "⚔️ Tornei: basta passaggi gratis",
+    items: ["Al primo turno giocano tutti. Solo se le squadre sono dispari la prima testa di serie passa da sola (al massimo una).",
+            "Nei turni dopo, se chi passa è in numero dispari, viene RIPESCATO il miglior perdente (chi ha fatto più servizi tra gli eliminati del turno): così nessuno passa senza giocare."],
+  },
+  {
     id: "2026-11-26p", date: "26 novembre 2026", title: "⛵ Classifiche mare e antincendio + tabellone in anticipo",
     items: ["Due nuove classifiche del mese, premiate: ⛵ Servizi in mare e 🔥 Antincendio. Premi ai primi 10: 3 milioni al primo, poi a scendere fino a 300.000 € al decimo.",
             "Tornei: il tabellone completo si vede già prima dell'inizio, con il tuo avversario e tutti gli incontri, turno per turno. Si conferma all'ora di partenza."],
