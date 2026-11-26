@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26p", date: "26 novembre 2026", title: "⛵ Classifiche mare e antincendio + tabellone in anticipo",
+    items: ["Due nuove classifiche del mese, premiate: ⛵ Servizi in mare e 🔥 Antincendio. Premi ai primi 10: 3 milioni al primo, poi a scendere fino a 300.000 € al decimo.",
+            "Tornei: il tabellone completo si vede già prima dell'inizio, con il tuo avversario e tutti gli incontri, turno per turno. Si conferma all'ora di partenza."],
+  },
+  {
     id: "2026-11-26o", date: "26 novembre 2026", title: "⚔️ Tornei: partecipano tutti",
     items: ["Ai tornei non serve più iscriversi e non si paga niente: entrano in automatico tutte le associazioni attive (servizi conclusi negli ultimi 2 giorni, fino a 64).",
             "Chi aveva già pagato l'iscrizione è stato rimborsato.",

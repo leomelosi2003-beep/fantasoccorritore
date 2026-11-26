@@ -19,7 +19,7 @@ type Match = {
   seed_a: number | null; seed_b: number | null; a: Org | null; b: Org | null; score_a: number | null; score_b: number | null;
 };
 type Detail = { id: number; kind: Kind; title: string; status: TItem["status"]; starts_at: string; rounds: number | null; size: number | null;
-  current_round: number; prize: number; entry_fee: number; me: string; entries: Org[]; matches: Match[] };
+  current_round: number; prize: number; entry_fee: number; me: string; entries: Org[]; matches: Match[]; preview?: boolean };
 type MyStatus = {
   id: number; kind: Kind; title: string; status: "iscrizioni" | "in_corso"; starts_at: string; in: boolean; players?: number; rounds?: number;
   current_round?: number; out_round?: number | null; my_seed?: number; opp_seed?: number | null; opp?: Org | null; prize?: number;
@@ -437,7 +437,7 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
     for (let i = 1; i <= rounds; i++) r.push(d.matches.filter((m) => m.round === i).sort((a, b) => a.slot - b.slot));
     return r;
   }, [d, rounds]);
-  if (d.status === "iscrizioni" || d.status === "annullato") {
+  if (d.status === "annullato" || (d.status === "iscrizioni" && !d.matches.length)) {
     return (
       <div style={card}>
         <div style={{ fontWeight: 900, fontSize: 17 }}>{k.icon} {d.title}</div>
@@ -455,7 +455,7 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
   return (
     <div style={{ ...card, padding: 0, overflow: "hidden" }}>
       <div className="fs-bk-head" style={{ background: `linear-gradient(135deg, ${k.a}, ${k.b})` }}>
-        <div><b>{k.icon} {d.title}</b><small>{d.status === "finito" ? "Concluso" : `In corso · ${roundName(d.current_round, rounds)}`} · montepremi {euro(d.prize)}</small></div>
+        <div><b>{k.icon} {d.title}</b><small>{d.status === "finito" ? "Concluso" : d.status === "iscrizioni" ? `Tabellone previsto · inizia ${dayClock(d.starts_at)} · si conferma all'inizio` : `In corso · ${roundName(d.current_round, rounds)}`} · montepremi {euro(d.prize)}</small></div>
       </div>
       <div className="fs-bk-rtabs">
         {byRound.map((ms, i) => ms.length > 0 && (
