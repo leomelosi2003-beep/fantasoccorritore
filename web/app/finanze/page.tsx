@@ -23,9 +23,9 @@ const ICON: Record<string, string> = {
 };
 
 const euro = (n: number) => `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("it-IT")} €`;
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
-const card: CSSProperties = { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 16, marginBottom: 14 };
+const card: CSSProperties = { background: "#fff", borderRadius: 20, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", padding: 16, marginBottom: 14 };
 
 export default function Finanze() {
   const router = useRouter();

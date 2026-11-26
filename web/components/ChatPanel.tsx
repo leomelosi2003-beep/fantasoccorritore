@@ -104,7 +104,7 @@ export default function ChatPanel({ orgId }: { orgId: string }) {
             {channels.map((ch) => (
               <button key={ch} onClick={() => setChannel(ch)}
                       style={{ border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                               background: channel === ch ? "#111" : "#f1f1f1", color: channel === ch ? "#fff" : "#111", position: "relative" }}>
+                               background: channel === ch ? "#1D4ED8" : "#f1f1f1", color: channel === ch ? "#fff" : "#111", position: "relative" }}>
                 {ch === "generale" ? "🌍 Generale" : `🤝 ${alliance?.name}`}
                 {ch !== channel && unread(ch) && <b className="fs-chat-dot" style={{ top: -2, right: -2 }} />}
               </button>

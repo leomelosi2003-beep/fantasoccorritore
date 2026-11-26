@@ -25,11 +25,11 @@ const KIND: Record<Kind, { label: string; icon: string; pre: number; dur: number
 };
 const ROLES = [["autista", "Autisti"], ["soccorritore_base", "Soccorritori"], ["soccorritore_avanzato", "Soccorritori avanzati"], ["caposervizio", "Capiservizio"]] as const;
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 1100, margin: "0 auto", padding: 16 };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)" };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6" };
 const inp: CSSProperties = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid #ccc", fontSize: 15, boxSizing: "border-box" };
-const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 const lbl: CSSProperties = { fontSize: 13, fontWeight: 600, margin: "10px 0 4px", display: "block" };
 
@@ -160,7 +160,7 @@ export default function AdminEventi() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {(Object.keys(KIND) as Kind[]).map((k) => (
                 <button key={k} onClick={() => setKind(k)}
-                        style={{ ...btn, fontSize: 13, padding: "6px 10px", background: f.kind === k ? "#111" : "#eee", color: f.kind === k ? "#fff" : "#111" }}>
+                        style={{ ...btn, fontSize: 13, padding: "6px 10px", background: f.kind === k ? "#1D4ED8" : "#eee", color: f.kind === k ? "#fff" : "#111" }}>
                   {KIND[k].icon} {KIND[k].label}
                 </button>
               ))}

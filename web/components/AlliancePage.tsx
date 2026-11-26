@@ -21,10 +21,10 @@ type Offer = { id: string; buyer_org: string; seller_org: string; price: number;
 type Loan = { id: string; from_org: string; to_org: string; ends_at: string; returned_at: string | null; vehicle_id?: string; card_id?: string };
 type Fleet = { id: string; call_sign: string; status: string; mine: boolean; lent_to: string | null; lent_from: string | null };
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 820, margin: "0 auto", padding: 16 };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 14 };
-const btn: CSSProperties = { padding: "8px 12px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 14 };
+const btn: CSSProperties = { padding: "8px 12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 14 };
 const inp: CSSProperties = { padding: 9, borderRadius: 10, border: "1px solid #ccc", fontSize: 15, boxSizing: "border-box" };
 const row: CSSProperties = { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #f0f0f0", flexWrap: "wrap" };

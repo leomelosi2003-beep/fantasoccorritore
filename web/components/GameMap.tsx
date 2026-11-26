@@ -348,7 +348,7 @@ async function loadDotColors() {
 function triIcon(color: string, mine: boolean) {
   const w = mine ? 15 : 11, h = Math.round(w * 0.9);
   return memoIcon(`tri|${color}|${mine}`, () => L.divIcon({ className: "", iconSize: [w, h], iconAnchor: [w / 2, h / 2],
-    html: `<svg width="${w}" height="${h}" viewBox="0 0 20 18" style="display:block;overflow:visible;filter:drop-shadow(0 0 1px rgba(0,0,0,.6))"><path d="M1.5 1.5 L18.5 1.5 L10 16.5 Z" fill="${color}" stroke="${mine ? "#111" : "#fff"}" stroke-width="${mine ? 3 : 2}" stroke-linejoin="round"/></svg>` }));
+    html: `<svg width="${w}" height="${h}" viewBox="0 0 20 18" style="display:block;overflow:visible;filter:drop-shadow(0 0 1px rgba(0,0,0,.6))"><path d="M1.5 1.5 L18.5 1.5 L10 16.5 Z" fill="${color}" stroke="${mine ? "#1D4ED8" : "#fff"}" stroke-width="${mine ? 3 : 2}" stroke-linejoin="round"/></svg>` }));
 }
 // sede vista da lontano: quadratino coi colori dei pallini dell'associazione
 function squareIcon(fill: string, border: string, d: number) {

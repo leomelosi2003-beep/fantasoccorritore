@@ -16,10 +16,10 @@ type Base = { id: string; name: string; vehicle_capacity: number; is_headquarter
   org_id?: string; collab_org?: string | null; owner_name?: string; twin_name?: string | null };
 type Prices = { owned: number; buy: number; rent_daily: number };
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 14 };
-const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 14 };
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 700, cursor: "pointer", fontSize: 15 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 

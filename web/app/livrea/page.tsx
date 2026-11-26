@@ -17,8 +17,8 @@ type Veh = { id: string; call_sign: string; model_id: string; base_id: string | 
 type Ally = { name: string; logo_url: string | null };
 type Target = "all" | "bases" | "vehicles";
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#EEF2F6", fontFamily: "system-ui, -apple-system, sans-serif" };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 12, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 10 };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF2F6", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 12, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 10 };
 const btn: CSSProperties = { padding: "8px 12px", borderRadius: 10, border: "none", background: "#13294B", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
 const tool = (on = false): CSSProperties => ({ ...btn, background: on ? "#13294B" : "#fff", color: on ? "#fff" : "#13294B", border: "1px solid #CBD5E1", padding: "7px 10px", fontSize: 13.5 });
 const lbl: CSSProperties = { fontSize: 11.5, fontWeight: 800, color: "#64748B", display: "block", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3 };

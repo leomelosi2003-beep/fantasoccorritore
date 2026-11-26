@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26l", date: "26 novembre 2026", title: "🔎 Garage con ricerca e grafica nuova ovunque",
+    items: ["Garage: barra per cercare un mezzo per nome, modello o sede; filtri per tipo a pastiglie; di base tutti i mezzi insieme (puoi sempre raggruppare per sede o per tipo). Il riepilogo (pronti, in servizio, in officina) è nella testata.",
+            "In tutte le pagine: sfondo azzurrino, riquadri più arrotondati con ombra morbida, tasti blu sfumati e le scelte attive in blu invece che nere."],
+  },
+  {
     id: "2026-11-26k", date: "26 novembre 2026", title: "🚑 Garage rivoluzionato",
     items: ["In alto 4 azioni rapide: Compra un mezzo, Manutenzione, Revisioni, Benzinaio.",
             "Ogni mezzo ora è una scheda corta: stato e tre indicatori (gasolio o batteria, usura, revisione). Tocca «Dettagli e azioni» per tutto il resto. Guasti e revisioni scadute restano sempre in vista.",

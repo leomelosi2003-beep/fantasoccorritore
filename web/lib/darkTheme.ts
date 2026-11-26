@@ -5,7 +5,7 @@ const BG: Record<string, string> = {
   // pagine e carte: blu notte profondo
   "#fff": "#111A2E", "#ffffff": "#111A2E", "#f4f4f1": "#070D1A", "#f6f6f4": "#17233D", "#f0f0ec": "#17233D",
   "#eee": "#17233D", "#f1f1f1": "#17233D", "#f3f3f3": "#17233D", "#e5e5e0": "#1C2A47", "#ddd": "#1C2A47", "#F8FAFC": "#17233D",
-  "#EEF3F8": "#070D1A", "#fffdf8": "#111A2E", "#E2E8F0": "#1C2A47", "#EEF2F7": "#1C2A47", "#e5e7eb": "#1C2A47",
+  "#EEF3F8": "#070D1A", "#EEF3FA": "#070D1A", "#fffdf8": "#111A2E", "#E2E8F0": "#1C2A47", "#EEF2F7": "#1C2A47", "#e5e7eb": "#1C2A47",
   // tasti scuri
   "#111": "#1E2B48", "#333": "#24324F",
   // sfondi pastello → versioni scure dello stesso colore
@@ -22,7 +22,7 @@ const FG: Record<string, string> = {
   "#B91C1C": "#FF8F8F", "#a00": "#FF8F8F", "#900": "#FF8F8F", "#DC2626": "#FF7A7A", "#991B1B": "#FCA5A5",
   "#7C3AED": "#B9A2FF", "#5B21B6": "#C9B6FF",
 };
-const BORDER = ["#ccc", "#ddd", "#eee", "#f0f0f0", "#e99"];
+const BORDER = ["#ccc", "#ddd", "#eee", "#f0f0f0", "#e99", "#E9EEF6", "#E2E8F0", "#e5e5e0"];
 
 function rgb(hex: string) {
   let h = hex.replace("#", "");

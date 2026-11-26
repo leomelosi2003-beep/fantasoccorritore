@@ -112,11 +112,11 @@ const KITS: { k: string; label: string; what: string; pick: Record<string, strin
 const litri = (n: number) => (Math.round(n * 10) / 10).toLocaleString("it-IT") + " L";
 const RISERVA = 5; // sotto questi litri il mezzo non parte
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 980, margin: "0 auto", padding: 16 };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)" };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6" };
 const grid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 };
-const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
 function Bar({ label, value, color = "#111", text }: { label: string; value: number; color?: string; text?: string }) {

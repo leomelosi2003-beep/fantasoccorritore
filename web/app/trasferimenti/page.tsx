@@ -13,7 +13,7 @@ type Quote = {
 };
 
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
 
 function duration(min: number) {

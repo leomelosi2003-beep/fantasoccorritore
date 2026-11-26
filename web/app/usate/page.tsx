@@ -22,10 +22,10 @@ type Auction = {
 };
 
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 820, margin: "0 auto", padding: 16 };
-const card: CSSProperties = { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 14 };
-const btn: CSSProperties = { padding: "9px 12px", borderRadius: 10, border: "none", background: "#111", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
+const card: CSSProperties = { background: "#fff", borderRadius: 20, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", padding: 14 };
+const btn: CSSProperties = { padding: "9px 12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
 
 type Cond = { auction_id: string; odometer_km: number; body_damage: number; issues: { title: string; cost: number }[];
   tire: string | null; tire_pct: number | null; parts_due: string[] };

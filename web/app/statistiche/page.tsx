@@ -8,9 +8,9 @@ import PageHeader from "@/components/PageHeader";
 type Day = { day: string; services: number; rossi: number; gialli: number; altri: number; mare: number; trasf: number;
              earnings: number; avg_arrival_sec: number | null };
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
-const card: CSSProperties = { background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 16, marginBottom: 14 };
+const card: CSSProperties = { background: "#fff", borderRadius: 20, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", padding: 16, marginBottom: 14 };
 const euro = (n: number) => `${Math.round(n).toLocaleString("it-IT")} €`;
 const short = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString("it-IT", { maximumFractionDigits: 1 })} mln` :
   n >= 1e3 ? `${Math.round(n / 1e3).toLocaleString("it-IT")} mila` : String(Math.round(n));

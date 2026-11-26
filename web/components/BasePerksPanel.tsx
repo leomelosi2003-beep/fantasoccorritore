@@ -22,7 +22,7 @@ const COLORS: [string, string, boolean][] = [
 ];
 const UPGRADE: Record<number, number> = { 1: 8000, 2: 14000, 3: 22000, 4: 32000, 5: 45000, 6: 60000, 7: 80000, 8: 100000, 9: 125000 };
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
-const btn: CSSProperties = { border: "none", borderRadius: 8, padding: "7px 10px", fontWeight: 700, cursor: "pointer", fontSize: 13, color: "#fff", background: "#111" };
+const btn: CSSProperties = { border: "none", borderRadius: 8, padding: "7px 10px", fontWeight: 700, cursor: "pointer", fontSize: 13, color: "#fff", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)" };
 const ERR = (m: string) => m.includes("INSUFFICIENT_FUNDS") ? "Non hai abbastanza soldi." : m.includes("MAX_LEVEL") ? "È già al livello massimo." : friendlyError(m);
 
 export default function BasePerksPanel({ base, funds, onChange }: { base: B; funds: number; onChange: () => void }) {

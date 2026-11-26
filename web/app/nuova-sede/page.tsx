@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 
 const PickBaseMap = dynamic(() => import("@/components/PickBaseMap"), { ssr: false });
-const btn: CSSProperties = { padding: "12px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const btn: CSSProperties = { padding: "12px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 700, cursor: "pointer", fontSize: 16, width: "100%" };
 
 // Dopo la vendita dell'associazione: si riparte da una nuova sede (gratis)

@@ -10,7 +10,7 @@ import PageHeader from "@/components/PageHeader";
 
 type Row = { id: string; name: string; type: string; logo_url: string | null; banner_url: string | null; bio: string | null;
   reputation: number; bases: number; vehicles: number; volunteers: number; legends: number };
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 
 export default function Profili() {
   const router = useRouter();

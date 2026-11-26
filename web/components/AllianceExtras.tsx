@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 export type AllianceFull = { id: string; name: string; founder_org: string; logo_url?: string | null; banner_url?: string | null; motto?: string | null; fund?: number };
 const euro = (n: number) => Math.round(n).toLocaleString("it-IT") + " €";
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 14 };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 14 };
 const h2: CSSProperties = { fontSize: 17, fontWeight: 800, margin: "0 0 10px", color: "#13294B" };
 
 // ---------- immagini (ritagliate nel browser e salvate nella cartella della mia associazione) ----------

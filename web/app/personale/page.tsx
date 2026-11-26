@@ -16,10 +16,10 @@ const ROLES: [string, string][] = [
   ["infermiere", "💉 Infermieri"], ["medico", "🩺 Medici"], ["aib", "🔥 AIB"], ["bagnino", "🛟 Bagnini"],
 ];
 const roleName = (k: string) => ROLES.find(([r]) => r === k)?.[1] ?? k;
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 820, margin: "0 auto", padding: 16 };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 12 };
-const btn: CSSProperties = { padding: "8px 12px", borderRadius: 10, border: "none", background: "#111", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 16, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 12 };
+const btn: CSSProperties = { padding: "8px 12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 };
 const ERR: Record<string, string> = {
   NO_ROLES: "Scegli almeno un volontario che ti serve.", REQUEST_CLOSED: "La richiesta è già chiusa o scaduta.",
   CARD_BUSY: "Il volontario è in servizio.", ALREADY_LENT: "Il volontario è già prestato.", OWN_REQUEST: "È la tua richiesta.",

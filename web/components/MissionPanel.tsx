@@ -47,7 +47,7 @@ const CODE: Record<string, { label: string; color: string }> = {
   nessuno: { label: "Ordinario", color: "#3B82F6" }, verde: { label: "Codice verde", color: "#16A34A" },
   giallo: { label: "Codice giallo", color: "#CA8A04" }, rosso: { label: "Codice rosso", color: "#DC2626" },
 };
-const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
 function ready(c: Card) {
@@ -646,7 +646,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
             return (
               <button key={v.id} disabled={!!prob} onClick={() => { setVehicleId(v.id); setUserPicked(true); setShowVehicles(false); }}
                       style={{ textAlign: "left", padding: 10, borderRadius: 10, cursor: prob ? "not-allowed" : "pointer",
-                               background: sel ? "#111" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
+                               background: sel ? "#1D4ED8" : "#fff", color: sel ? "#fff" : prob ? "#999" : "#111",
                                border: sel ? "2px solid #111" : "1px solid #ddd", display: "flex", justifyContent: "space-between" }}>
                 <span style={{ minWidth: 0 }}>
                   <strong>{v.boat ? "⛵ " : v.moto ? "🛵 " : v.automedica ? "🩺 " : v.maxi ? "🚛 " : ""}{v.call_sign}{v.lent_from && <span style={{ fontWeight: 400, fontSize: 12 }}> · 🤝 da {v.lent_from}</span>}</strong>

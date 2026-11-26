@@ -16,8 +16,8 @@ type P = {
   legends: { name: string; nickname: string | null; role: string; avatar_url: string | null; services: number }[];
   services7: number;
 };
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
-const box: CSSProperties = { background: "#fff", borderRadius: 14, padding: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", marginBottom: 12 };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
+const box: CSSProperties = { background: "#fff", borderRadius: 20, padding: 14, boxShadow: "0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08)", border: "1px solid #E9EEF6", marginBottom: 12 };
 const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
 
 // Ritaglio del banner: trascini la foto e regoli lo zoom dentro una cornice 3:1 (la stessa forma del banner nel profilo)

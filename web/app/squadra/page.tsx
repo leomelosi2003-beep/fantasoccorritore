@@ -10,9 +10,9 @@ import { avatarSvg } from "@/components/avatar";
 import TutorialCoach from "@/components/TutorialCoach";
 import PageHeader from "@/components/PageHeader";
 
-const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
+const shell: CSSProperties = { minHeight: "100vh", background: "#EEF3FA", fontFamily: "Inter, system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
-const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff",
+const btn: CSSProperties = { padding: "10px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "#fff",
   fontWeight: 600, cursor: "pointer", fontSize: 15 };
 
 const PACKS = [
@@ -416,7 +416,7 @@ export default function Squadra() {
           ].map((c) => (
             <button key={c.label} onClick={() => setRoleFilter(roleFilter === c.key ? null : c.key)}
                     style={{ border: "none", borderRadius: 999, padding: "7px 11px", fontSize: 13, cursor: "pointer", fontWeight: 600,
-                             background: roleFilter === c.key ? "#111" : "#fff", color: roleFilter === c.key ? "#fff" : "#111",
+                             background: roleFilter === c.key ? "#1D4ED8" : "#fff", color: roleFilter === c.key ? "#fff" : "#111",
                              boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
               {c.icon} {c.label} <strong>{c.n}</strong>
             </button>
