@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { gameConfirm } from "@/lib/confirm";
 import { useRouter } from "next/navigation";
 import { supabase, livery } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 type BaseAuction = {
   id: string; base_name: string; level: number; capacity: number; lat: number; lng: number; seller: string; seller_type: string; mine: boolean;
@@ -103,24 +104,15 @@ export default function Usate() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#B45309,#78350F)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "rgba(0,0,0,.25)", fontWeight: 600 }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18, flex: 1 }}>🏷️ Usato e aste</div>
-          <button onClick={() => router.push("/garage")} style={{ ...btn, background: "rgba(0,0,0,.25)" }}>🚑 Garage</button>
-        </div>
-      </div>
+      <PageHeader icon="🏷️" title="Usato e aste" tone="amber"
+        sub="Compra ambulanze e sedi messe all'asta dalle altre associazioni"
+        tabs={[{ key: "mezzi", label: "🚑 Ambulanze usate", badge: (list ?? []).filter((a) => a.status === "aperta").length || null },
+               { key: "sedi", label: "🏠 Sedi in vendita", badge: (bases ?? []).filter((a) => a.status === "aperta").length || null }]}
+        tab={tab} onTab={(k) => { setTab(k as typeof tab); setMsg(null); }}
+        links={[{ href: "/garage", label: "🚑 Garage" }, { href: "/sedi", label: "🏠 Le mie sedi" }]} />
 
       <div style={wrap}>
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          {([["mezzi", "🚑 Ambulanze usate", (list ?? []).filter((a) => a.status === "aperta").length],
-             ["sedi", "🏠 Sedi in vendita", (bases ?? []).filter((a) => a.status === "aperta").length]] as const).map(([k, l, n]) => (
-            <button key={k} onClick={() => { setTab(k); setMsg(null); }}
-                    style={{ ...btn, background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
-              {l}{n > 0 && <span style={{ marginLeft: 6, background: "#B45309", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 12 }}>{n}</span>}
-            </button>
-          ))}
-        </div>
+        
         {msg && <div style={{ ...card, marginBottom: 12, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
 
         {tab === "sedi" ? (

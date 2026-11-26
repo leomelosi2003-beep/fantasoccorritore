@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import TutorialCoach from "@/components/TutorialCoach";
+import PageHeader from "@/components/PageHeader";
 
 type Org = { id: string; name: string; funds: number };
 type Base = { id: string; name: string; is_headquarters: boolean };
@@ -257,15 +258,12 @@ export default function Officina() {
   return (
     <main style={shell}>
       <TutorialCoach page="officina" />
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 10, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}>
-          <button onClick={() => router.push("/garage")} style={{ ...btn, background: "#333" }}>← Garage</button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700 }}>🔧 Officina · {org.name}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon="🔧" title="Officina" tone="slate" funds={org.funds} back="/garage" backLabel="Garage"
+        sub="Ripara guasti, fai revisioni, monta gomme e presidi"
+        tabs={[{ key: "mezzi", label: "🚑 Mezzi", badge: brokenCount || null }, { key: "presidi", label: "🧰 Presidi" }, { key: "gomme", label: "🛞 Gomme" },
+               { key: "segnalazioni", label: "📣 Segnalazioni", badge: unseen || null }]}
+        tab={tab} onTab={(k) => setTab(k as typeof tab)}
+        links={[{ href: "/garage", label: "🚑 Garage" }, { href: "/negozio", label: "🛒 Negozio presidi" }, { href: "/sedi", label: "🏠 Sedi" }]} />
 
       <div style={wrap}>
         {msg && <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}
@@ -275,11 +273,7 @@ export default function Officina() {
           <span style={{ color: "#666" }}> Mezzi usurati e pezzi vecchi si guastano più spesso.</span>
         </div>
 
-        <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-          {([["mezzi", `🚑 Mezzi${brokenCount ? ` · ⚠️ ${brokenCount}` : ""}`], ["presidi", "🧰 Presidi"], ["gomme", "🛞 Gomme"], ["segnalazioni", `📣 Segnalazioni${unseen ? ` · ${unseen} nuove` : ""}`]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ ...btn, background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", border: "1px solid #ddd" }}>{l}</button>
-          ))}
-        </div>
+        
 
         {tab === "mezzi" && (() => {
           const hs = land.map((v) => ({ v, h: health(v) }));

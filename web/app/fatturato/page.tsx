@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 type Row = {
   base_id: string; base_name: string; is_hq: boolean; services: number; revenue: number;
@@ -46,13 +47,9 @@ export default function Fatturato() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#1E3A8A,#172554)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>🏢 Fatturato delle sedi</div>
-        </div>
-      </div>
+      <PageHeader icon="🏢" title="Fatturato delle sedi" tone="navy"
+        sub="Quale sede guadagna di più"
+        links={[{ href: "/sedi", label: "🏠 Le mie sedi" }, { href: "/finanze", label: "📊 Entrate e uscite" }]} />
 
       <div style={wrap}>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>

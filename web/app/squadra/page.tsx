@@ -8,6 +8,7 @@ import FactionEmblem from "@/components/FactionEmblem";
 import VolunteerCard, { AUTISTA_AV, ROLE, RARITY, RoleBadge, cardLevel, type Card } from "@/components/VolunteerCard";
 import { avatarSvg } from "@/components/avatar";
 import TutorialCoach from "@/components/TutorialCoach";
+import PageHeader from "@/components/PageHeader";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 1080, margin: "0 auto", padding: 16 };
@@ -192,30 +193,14 @@ export default function Squadra() {
         @keyframes packPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.04) } }
       `}</style>
 
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
-          <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700 }}>Squadra · {org.name}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{active.length} volontari attivi</div>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon="👥" title="Squadra" tone="purple" funds={org.funds}
+        sub={`${active.length} volontari attivi · forma gli equipaggi, apri pacchetti e fai corsi`}
+        tabs={[{ key: "squadra", label: "👥 Volontari", badge: active.length || null }, { key: "pacchetti", label: "📦 Pacchetti", badge: packReady ? "!" : null },
+               { key: "negozio", label: "🛒 Negozio", badge: shop.filter((c) => !c.owned).length || null }, { key: "corsi", label: "📚 Corsi" }]}
+        tab={tab} onTab={(k) => goTab(k as typeof tab)}
+        links={[{ href: "/personale", label: "📢 Richieste di personale" }, { href: "/garage", label: "🚑 Garage" }, { href: "/automatico", label: "🤖 Automatica" }]} />
 
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#f4f4f1", borderBottom: "1px solid #e5e5e0" }}>
-        <div style={{ ...wrap, paddingTop: 8, paddingBottom: 8, display: "flex", gap: 6, overflowX: "auto" }}>
-          {([["squadra", "👥 Squadra", active.length], ["pacchetti", "📦 Pacchetti", packReady ? "!" : null],
-             ["negozio", "🛒 Negozio", shop.filter((c) => !c.owned).length || null], ["corsi", "📚 Corsi", null]] as const).map(([k, l, n]) => (
-            <button key={k} onClick={() => goTab(k)}
-                    style={{ padding: "9px 14px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 700, fontSize: 14,
-                             background: tab === k ? "#111" : "#fff", color: tab === k ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
-              {l}{n != null && <span style={{ marginLeft: 6, fontSize: 12, padding: "1px 7px", borderRadius: 999,
-                background: n === "!" ? "#F97316" : tab === k ? "rgba(255,255,255,.2)" : "#eee", color: n === "!" ? "#fff" : "inherit" }}>{n}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
+      
 
       <div style={wrap}>
         {tab === "pacchetti" && (<>

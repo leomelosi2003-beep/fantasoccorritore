@@ -7,6 +7,7 @@ import BasePerksPanel from "@/components/BasePerksPanel";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 const PickBaseMap = dynamic(() => import("@/components/PickBaseMap"), { ssr: false });
 
@@ -163,16 +164,9 @@ export default function Sedi() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px", fontWeight: 600 }}>← Mappa</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800 }}>🏠 Le tue sedi</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
-          </div>
-          <button onClick={() => router.push("/garage")} style={{ ...btn, background: "#F97316", padding: "8px 12px" }}>🚑 Garage</button>
-        </div>
-      </div>
+      <PageHeader icon="🏠" title="Le tue sedi" tone="blue" funds={org.funds}
+        sub="Posti nel garage, affitti, migliorie e colori delle sedi"
+        links={[{ href: "/garage", label: "🚑 Garage" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/usate", label: "🏷️ Sedi in vendita" }]} />
 
       <div style={wrap}>
         {/* riepilogo delle sedi */}

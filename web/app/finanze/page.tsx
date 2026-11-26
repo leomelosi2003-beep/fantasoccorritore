@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 type Row = { reason: string; income: number; expense: number; moves: number };
 type Move = { id: number; amount: number; balance: number; reason: string; created_at: string };
@@ -63,13 +64,9 @@ export default function Finanze() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#166534,#14532D)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>📊 Entrate e uscite</div>
-        </div>
-      </div>
+      <PageHeader icon="📊" title="Entrate e uscite" tone="green"
+        sub="Da dove arrivano e dove vanno i tuoi soldi"
+        links={[{ href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/statistiche", label: "📈 Statistiche" }]} />
 
       <div style={wrap}>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>

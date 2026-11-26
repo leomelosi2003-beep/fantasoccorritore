@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import FactionEmblem, { type FactionStyle } from "@/components/FactionEmblem";
 import { AllyChip, loadOrgAlliances, type AllyBadge } from "@/components/AllianceExtras";
 import { typeColors } from "@/lib/profileStyle";
+import PageHeader from "@/components/PageHeader";
 
 type Row = { id: string; name: string; type: string; logo_url: string | null; banner_url: string | null; bio: string | null;
   reputation: number; bases: number; vehicles: number; volunteers: number; legends: number };
@@ -30,12 +31,9 @@ export default function Profili() {
   const list = useMemo(() => rows.filter((r) => !q || r.name.toLowerCase().includes(q.toLowerCase())), [rows, q]);
   return (
     <main style={shell}>
+      <PageHeader icon="🪪" title="Profili delle associazioni" tone="navy" sub="Cerca un'associazione e guarda stemma, sedi e risultati"
+        links={myId ? [{ href: `/profili/${myId}`, label: "👤 Il mio profilo", hot: true }] : []} />
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-          <a href="/" style={{ color: "#64748B", textDecoration: "none", fontSize: 14 }}>← Mappa</a>
-          <h1 style={{ margin: 0, fontSize: 22, color: "#13294B", flex: 1 }}>🪪 Profili delle associazioni</h1>
-          {myId && <a href={`/profili/${myId}`} style={{ background: "#13294B", color: "#fff", borderRadius: 10, padding: "8px 12px", fontWeight: 700, textDecoration: "none", fontSize: 14 }}>Il mio profilo</a>}
-        </div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Cerca un'associazione…"
                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #CBD5E1", fontSize: 15, boxSizing: "border-box", marginBottom: 12 }} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>

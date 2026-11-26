@@ -10,6 +10,7 @@ import { ModelImage, BuilderLogo } from "@/components/VehicleArt";
 import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 import TutorialCoach from "@/components/TutorialCoach";
+import PageHeader from "@/components/PageHeader";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number; vmax_kmh?: number | null; agility?: number | null;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
@@ -145,6 +146,7 @@ export default function Garage() {
   const [equip, setEquip] = useState<Equip[]>([]);
   const [picked, setPicked] = useState<Partial<Record<string, string>>>({});
   const [shop, setShop] = useState(false);
+  const [gtab, setGtab] = useState<"mezzi" | "benzina">("mezzi");
   const [modelId, setModelId] = useState<string | null>(null);
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [baseId, setBaseId] = useState<string | null>(null);
@@ -497,24 +499,13 @@ export default function Garage() {
     <main style={shell}>
       <TutorialCoach page="garage" />
       {/* Testata */}
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 10, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
-          <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Garage · {org.name}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
-          </div>
-          <div className="gar-links" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button onClick={() => router.push("/officina")} style={{ ...btn, background: "#7C3AED", padding: "8px 10px" }}>
-              🔧 Officina{vehicles.some((v) => v.issue_open) ? ` · ⚠️ ${vehicles.filter((v) => v.issue_open).length}` : ""}
-            </button>
-            <button onClick={() => router.push("/sedi")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏠 Sedi</button>
-            <button onClick={() => router.push("/negozio")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🛒 Presidi</button>
-            <button onClick={() => router.push("/usate")} style={{ ...btn, background: "#333", padding: "8px 10px" }}>🏷️ Usate</button>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon="🚑" title="Garage" tone="orange" funds={org.funds}
+        sub={`${vehicles.filter((v) => v.status !== "fuori_servizio").length} mezzi · compra, rifornisci e scegli l'uso dei tuoi mezzi`}
+        tabs={[{ key: "mezzi", label: "🚑 I miei mezzi", badge: vehicles.length || null }, { key: "compra", label: "🛒 Compra" }, { key: "benzina", label: "⛽ Benzinaio" }]}
+        tab={shop ? "compra" : gtab}
+        onTab={(k) => { if (k === "compra") { if (!shop) openShop(); } else { setShop(false); setGtab(k as "mezzi" | "benzina"); } }}
+        links={[{ href: "/officina", label: "🔧 Officina", badge: vehicles.filter((v) => v.issue_open).length || null, hot: vehicles.some((v) => v.issue_open) },
+                { href: "/sedi", label: "🏠 Sedi" }, { href: "/negozio", label: "🛒 Presidi" }, { href: "/usate", label: "🏷️ Usato e aste" }]} />
       <style>{`@media (max-width: 640px) { .gar-links { width: 100%; } .gar-links > button { flex: 1; } }
         .gar-step { scroll-margin-top: 12px; }
         .gar-step-on { outline: 3px solid #F97316; outline-offset: 4px; border-radius: 8px; animation: gar-pulse 1.6s infinite; }
@@ -527,7 +518,7 @@ export default function Garage() {
         )}
 
         {/* riepilogo: com'è messa la flotta in questo momento */}
-        {!shop && vehicles.length > 0 && (() => {
+        {!shop && gtab === "mezzi" && vehicles.length > 0 && (() => {
           const ready = vehicles.filter((v) => v.status === "disponibile" && !v.issue_open).length;
           const busyN = vehicles.filter((v) => v.status === "in_servizio").length;
           const shopN = vehicles.filter((v) => v.status === "manutenzione").length;
@@ -552,14 +543,14 @@ export default function Garage() {
             </div>
           );
         })()}
-        {!shop && (
+        {!shop && gtab === "mezzi" && (
           <button onClick={openShop} data-tut="buy-vehicle"
                   style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", marginBottom: 14,
                            boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
             🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}
           </button>
         )}
-        {!shop && !firstVehicle && (
+        {!shop && gtab === "mezzi" && !firstVehicle && (
           <button onClick={maintainAll}
                   style={{ ...btn, width: "100%", padding: 12, fontSize: 15, background: "#6B7280", marginBottom: 14 }}>
             🔧 Manutenzione a tutti i mezzi fermi in sede
@@ -784,7 +775,7 @@ export default function Garage() {
         })()}
 
         {/* Benzinaio */}
-        {(() => {
+        {!shop && gtab === "benzina" && (() => {
           const cap = fuelCap();
           const price = fuelPrice?.price_eur ?? 0;
           const room = Math.max(0, Math.floor(cap - fuelStock));
@@ -792,7 +783,7 @@ export default function Garage() {
           const cost = Math.ceil(qtyL * price);
           const needFull = vehicles.filter((v) => !byId.model[v.model_id]?.electric).reduce((t, v) => t + Math.max(0, (byId.model[v.model_id]?.tank_liters ?? 80) - v.fuel_liters), 0);
           return (
-            <div style={{ ...box, marginTop: 16, marginBottom: 8 }}>
+            <div style={{ ...box, marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
                 <h2 style={{ margin: 0 }}>⛽ Benzinaio</h2>
                 <span style={{ fontSize: 14 }}>Gasolio self: <strong>{price.toLocaleString("it-IT", { minimumFractionDigits: 3 })} €/L</strong></span>
@@ -832,7 +823,8 @@ export default function Garage() {
         })()}
 
         {/* I miei mezzi */}
-        <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>🚑 I tuoi mezzi</h2>
+        {!shop && gtab === "mezzi" && <>
+        <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "18px 2px 10px" }}>🚑 I tuoi mezzi</h2>
         {vehicles.length > 0 && (
           <div style={{ ...box, marginBottom: 12, padding: 12 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -868,15 +860,16 @@ export default function Garage() {
                 ))}
               </span>
             </div>
-            <div style={{ fontSize: 12, color: "#555", marginTop: 10, background: "#F0F9FF", borderRadius: 8, padding: "8px 10px" }}>
-              📘 <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
+            <details style={{ fontSize: 12, color: "#555", marginTop: 10, background: "#F0F9FF", borderRadius: 10, padding: "8px 10px" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, color: "#1E3A8A" }}>📘 Regole: limite chilometri e revisione</summary>
+              <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
               <strong>{kmFmt(KM_LIMIT)}</strong> in emergenza non può più fare emergenze e diventa da sola <strong>🚗 solo ordinari</strong>.
               È definitivo: da lì in poi fa solo dimissioni e trasporti ordinari.
               Automediche, moto, barche, antincendio e passi lunghi non hanno questo limite.
               <br />🔧 <strong>Revisione ogni {kmFmt(SERVICE_KM)}</strong> per tutti i mezzi di terra (barche escluse): se è scaduta il mezzo non parte.
               Costa 5.000 € + il 10% del prezzo del modello e il mezzo resta in officina 15 minuti (l&apos;usura torna a zero).
               Nelle sedi in automatico la revisione si fa da sola.
-            </div>
+            </details>
             <div style={{ marginTop: 8 }}>
               <button onClick={serviceAll} disabled={busy} style={{ ...btn, padding: "7px 12px", fontSize: 13, background: "#7C3AED", opacity: busy ? 0.4 : 1 }}>
                 🔧 Revisiona tutti i mezzi in scadenza
@@ -1174,6 +1167,7 @@ export default function Garage() {
             })}
           </div>
         )}
+        </>}
       </div>
     </main>
   );

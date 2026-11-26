@@ -9,6 +9,7 @@ import AllianceGoal from "@/components/AllianceGoal";
 import { AllianceChat, AllianceContract, AllianceDirectory, AllianceFund, AllianceHero, AllianceLogo, JoinRequestsAdmin } from "@/components/AllianceExtras";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
 import OfferEditor, { offerError, itemsSummary, type OfferItems, type ItemsList } from "@/components/OfferEditor";
+import PageHeader from "@/components/PageHeader";
 
 type Org = Pick<Organization, "id" | "name" | "type" | "logo_url">;
 type Alliance = { id: string; name: string; founder_org: string; logo_url?: string | null; banner_url?: string | null; motto?: string | null; fund?: number };
@@ -57,11 +58,11 @@ function OrgBadge({ o, size = 26 }: { o?: Org; size?: number }) {
 }
 
 export type AllianceSection = "alleanza" | "mia" | "offerte" | "gemellaggio";
-const HEAD: Record<AllianceSection, { title: string; color: string }> = {
-  alleanza: { title: "🤝 Alleanze", color: "#15803D" },
-  mia: { title: "🤝 La mia alleanza", color: "#13294B" },
-  offerte: { title: "💼 Offerte e acquisti", color: "#1E3A8A" },
-  gemellaggio: { title: "🔗 Gemellaggio", color: "#0E7490" },
+const HEAD: Record<AllianceSection, { title: string; tone: string; sub: string }> = {
+  alleanza: { title: "🤝 Alleanze", tone: "green", sub: "Squadre di associazioni: inviti, prestiti e obiettivo comune" },
+  mia: { title: "🤝 La mia alleanza", tone: "navy", sub: "Membri, prestiti e obiettivo di squadra" },
+  offerte: { title: "💼 Offerte e acquisti", tone: "blue", sub: "Offerte ricevute e fatte per comprare associazioni, sedi e mezzi" },
+  gemellaggio: { title: "🔗 Gemellaggio", tone: "cyan", sub: "Una coppia di associazioni che si aiuta: doni e sedi condivise" },
 };
 
 export default function AlliancePage({ section }: { section: AllianceSection }) {
@@ -212,15 +213,11 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
 
   return (
     <main style={shell}>
-      <div style={{ background: HEAD[section].color, color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push(section === "mia" ? "/alleanza" : "/")} style={{ ...btn, background: "rgba(0,0,0,.25)" }}>{section === "mia" ? "← Alleanze" : "← Mappa"}</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800 }}>{HEAD[section].title}</div>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>{me.name} · {euro(me.funds)}</div>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon={HEAD[section].title.split(" ")[0]} title={HEAD[section].title.split(" ").slice(1).join(" ")} tone={HEAD[section].tone}
+        funds={me.funds} sub={HEAD[section].sub}
+        back={section === "mia" ? "/alleanza" : "/"} backLabel={section === "mia" ? "Alleanze" : "Mappa"}
+        tabs={[{ key: "alleanza", label: "🤝 Alleanza" }, { key: "offerte", label: "💼 Offerte" }, { key: "gemellaggio", label: "🔗 Gemellaggio" }]}
+        tab={section === "mia" ? "alleanza" : section} onTab={(k) => router.push(`/${k}`)} />
 
       <div style={wrap}>
         {msg && <div style={{ ...box, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 600 }}>{msg.text}</div>}

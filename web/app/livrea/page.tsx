@@ -8,6 +8,7 @@ import { supabase, friendlyError } from "@/lib/supabase";
 import { gameConfirm } from "@/lib/confirm";
 import { loadVehicleLiveries } from "@/lib/liveries";
 import { type Item, type Kind, type Design, uid, SHAPES, PATTERNS, PATTERN_KINDS, STICKERS, glassMaskOf, KIND_NAME, FILLABLE, PRESETS, loadImg, blankOf, paintMaskOf, imgCache, compose, bbox, drawItems } from "@/components/livery/engine";
+import PageHeader from "@/components/PageHeader";
 
 type Model = { id: string; name: string; image_url: string | null };
 type Livery = { id: string; model_id: string; name: string; design: Design; image_url: string | null; base_ids: string[] | null; vehicle_ids: string[] | null; updated_at: string };
@@ -707,14 +708,9 @@ export default function LiveryEditor() {
 
   return (
     <main style={shell}>
+      <PageHeader icon="🖌️" title="Editor livrea" tone="pink" sub="Disegna i colori dei tuoi mezzi in 3 passi: mezzo, disegno, salva"
+        right={<>{ally && <span className="fs-ph-funds">🤝 {ally.name}: logo obbligatorio</span>}{!wide && <span className="fs-ph-funds">💻 Meglio dal PC</span>}</>} />
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: 10 }}>
-        {/* intestazione */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-          <a href="/" style={{ color: "#64748B", textDecoration: "none", fontSize: 14 }}>← Mappa</a>
-          <h1 style={{ margin: 0, fontSize: 21, color: "#13294B", flex: 1 }}>🖌️ Editor livrea</h1>
-          {ally && <span style={{ background: "#ECFDF5", color: "#065F46", borderRadius: 999, padding: "4px 10px", fontSize: 12.5, fontWeight: 700 }}>🤝 {ally.name}: logo obbligatorio</span>}
-          {!wide && <span style={{ fontSize: 12, color: "#9A3412" }}>💻 Meglio dal PC</span>}
-        </div>
 
         {/* 1 - mezzo e partenza */}
         <div style={{ fontWeight: 800, color: "#13294B", margin: "4px 2px 6px" }}>1️⃣ Scegli il mezzo</div>

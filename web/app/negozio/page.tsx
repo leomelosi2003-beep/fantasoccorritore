@@ -6,6 +6,7 @@ import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 import EquipBuySheet, { type SheetVehicle } from "@/components/EquipBuySheet";
+import PageHeader from "@/components/PageHeader";
 
 type Equip = { code: string; slot: string; category: string; name: string; cost: number; provides: string[];
   description: string | null; image_url: string | null; sort: number };
@@ -60,17 +61,9 @@ export default function Negozio() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
-          <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700 }}>Negozio presidi</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{euro(org.funds)}</div>
-          </div>
-          <button onClick={() => router.push("/officina?tab=presidi")} style={{ ...btn, background: "#F97316", padding: "8px 12px" }}>🧰 I miei presidi</button>
-        </div>
-      </div>
+      <PageHeader icon="🛒" title="Negozio presidi" tone="teal" funds={org.funds} back="/garage" backLabel="Garage"
+        sub="Compra presidi e montali sulle ambulanze, anche a tutta una sede"
+        links={[{ href: "/officina?tab=presidi", label: "🧰 I miei presidi", hot: true }, { href: "/garage", label: "🚑 Garage" }]} />
 
       <div style={wrap}>
         {msg && (

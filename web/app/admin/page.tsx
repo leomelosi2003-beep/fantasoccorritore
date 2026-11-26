@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties, type ChangeEvent 
 import { useRouter } from "next/navigation";
 import { supabase, friendlyError } from "@/lib/supabase";
 import VolunteerCard, { ROLE, RARITY, type Card } from "@/components/VolunteerCard";
+import PageHeader from "@/components/PageHeader";
 
 type Vol = Omit<Card, "id" | "state" | "rest_until" | "expires_at" | "services_completed" | "energy" | "volunteer_id"> & {
   id: string; source: string; is_pack_eligible: boolean; contract_days: number | null; shop_price: number | null;
@@ -178,13 +179,8 @@ export default function Admin() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333", padding: "8px 12px" }}>← Mappa</button>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>🛠️ Pannello admin · Carte volontari</div>
-          <button onClick={() => router.push("/admin/eventi")} style={{ ...btn, background: "#7C3AED", padding: "8px 12px", marginLeft: "auto" }}>🏟️ Grandi eventi</button>
-        </div>
-      </div>
+      <PageHeader icon="🛠️" title="Pannello admin" tone="slate" sub="Carte volontari"
+        links={[{ href: "/admin/eventi", label: "🏟️ Grandi eventi" }]} />
 
       <div style={wrap}>
         {msg && <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}

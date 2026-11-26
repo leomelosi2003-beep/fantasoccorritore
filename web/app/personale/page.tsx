@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase, friendlyError, type Organization } from "@/lib/supabase";
 import FactionEmblem from "@/components/FactionEmblem";
 import { roleLabel, type Card } from "@/components/VolunteerCard";
+import PageHeader from "@/components/PageHeader";
 
 type Req = { id: string; org_id: string; org_name: string; org_type: Organization["type"]; logo_url: string | null; roles: Record<string, number>;
   message: string | null; created_at: string; expires_at: string; mine: boolean; ally: boolean; helped: number; last_helper: string | null };
@@ -68,13 +69,9 @@ export default function Personale() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "#111", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ ...btn, background: "#333" }}>← Mappa</button>
-          <FactionEmblem type={org.type} size={32} logo={org.logo_url} />
-          <div style={{ fontWeight: 800, flex: 1 }}>📢 Richieste di personale</div>
-        </div>
-      </div>
+      <PageHeader icon="📢" title="Richieste di personale" tone="pink" funds={org.funds}
+        sub="Chiedi volontari in prestito o aiuta chi è a corto"
+        links={[{ href: "/squadra", label: "👥 Squadra" }]} />
       <div style={wrap}>
         {msg && <div style={{ ...box, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}
 

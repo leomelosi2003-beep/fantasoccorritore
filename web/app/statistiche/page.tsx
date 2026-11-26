@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 type Day = { day: string; services: number; rossi: number; gialli: number; altri: number; mare: number; trasf: number;
              earnings: number; avg_arrival_sec: number | null };
@@ -73,13 +74,9 @@ export default function Statistiche() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#1E40AF,#1E3A8A)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>📈 Le mie statistiche</div>
-        </div>
-      </div>
+      <PageHeader icon="📈" title="Le mie statistiche" tone="blue"
+        sub="Servizi, incassi e tempi giorno per giorno"
+        links={[{ href: "/finanze", label: "📊 Entrate e uscite" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }]} />
       <div style={wrap}>
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
           {PERIODS.map((p) => (

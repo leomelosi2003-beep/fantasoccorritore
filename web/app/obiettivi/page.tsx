@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { playSound } from "@/lib/sound";
 import TutorialCoach from "@/components/TutorialCoach";
+import PageHeader from "@/components/PageHeader";
 
 type Objective = {
   kind: "d" | "w"; key: string; period: string; icon: string; title: string;
@@ -102,13 +103,9 @@ export default function Obiettivi() {
   return (
     <main style={shell}>
       <TutorialCoach page="obiettivi" />
-      <div style={{ background: "linear-gradient(135deg,#15803D,#14532D)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>🎯 Obiettivi</div>
-        </div>
-      </div>
+      <PageHeader icon="🎯" title="Obiettivi" tone="green"
+        sub="Completa le missioni del giorno e della settimana e ritira il premio"
+        links={[{ href: "/classifica", label: "🏆 Classifica" }, { href: "/alleanza", label: "🤝 Obiettivo alleanza" }]} />
       <div style={wrap}>
         {msg && <div style={{ ...card, background: "#ecfdf5", color: "#14532d", fontWeight: 600 }}>{msg}</div>}
         {list === null ? <div style={card}>Caricamento…</div> : (

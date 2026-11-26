@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26e", date: "26 novembre 2026", title: "🧭 Pagine più facili da usare",
+    items: ["Ogni pagina ha la stessa testata: torna indietro, icona, a cosa serve la pagina, soldi e scorciatoie alle pagine vicine.",
+            "Garage diviso in schede: 🚑 I miei mezzi, 🛒 Compra e ⛽ Benzinaio. Le regole su chilometri e revisione stanno in un riquadro da aprire.",
+            "Squadra, Officina, Usato e Alleanza: le schede sono in alto e restano visibili mentre scorri."],
+  },
+  {
     id: "2026-11-26d", date: "26 novembre 2026", title: "🌙 Nuova modalità notturna + pulsanti animati",
     items: ["Modalità notturna rifatta: blu notte profondo, comandi a vetro, menu e finestre più leggibili.",
             "Tutte le pagine hanno la testata blu che resta in alto mentre scorri, schede e pulsanti nuovi.",

@@ -5,6 +5,7 @@ import AutoDiagnosis from "@/components/AutoDiagnosis";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TutorialCoach from "@/components/TutorialCoach";
+import PageHeader from "@/components/PageHeader";
 
 type Log = { assigned_at: string; title: string; code: string; call_sign: string; status: string; reward: number | null; completes_at: string };
 
@@ -158,13 +159,9 @@ export default function Automatico() {
   return (
     <main style={shell}>
       <TutorialCoach page="automatico" />
-      <div style={{ background: "linear-gradient(135deg,#0F766E,#134E4A)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>🤖 Modalità automatica</div>
-        </div>
-      </div>
+      <PageHeader icon="🤖" title="Modalità automatica" tone="teal"
+        sub="La centrale manda da sola i tuoi mezzi, anche quando non giochi"
+        links={[{ href: "/squadra", label: "👥 Squadra" }, { href: "/garage", label: "🚑 Garage" }, { href: "/sedi", label: "🏠 Sedi" }]} />
 
       <div style={wrap}>
         {!loaded ? <div style={{ padding: 20, color: "#888", textAlign: "center" }}>Caricamento…</div> : (

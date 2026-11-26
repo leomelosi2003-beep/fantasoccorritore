@@ -3,6 +3,7 @@
 import { useEffect, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { NOVITA, markNovitaSeen } from "@/lib/novita";
+import PageHeader from "@/components/PageHeader";
 
 const shell: CSSProperties = { minHeight: "100vh", background: "#f4f4f1", fontFamily: "system-ui, -apple-system, sans-serif" };
 const wrap: CSSProperties = { maxWidth: 760, margin: "0 auto", padding: 16 };
@@ -12,16 +13,7 @@ export default function Novita() {
   useEffect(() => { markNovitaSeen(); }, []);
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#7C3AED,#4C1D95)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(255,255,255,.15)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 18 }}>🆕 Novità del gioco</div>
-            <div style={{ fontSize: 12, opacity: 0.85 }}>Cosa è stato aggiunto a ogni aggiornamento</div>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon="🆕" title="Novità del gioco" tone="purple" sub="Cosa è stato aggiunto a ogni aggiornamento" />
       <div style={wrap}>
         {NOVITA.map((n, i) => (
           <article key={n.id} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 16, marginBottom: 12,

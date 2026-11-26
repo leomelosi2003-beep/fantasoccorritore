@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, type MissionPin } from "@/lib/supabase";
 import MissionPanel from "@/components/MissionPanel";
+import PageHeader from "@/components/PageHeader";
 
 type Quote = {
   id: string; title: string; from_name: string; to_name: string; road_km: number; protetto: boolean; fuori: boolean;
@@ -59,13 +60,8 @@ export default function Trasferimenti() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#0E7490,#164E63)", color: "#fff" }}>
-        <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
-                  background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>🔁 Trasferimenti</div>
-        </div>
-      </div>
+      <PageHeader icon="🔁" title="Trasferimenti" tone="cyan"
+        sub="Viaggi tra ospedali disponibili adesso, con il premio stimato" />
 
       <div style={wrap}>
         <div style={{ fontSize: 13, color: "#666", margin: "0 2px 12px" }}>
