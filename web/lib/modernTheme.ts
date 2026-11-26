@@ -483,6 +483,32 @@ body.fs-chat-unread .fs-nav-chat .ico::after { content: ""; position: absolute; 
 body.fs-chat-open .fs-nav-chat { color: var(--m-blue, #2563EB) !important; }
 body.fs-chat-open .fs-nav-chat .ico svg { filter: drop-shadow(0 4px 8px rgba(37,99,235,.35)) !important; }
 
+
+/* ---------- aste ---------- */
+.fs-auc { position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+@media (hover: hover) { .fs-auc:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(15,23,42,.14) !important; } }
+.fs-auc-img { position: relative; margin: -14px -14px 10px; padding: 14px 10px 6px; background: radial-gradient(circle at 50% 120%, #FDE68A, #FFFBEB 70%); }
+.fs-auc-time { position: absolute; top: 8px; right: 8px; background: rgba(15,23,42,.78); color: #fff; font-weight: 800; font-size: 12px; border-radius: 999px; padding: 3px 9px; font-variant-numeric: tabular-nums; }
+.fs-auc-time.hot { background: #E11D48; animation: fsBadge 1s ease-in-out infinite; }
+.fs-auc-lead { position: absolute; top: 8px; left: 8px; background: #16A34A; color: #fff; font-weight: 800; font-size: 11.5px; border-radius: 999px; padding: 3px 9px; }
+${D} .fs-auc-img { background: radial-gradient(circle at 50% 120%, #4A3A12, #1A2238 70%); }
+
+${D} main[style*="radial-gradient(900px"] { background: radial-gradient(900px 500px at 50% -150px, #172554, #070D1A 70%) !important; }
+${D} main[style*="radial-gradient(900px"] input { background: #0D1424 !important; }
+
+
+/* ---------- garage: schede dei mezzi ---------- */
+.fs-vcard { transition: transform .2s, box-shadow .2s; }
+@media (hover: hover) { .fs-vcard:hover { transform: translateY(-3px); box-shadow: 0 18px 36px rgba(15,23,42,.14) !important; } }
+.fs-vimg { position: relative; border-radius: 16px; padding: 10px 6px 4px; background: radial-gradient(circle at 50% 130%, #DBEAFE, #F5F8FD 70%); }
+.fs-vimg.st-in_servizio { background: radial-gradient(circle at 50% 130%, #FED7AA, #FFF7ED 70%); }
+.fs-vimg.st-manutenzione { background: radial-gradient(circle at 50% 130%, #DDD6FE, #F5F3FF 70%); }
+.fs-vimg::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 6px; height: 8px; border-radius: 50%; background: rgba(15,23,42,.12); filter: blur(3px); }
+.fs-vimg > * { position: relative; z-index: 1; }
+${D} .fs-vimg { background: radial-gradient(circle at 50% 130%, #1E3A8A, #111A2E 70%); }
+${D} .fs-vimg.st-in_servizio { background: radial-gradient(circle at 50% 130%, #7C2D12, #111A2E 70%); }
+${D} .fs-vimg.st-manutenzione { background: radial-gradient(circle at 50% 130%, #4C1D95, #111A2E 70%); }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }

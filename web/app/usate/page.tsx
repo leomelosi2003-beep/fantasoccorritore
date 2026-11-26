@@ -119,12 +119,13 @@ export default function Usate() {
           <BaseTab bases={bases} now={now} busy={busy} offer={offer} setOffer={setOffer}
                    onBid={(a) => bid(a, a.base_name, "sedi")} onCancel={(a) => cancel(a, a.base_name, "sedi")} />
         ) : (<>
-        <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+        <details style={{ fontSize: 13, color: "#555", marginBottom: 12, background: "#fff", borderRadius: 14, padding: "10px 12px" }}>
+          <summary style={{ fontWeight: 800, cursor: "pointer", color: "#B45309" }}>ℹ️ Come funzionano le aste</summary>
           Ambulanze messe all&apos;asta dalle altre associazioni. Fai un&apos;offerta: i soldi restano bloccati e, se qualcuno offre di più,
           ti tornano indietro. Allo scadere vince l&apos;offerta più alta e l&apos;ambulanza arriva nella tua sede con più posti liberi,
           con allestimento, presidi e potenziamenti. Se nessuno offre, la ritira il concessionario al 60% del valore di mercato.
           Per vendere una tua ambulanza: Garage → <strong>🏷️ Vendi all&apos;asta</strong>.
-        </div>
+        </details>
 
         {list === null && <div style={{ color: "#888", textAlign: "center", padding: 20 }}>Caricamento…</div>}
         {list !== null && open.length === 0 && <div style={{ ...card, color: "#666", textAlign: "center" }}>Nessuna ambulanza all&apos;asta in questo momento.</div>}
@@ -135,11 +136,16 @@ export default function Usate() {
             const img = livery(a.image_url, a.seller_type);
             const urgent = new Date(a.ends_at).getTime() - now < 120_000;
             return (
-              <div key={a.id} style={{ ...card, border: a.mine ? "2px solid #B45309" : lead ? "2px solid #15803D" : undefined }}>
-                {img && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={img} alt="" style={{ width: "100%", height: 90, objectFit: "contain" }} />
-                )}
+              <div key={a.id} className="fs-auc" style={{ ...card, border: a.mine ? "2px solid #B45309" : lead ? "2px solid #15803D" : undefined }}>
+                <div className="fs-auc-img">
+                  {img && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={img} alt="" style={{ width: "100%", height: 96, objectFit: "contain" }} />
+                  )}
+                  <span className={`fs-auc-time${urgent ? " hot" : ""}`}>⏱ {left(a.ends_at, now)}</span>
+                  {lead && <span className="fs-auc-lead">✅ Sei in testa</span>}
+                  {a.mine && <span className="fs-auc-lead" style={{ background: "#B45309" }}>La tua asta</span>}
+                </div>
                 <div style={{ fontWeight: 800, fontSize: 16 }}>{a.call_sign}{a.electric && " ⚡"}</div>
                 <div style={{ fontSize: 12, color: "#666" }}>{a.model_name}{a.builder && ` · ${a.builder}`} · di <strong>{a.mine ? "te" : a.seller}</strong></div>
                 <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
@@ -219,11 +225,12 @@ function BaseTab({ bases, now, busy, offer, setOffer, onBid, onCancel }: {
   const closed = (bases ?? []).filter((a) => a.status !== "aperta");
   return (
     <>
-      <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+      <details style={{ fontSize: 13, color: "#555", marginBottom: 12, background: "#fff", borderRadius: 14, padding: "10px 12px" }}>
+          <summary style={{ fontWeight: 800, cursor: "pointer", color: "#B45309" }}>ℹ️ Come funzionano le aste</summary>
         Sedi messe all&apos;asta dalle altre associazioni: con il livello e i posti per le ambulanze che hanno. Vince l&apos;offerta più alta
         e la sede diventa tua, già ampliata. Se nessuno offre, la ritira l&apos;agenzia al 60% del valore.
         Per vendere una tua sede (vuota, non la principale): ☰ → Sedi → <strong>🏷️ Vendi all&apos;asta</strong>.
-      </div>
+      </details>
       {bases === null && <div style={{ color: "#888", textAlign: "center", padding: 20 }}>Caricamento…</div>}
       {bases !== null && open.length === 0 && <div style={{ ...card, color: "#666", textAlign: "center" }}>Nessuna sede in vendita in questo momento.</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>

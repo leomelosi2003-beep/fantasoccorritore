@@ -973,8 +973,8 @@ export default function Garage() {
               const b = byId.builder[v.builder_id];
               const cost = Math.round(v.wear * v.value_score * 2);
               return (
-                <div key={v.id} style={box}>
-                  <div style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={vehicleImg(v.id, livery(m?.image_url, org.type))} stripe={stripe} height={80} /></div>
+                <div key={v.id} className="fs-vcard" style={box}>
+                  <div className={`fs-vimg st-${v.status}`} style={{ textAlign: "center" }}><ModelImage name={m?.name ?? ""} url={vehicleImg(v.id, livery(m?.image_url, org.type))} stripe={stripe} height={80} /></div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                     <strong style={{ fontSize: 17 }}>
                       {needsCare(v) && <span title="Da sistemare in Officina" style={{ background: v.issue_open ? "#DC2626" : "#FACC15", color: v.issue_open ? "#fff" : "#111", borderRadius: 999, padding: "0 7px", marginRight: 4, fontWeight: 900 }}>!</span>}
