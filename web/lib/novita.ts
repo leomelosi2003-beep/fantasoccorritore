@@ -4,9 +4,8 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
-    id: "2026-11-26n", date: "26 novembre 2026", title: "🏅 Classifica dei tornei e simulazione",
-    items: ["Nuova classifica di chi vince più tornei (Tornei e sfide → 🏅 Classifica, oppure dalla Classifica → ⚔️ Tornei): torneo vinto 10 punti, finale 5, semifinale 2, sfida vinta 1.",
-            "Nella pagina dei tornei c'è «▶️ Guarda una simulazione»: un torneo di 6 ore mostrato in 50 secondi, con il tabellone che avanza."],
+    id: "2026-11-26n", date: "26 novembre 2026", title: "🏅 Classifica dei tornei",
+    items: ["Nuova classifica di chi vince più tornei (Tornei e sfide → 🏅 Classifica, oppure dalla Classifica → ⚔️ Tornei): torneo vinto 10 punti, finale 5, semifinale 2, sfida vinta 1."],
   },
   {
     id: "2026-11-26m", date: "26 novembre 2026", title: "⚔️ Arrivano i TORNEI e le SFIDE!",

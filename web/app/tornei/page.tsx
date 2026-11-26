@@ -66,7 +66,6 @@ function roundName(r: number, rounds: number) {
 export default function Tornei() {
   const [tab, setTab] = useState<"tornei" | "sfide" | "classifica">("tornei");
   const [board, setBoard] = useState<BoardRow[] | null>(null);
-  const [demo, setDemo] = useState<number | null>(null); // inizio della simulazione (ms)
   const [list, setList] = useState<TItem[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -103,8 +102,8 @@ export default function Tornei() {
   useEffect(() => {
     loadList(); loadChs(); loadFunds();
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
-    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } if (q.get("demo")) setDemo(Date.now()); } catch {}
-    const t1 = setInterval(() => setNow(Date.now()), 250);
+    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } } catch {}
+    const t1 = setInterval(() => setNow(Date.now()), 1000);
     const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); } }, 30000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, [loadList, loadChs, loadFunds]);
@@ -143,14 +142,8 @@ export default function Tornei() {
       <div style={wrap}>
         {msg && <div style={{ ...card, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 700 }}>{msg.text}</div>}
 
-        {tab === "tornei" && demo !== null && (
-          <SimDemo start={demo} now={now} orgs={orgs} me={meId} onRestart={() => setDemo(Date.now())} onClose={() => setDemo(null)} />
-        )}
-        {tab === "tornei" && demo === null && (
+        {tab === "tornei" && (
           <>
-            <button className="fs-sim-open" onClick={() => { setDemo(Date.now()); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-              <span>▶️</span><span><b>Guarda una simulazione</b><small>Un torneo di 6 ore mostrato in 50 secondi, con il tabellone che avanza</small></span>
-            </button>
             <details style={{ ...card, padding: "10px 14px" }}>
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
@@ -268,22 +261,25 @@ export default function Tornei() {
                   1 ora, parte appena l&apos;altra associazione accetta (ha 30 minuti). Chi conclude più servizi del tipo scelto vince la posta di tutti e due. Pareggio: posta restituita.
                 </div>
                 <input value={cQ} onChange={(e) => setCQ(e.target.value)} placeholder="🔎 Cerca l'associazione da sfidare…" className="fs-ch-in" />
-                <div className="fs-ch-orgs">
+                {cTo && (() => { const o = orgs.find((x) => x.id === cTo); return o ? (
+                  <div className="fs-ch-picked"><FactionEmblem type={o.type as never} size={30} logo={o.logo_url} /><b>{o.name}</b><button onClick={() => setCTo("")}>Cambia</button></div>
+                ) : null; })()}
+                {!cTo && <div className="fs-ch-orgs">
                   {orgs.filter((o) => o.id !== meId && (!cQ || o.name.toLowerCase().includes(cQ.toLowerCase()))).slice(0, 30).map((o) => (
                     <button key={o.id} className={cTo === o.id ? "on" : ""} onClick={() => setCTo(o.id)}>
                       <FactionEmblem type={o.type as never} size={26} logo={o.logo_url} /><span>{o.name}</span>
                     </button>
                   ))}
-                </div>
+                </div>}
                 <div style={{ fontWeight: 800, fontSize: 13, margin: "12px 0 6px" }}>Su cosa</div>
-                <div className="fs-ch-kinds">
+                <div className="fs-ch-kinds fs-ch-row">
                   {(Object.keys(KIND) as Kind[]).map((k) => (
                     <button key={k} className={cKind === k ? "on" : ""} onClick={() => setCKind(k)}
                             style={{ ["--ka" as string]: KIND[k].a, ["--kb" as string]: KIND[k].b }}>{KIND[k].icon} {KIND[k].label}</button>
                   ))}
                 </div>
                 <div style={{ fontWeight: 800, fontSize: 13, margin: "12px 0 6px" }}>Posta: {cStake ? euro(cStake) : "nessuna (solo per l'onore)"}</div>
-                <div className="fs-ch-kinds">
+                <div className="fs-ch-kinds fs-ch-row">
                   {[0, 50000, 250000, 1000000, 5000000].map((v) => (
                     <button key={v} className={cStake === v ? "on" : ""} onClick={() => setCStake(v)}>{v ? euro(v) : "Onore"}</button>
                   ))}
@@ -354,84 +350,6 @@ export default function Tornei() {
   );
 }
 
-// ---------------- simulazione (solo nel browser, non tocca il gioco) ----------------
-const SIM_H = 8000; // 1 ora di torneo = 8 secondi
-const FAKE = ["Croce Azzurra Pisa", "Misericordia Cecina", "Pubblica Assistenza Rosignano", "Croce Rossa Piombino", "SVS Livorno", "Misericordia Volterra",
-  "PA Castiglioncello", "Croce Verde Portoferraio", "Misericordia Collesalvetti", "PA Vada", "Croce Bianca Bibbona", "Misericordia San Vincenzo",
-  "PA Campiglia", "Croce Gialla Donoratico", "Misericordia Riparbella", "PA Capraia"];
-function rnd(seed: number) { let x = seed; return () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; }; }
-
-function SimDemo({ start, now, orgs, me, onRestart, onClose }: { start: number; now: number; orgs: Org[]; me: string | null; onRestart: () => void; onClose: () => void }) {
-  const sim = useMemo(() => {
-    const r = rnd(Math.floor(start / 1000));
-    const meOrg = orgs.find((o) => o.id === me);
-    const pool: Org[] = orgs.filter((o) => o.id !== me).slice(0, 15);
-    while (pool.length < 15) pool.push({ id: `f${pool.length}`, name: FAKE[pool.length], type: (["blu_giallo", "arancio_nero", "rosso_bianco"] as const)[pool.length % 3], logo_url: null });
-    const players = [...pool.slice(0, 4), meOrg ?? { id: "me", name: "La tua associazione", type: "blu_giallo", logo_url: null }, ...pool.slice(4, 15)];
-    const pace = new Map(players.map((p) => [p.id, 8 + Math.floor(r() * 22)]));
-    const T0 = new Date(); T0.setHours(15, 0, 0, 0);
-    const t0 = T0.getTime();
-    const rounds = 4; const all: (Match & { fa: number; fb: number })[] = [];
-    let prev: { org: Org; seed: number }[] = [];
-    for (let k = 0; k < 8; k++) prev.push({ org: players[k], seed: k + 1 }, { org: players[15 - k], seed: 16 - k });
-    for (let rd = 1; rd <= rounds; rd++) {
-      const M = prev.length / 2; const next: { org: Org; seed: number }[] = [];
-      for (let j = 0; j < M; j++) {
-        const a = rd === 1 ? prev[2 * j] : prev[j]; const b = rd === 1 ? prev[2 * j + 1] : prev[prev.length - 1 - j];
-        if (rd > 1 && j >= M) break;
-        const fa = Math.round((pace.get(a.org.id) ?? 10) * (0.7 + r() * 0.6)); const fb = Math.round((pace.get(b.org.id) ?? 10) * (0.7 + r() * 0.6));
-        const wA = fa > fb || (fa === fb && a.seed < b.seed);
-        all.push({ round: rd, slot: j, starts_at: new Date(t0 + (rd - 1) * 3600000).toISOString(), ends_at: new Date(t0 + rd * 3600000).toISOString(),
-          done: false, winner: (wA ? a : b).org.id, seed_a: a.seed, seed_b: b.seed, a: a.org, b: b.org, score_a: 0, score_b: 0, fa, fb });
-        next.push(wA ? a : b);
-      }
-      prev = next;
-      if (rd === 1) { /* round 2 si accoppia j contro M-1-j */ }
-    }
-    // al primo turno le coppie sono già in ordine; dal secondo uso l'accoppiamento del gioco (j contro M-1-j)
-    return { t0, rounds, all, players, meId: meOrg?.id ?? "me" };
-  }, [start, orgs, me]);
-  const elapsed = Math.max(0, now - start);
-  const simNow = sim.t0 + (elapsed / SIM_H) * 3600000;
-  const cur = Math.min(sim.rounds, Math.floor(elapsed / SIM_H) + 1);
-  const finished = elapsed >= sim.rounds * SIM_H;
-  const matches: Match[] = sim.all.filter((m) => m.round <= cur).map((m) => {
-    const st = new Date(m.starts_at).getTime(), en = new Date(m.ends_at).getTime();
-    const p = Math.max(0, Math.min(1, (simNow - st) / (en - st)));
-    const done = simNow >= en;
-    const wobble = (v: number) => Math.floor(v * p * (0.85 + 0.15 * Math.sin(p * 9 + v)));
-    return { ...m, done, winner: done ? m.winner : null, score_a: done ? m.fa : Math.min(m.fa, wobble(m.fa)), score_b: done ? m.fb : Math.min(m.fb, wobble(m.fb)) };
-  });
-  const d: Detail = { id: -1, kind: "rossi", title: "Simulazione: torneo codici rossi", status: finished ? "finito" : "in_corso", starts_at: new Date(sim.t0).toISOString(),
-    rounds: sim.rounds, size: 16, current_round: cur, prize: 3000000 + 16 * 100000, entry_fee: 100000, me: sim.meId, entries: sim.players, matches };
-  const pct = Math.min(100, (elapsed / (sim.rounds * SIM_H)) * 100);
-  const hh = new Date(simNow).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-  const myLast = [...matches].reverse().find((m) => m.a?.id === sim.meId || m.b?.id === sim.meId);
-  const myState = !myLast ? "" : !myLast.done ? `🔥 Stai giocando: ${roundName(myLast.round, sim.rounds)}` : myLast.winner === sim.meId ? (finished ? "🏆 HAI VINTO IL TORNEO!" : "✅ Passi il turno!") : `❌ Eliminato: ${roundName(myLast.round, sim.rounds).toLowerCase()}`;
-  return (
-    <>
-      <div className="fs-sim-bar">
-        <div><b>🎬 SIMULAZIONE</b><small>1 ora di torneo = 8 secondi · non è un torneo vero, nessun soldo in gioco</small></div>
-        <div className="fs-sim-clock">🕒 {hh}</div>
-        <div className="fs-sim-prog"><i style={{ width: `${pct}%` }} /></div>
-        <div className="fs-sim-btns">
-          <button onClick={onRestart}>↻ Ricomincia</button>
-          <button onClick={onClose}>✕ Chiudi</button>
-        </div>
-        {myState && <div className="fs-sim-me">{myState}</div>}
-      </div>
-      <Bracket d={d} now={simNow} me={sim.meId} />
-      {finished && (
-        <div style={{ ...card, textAlign: "center" }}>
-          <div style={{ fontWeight: 900, fontSize: 17 }}>Fine simulazione</div>
-          <div style={{ fontSize: 13.5, color: "#64748B", margin: "4px 0 10px" }}>Premi veri: 60% al vincitore, 25% al finalista, 7,5% ai semifinalisti. Il prossimo torneo vero è nella lista dei tornei.</div>
-          <button className="fs-tor-btn big" style={{ maxWidth: 320 }} onClick={onClose}>Vai ai tornei veri</button>
-        </div>
-      )}
-    </>
-  );
-}
-
 function Side({ o, seed, score, win, lose, me }: { o: Org | null; seed: number | null; score: number | null; win: boolean; lose: boolean; me: boolean }) {
   return (
     <div className={`fs-bk-side${win ? " win" : ""}${lose ? " lose" : ""}${me ? " me" : ""}`}>
@@ -446,6 +364,8 @@ function Side({ o, seed, score, win, lose, me }: { o: Org | null; seed: number |
 function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) {
   const k = KIND[d.kind];
   const rounds = d.rounds ?? 0;
+  const [sel, setSel] = useState<number | null>(null);
+  const shown = sel ?? (d.status === "finito" ? rounds + 1 : Math.max(1, d.current_round));
   const byRound = useMemo(() => {
     const r: Match[][] = [];
     for (let i = 1; i <= rounds; i++) r.push(d.matches.filter((m) => m.round === i).sort((a, b) => a.slot - b.slot));
@@ -472,12 +392,21 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
       <div className="fs-bk-head" style={{ background: `linear-gradient(135deg, ${k.a}, ${k.b})` }}>
         <div><b>{k.icon} {d.title}</b><small>{d.status === "finito" ? "Concluso" : `In corso · ${roundName(d.current_round, rounds)}`} · montepremi {euro(d.prize)}</small></div>
       </div>
+      <div className="fs-bk-rtabs">
+        {byRound.map((ms, i) => ms.length > 0 && (
+          <button key={i} className={shown === i + 1 ? "on" : ""} onClick={() => setSel(i + 1)}>
+            {d.status === "in_corso" && i + 1 === d.current_round && <i className="dot" />}{roundName(i + 1, rounds)}
+          </button>
+        ))}
+        {d.status === "finito" && <button className={shown === rounds + 1 ? "on" : ""} onClick={() => setSel(rounds + 1)}>🏆 Campione</button>}
+      </div>
       <div className="fs-bk">
         {byRound.map((ms, i) => {
           const r = i + 1;
           const running = d.status === "in_corso" && r === d.current_round;
+          if (!ms.length) return null;
           return (
-            <div key={r} className={`fs-bk-col${running ? " now" : ""}`}>
+            <div key={r} className={`fs-bk-col${running ? " now" : ""}${shown === r ? "" : " off-m"}`}>
               <div className="fs-bk-rt">{roundName(r, rounds)}<small>{ms[0] ? `${clock(ms[0].starts_at)}–${clock(ms[0].ends_at)}` : ""}</small></div>
               <div className="fs-bk-list">
                 {ms.map((m) => {
@@ -498,7 +427,7 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
           const f = byRound[rounds - 1]?.[0];
           const w = f ? (f.winner === f.a?.id ? f.a : f.b) : null;
           return w ? (
-            <div className="fs-bk-col champ">
+            <div className={`fs-bk-col champ${shown === rounds + 1 ? "" : " off-m"}`}>
               <div className="fs-bk-rt">Campione</div>
               <div className="fs-bk-list"><div className="fs-bk-champ"><span>🏆</span><FactionEmblem type={w.type as never} size={56} logo={w.logo_url} /><b>{w.name}</b></div></div>
             </div>
@@ -528,18 +457,6 @@ const CSS = `
 .fs-tb-pts { min-width: 44px; text-align: right; font-size: 17px; color: #6D28D9; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .fs-tb-stats span:nth-child(n+3) { display: none; } }
 html.dark .fs-tb-row { border-color: rgba(148,163,184,.12); } html.dark .fs-tb-row.me { background: #251C47; } html.dark .fs-tb-stats { color: #A8B4C7; }
-.fs-sim-open { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 14px; border: none !important; border-radius: 20px;
-  background: linear-gradient(135deg, #A78BFA, #5B21B6) !important; color: #fff !important; font: inherit; cursor: pointer; box-shadow: 0 12px 28px rgba(91,33,182,.3) !important; }
-.fs-sim-open > span:first-child { font-size: 30px; } .fs-sim-open b, .fs-sim-open small { display: block; } .fs-sim-open b { font-size: 16px; } .fs-sim-open small { opacity: .9; font-weight: 600; }
-.fs-sim-bar { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; background: #0B1B33; color: #fff; border-radius: 20px; padding: 12px 14px; margin-bottom: 12px;
-  box-shadow: 0 12px 28px rgba(11,27,51,.3); }
-.fs-sim-bar b { display: block; letter-spacing: .08em; color: #FDE047; } .fs-sim-bar small { opacity: .8; font-size: 12px; }
-.fs-sim-clock { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
-.fs-sim-prog { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; }
-.fs-sim-prog i { display: block; height: 100%; background: linear-gradient(90deg, #A78BFA, #FDE047); border-radius: 99px; transition: width .25s linear; }
-.fs-sim-btns { grid-column: 1 / -1; display: flex; gap: 6px; }
-.fs-sim-btns button { flex: 1; padding: 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25) !important; background: rgba(255,255,255,.1) !important; color: #fff !important; font: inherit; font-weight: 800; cursor: pointer; box-shadow: none !important; }
-.fs-sim-me { grid-column: 1 / -1; text-align: center; font-weight: 900; font-size: 16px; background: rgba(255,255,255,.1); border-radius: 12px; padding: 8px; }
 .fs-tor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
 .fs-tor-card { position: relative; overflow: hidden; border-radius: 24px; padding: 16px; color: #fff; cursor: pointer; isolation: isolate;
   box-shadow: 0 14px 30px rgba(15,23,42,.18); transition: transform .2s, box-shadow .2s; }
@@ -610,4 +527,41 @@ html.dark .fs-bk-m, html.dark .fs-ch-orgs button, html.dark .fs-ch-kinds button 
 html.dark .fs-bk-side.win { background: #0F3324; } html.dark .fs-bk-side + .fs-bk-side, html.dark .fs-ch-foot, html.dark .fs-tor-past { border-color: rgba(148,163,184,.12) !important; }
 html.dark .fs-bk-chip { background: #17233D; } html.dark .fs-ch-in { background: #0D1424; border-color: rgba(148,163,184,.2); color: #E6EDF7; }
 html.dark .fs-tor-past { color: #E6EDF7 !important; } html.dark .fs-tor-btn.ghost.dark { background: #17233D !important; color: #CBD5E1 !important; }
+.fs-bk-rtabs { display: none; }
+.fs-ch-picked { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 14px; background: #F5F3FF; border: 2px solid #A78BFA; }
+.fs-ch-picked b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-ch-picked button { border: none !important; background: #fff !important; color: #6D28D9 !important; border-radius: 10px; padding: 6px 10px; font: inherit; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: none !important; }
+@media (max-width: 640px) {
+  .fs-tor-grid { grid-template-columns: 1fr; gap: 10px; }
+  .fs-tor-card { padding: 14px; border-radius: 20px; }
+  .fs-tor-title { font-size: 17px; } .fs-tor-prize { font-size: 22px; }
+  .fs-bk-rtabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px 0; scrollbar-width: none; }
+  .fs-bk-rtabs::-webkit-scrollbar { display: none; }
+  .fs-bk-rtabs button { flex-shrink: 0; padding: 7px 12px; border-radius: 999px; border: 1px solid #E2E8F0 !important; background: #fff !important; color: #334155 !important;
+    font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: none !important; display: inline-flex; align-items: center; gap: 6px; }
+  .fs-bk-rtabs button.on { background: linear-gradient(135deg, #A78BFA, #6D28D9) !important; color: #fff !important; border-color: transparent !important; }
+  .fs-bk-rtabs .dot { width: 8px; height: 8px; border-radius: 50%; background: #DC2626; animation: fsBadge 1.2s ease-in-out infinite; }
+  .fs-bk { display: block; padding: 10px 12px 12px; overflow: visible; }
+  .fs-bk-col { display: flex; } .fs-bk-col.off-m { display: none; }
+  .fs-bk-col .fs-bk-rt { display: none; }
+  .fs-bk-col:not(:last-child) .fs-bk-m::after { display: none; }
+  .fs-bk-list { gap: 8px; }
+  .fs-bk-side { padding: 9px 10px; font-size: 14px; }
+  .fs-ch-orgs { display: grid; grid-template-columns: 1fr 1fr; max-height: 210px; overflow-y: auto; gap: 6px; }
+  .fs-ch-orgs button { white-space: normal; text-align: left; line-height: 1.15; font-size: 12.5px; }
+  .fs-ch-orgs button span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .fs-ch-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .fs-ch-row::-webkit-scrollbar { display: none; }
+  .fs-ch-row button { flex-shrink: 0; white-space: nowrap; }
+  .fs-ch-vs { padding: 12px 10px; gap: 4px; }
+  .fs-ch-score { font-size: 24px; gap: 5px; }
+  .fs-ch-bar { font-size: 12px; padding: 7px 12px; }
+  .fs-ch-foot { padding: 10px 12px; }
+  .fs-ch-foot > span { min-width: 100%; }
+  .fs-ch-foot .fs-tor-btn, .fs-ch-foot .fs-tor-btn.ghost.dark { flex: 1; padding: 10px; }
+  .fs-tb-podium { padding: 14px 6px 0; gap: 4px; }
+  .fs-tb-p b { font-size: 12px; } .fs-tb-row { padding: 9px 10px; gap: 8px; }
+}
+html.dark .fs-ch-picked { background: #251C47; } html.dark .fs-ch-picked button { background: #111A2E !important; color: #C4B5FD !important; }
+html.dark .fs-bk-rtabs button:not(.on) { background: #111A2E !important; border-color: rgba(148,163,184,.18) !important; color: #CBD5E1 !important; }
 `;
