@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { helpFor } from "@/lib/help";
 
 const NAV: [string, string, string][] = [
-  ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["👥", "Squadra", "/squadra"], ["🔧", "Officina", "/officina"],
+  ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["🔧", "Officina", "/officina"], ["👥", "Squadra", "/squadra"],
 ];
 const NO_CHROME = ["/login", "/onboarding", "/reset", "/recupero", "/maxi", "/admin"];
 
@@ -81,9 +81,6 @@ export default function AppChrome() {
               <span className="ico">{ico}</span>{label}
             </a>
           ))}
-          <button onClick={() => { if (path === "/") window.dispatchEvent(new Event("fs-open-menu")); else router.push("/?menu=1"); }}>
-            <span className="ico">☰</span>Altro
-          </button>
         </nav>
       )}
     </>

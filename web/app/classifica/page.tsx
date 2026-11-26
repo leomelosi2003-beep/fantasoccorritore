@@ -71,6 +71,17 @@ function podiumValue(r: Row, k: Key) {
   return value(r, k);
 }
 
+/** numero che sale da 0 al valore (solo effetto grafico) */
+function CountUp({ to, fmt }: { to: number; fmt: (n: number) => string }) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let raf = 0; const t0 = performance.now(), from = 0;
+    const step = (t: number) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); setV(from + (to - from) * e); if (k < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf);
+  }, [to]);
+  return <>{fmt(v)}</>;
+}
+
 function Chip({ children, bg, fg, title }: { children: ReactNode; bg: string; fg: string; title?: string }) {
   return <span title={title} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 999, background: bg, color: fg, fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>{children}</span>;
 }
@@ -207,7 +218,15 @@ export default function Classifica() {
   return (
     <main style={{ minHeight: "100vh", background: `linear-gradient(180deg, ${th.soft} 0%, #F8FAFC 380px)`, fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: "#0F172A", paddingBottom: 40 }}>
       <style>{`@keyframes fsShine{0%{background-position:-200% 0}100%{background-position:200% 0}} @keyframes fsPop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        .fs-rank-row{animation:fsPop .25s ease both} .fs-tabs::-webkit-scrollbar{display:none}`}</style>
+        .fs-rank-row{animation:fsPop .25s ease both} .fs-tabs::-webkit-scrollbar{display:none}
+        @keyframes fsFall{0%{transform:translateY(-20px) rotate(0)}100%{transform:translateY(340px) rotate(540deg)}}
+        @keyframes fsBob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-5px) rotate(6deg)}}
+        @keyframes fsSpin{to{transform:rotate(360deg)}}
+        @keyframes fsBeam{0%,100%{opacity:.35;transform:rotate(var(--r)) scaleY(1)}50%{opacity:.6;transform:rotate(calc(var(--r) + 4deg)) scaleY(1.05)}}
+        @keyframes fsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+        @keyframes fsRise{from{transform:scaleY(.2);opacity:0}to{transform:scaleY(1);opacity:1}}
+        .fs-fire{display:inline-block;animation:fsPulse 1s ease-in-out infinite}
+        .fs-rank-row:hover{background:#F8FAFC !important}`}</style>
 
       {/* testata */}
       <div style={{ background: `radial-gradient(circle at 90% -30%, rgba(255,255,255,.35), transparent 50%), linear-gradient(135deg, ${th.a}, ${th.b})`, color: "#fff", borderRadius: "0 0 28px 28px", boxShadow: `0 10px 30px ${th.b}40` }}>
@@ -317,25 +336,48 @@ export default function Classifica() {
 
           {error && <div style={{ ...card, background: "#FEF2F2", color: "#B91C1C", padding: 14 }}>{error}</div>}
 
-          {/* podio */}
-          {sorted.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1fr", alignItems: "end", gap: 10, margin: "8px 2px 18px" }}>
-            {[1, 0, 2].map((k) => {
-              const r = sorted[k]; if (!r) return <div key={k} />;
-              const C = PODIUM[k];
-              return <a key={r.org_id} href={`/profili/${r.org_id}`} style={{ textDecoration: "none", color: "#0F172A", textAlign: "center", animation: `fsPop .35s ${k * 80}ms ease both` }}>
-                {k === 0 && <div style={{ fontSize: 24, lineHeight: 1, marginBottom: -2 }}>👑</div>}
-                <div style={{ display: "inline-block", padding: 3, borderRadius: 22, background: `linear-gradient(135deg, ${C[0]}, ${C[1]})`, boxShadow: k === 0 ? "0 8px 22px rgba(245,158,11,.45)" : "0 4px 12px rgba(15,23,42,.14)" }}>
-                  <div style={{ background: "#fff", borderRadius: 19, padding: 5 }}><FactionEmblem type={r.type} size={k === 0 ? 70 : 54} logo={r.logo_url} /></div>
-                </div>
-                <div style={{ fontWeight: 800, fontSize: k === 0 ? 14.5 : 13, marginTop: 6, lineHeight: 1.15, minHeight: 32, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                  {r.name}{r.org_id === me ? " (tu)" : ""}</div>
-                <div style={{ fontWeight: 900, fontSize: k === 0 ? 16.5 : 14, color: C[2], whiteSpace: "nowrap" }}>{podiumValue(r, tab)}</div>
-                <div style={{ minHeight: 16 }}>{move(k + 1, prevRank.get(r.org_id))}</div>
-                <div style={{ marginTop: 4, height: k === 0 ? 86 : k === 1 ? 62 : 46, borderRadius: "16px 16px 6px 6px", background: `linear-gradient(180deg, ${C[0]}, ${C[1]})`,
-                              display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: k === 0 ? 34 : 26, textShadow: "0 2px 4px rgba(0,0,0,.25)",
-                              boxShadow: "inset 0 -6px 0 rgba(0,0,0,.08)" }}>{k + 1}</div>
-              </a>;
-            })}
+          {/* podio sul palco: luci, coriandoli, corona */}
+          {sorted.length > 0 && <div style={{ position: "relative", overflow: "hidden", borderRadius: 26, margin: "6px 0 18px", padding: "18px 10px 0",
+                                              background: `radial-gradient(ellipse at 50% 120%, ${t.th.a}55, transparent 60%), linear-gradient(180deg, #0B1220, #1E293B)`,
+                                              boxShadow: "0 18px 40px rgba(15,23,42,.35)" }}>
+            {[-28, 0, 28].map((r, i) => (
+              <div key={i} style={{ position: "absolute", top: -40, left: `${20 + i * 30}%`, width: 120, height: 360, marginLeft: -60, transformOrigin: "50% 0",
+                                    background: `linear-gradient(180deg, ${i === 1 ? "rgba(253,230,138,.55)" : "rgba(255,255,255,.28)"}, transparent 80%)`,
+                                    clipPath: "polygon(42% 0, 58% 0, 100% 100%, 0 100%)", animation: `fsBeam ${4 + i}s ease-in-out infinite`, ["--r" as string]: `${r}deg`, pointerEvents: "none" } as CSSProperties} />))}
+            {Array.from({ length: 26 }, (_, i) => (
+              <div key={i} style={{ position: "absolute", top: -14, left: `${(i * 37) % 100}%`, width: i % 3 ? 6 : 8, height: i % 2 ? 10 : 6, borderRadius: i % 4 ? 2 : 99,
+                                    background: [t.th.a, "#FDE68A", "#fff", t.th.b, "#60A5FA", "#F472B6"][i % 6], opacity: 0.85,
+                                    animation: `fsFall ${5 + (i % 5)}s linear ${-(i * 0.7) % 6}s infinite`, pointerEvents: "none" }} />))}
+            <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1.25fr 1fr", alignItems: "end", gap: 8 }}>
+              {[1, 0, 2].map((k) => {
+                const r = sorted[k]; if (!r) return <div key={k} />;
+                const C = PODIUM[k], big = k === 0, raw = num(r, tab), hiddenVal = r.hidden && tab !== "growth_pct" && tab !== "stolen_7d";
+                return <a key={r.org_id} href={`/profili/${r.org_id}`} style={{ textDecoration: "none", color: "#fff", textAlign: "center", animation: `fsPop .4s ${k * 90}ms ease both` }}>
+                  {big && <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 2, animation: "fsBob 2.4s ease-in-out infinite", filter: "drop-shadow(0 4px 8px rgba(253,224,71,.6))" }}>👑</div>}
+                  <div style={{ position: "relative", display: "inline-grid", placeItems: "center", width: big ? 92 : 72, height: big ? 92 : 72 }}>
+                    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(${C[0]}, ${C[1]}, #fff, ${C[0]})`, animation: `fsSpin ${big ? 3 : 5}s linear infinite`, boxShadow: `0 0 ${big ? 28 : 14}px ${C[1]}` }} />
+                    <div style={{ position: "relative", width: big ? 82 : 63, height: big ? 82 : 63, borderRadius: "50%", background: "#fff", display: "grid", placeItems: "center", overflow: "hidden" }}>
+                      <FactionEmblem type={r.type} size={big ? 64 : 48} logo={r.logo_url} />
+                    </div>
+                    <div style={{ position: "absolute", bottom: -6, right: -4, fontSize: big ? 24 : 20 }}>{MEDAL[k]}</div>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: big ? 14.5 : 12.5, marginTop: 8, lineHeight: 1.15, minHeight: 30, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", textShadow: "0 1px 3px rgba(0,0,0,.4)" }}>
+                    {r.name}{r.org_id === me ? " (tu)" : ""}</div>
+                  <div style={{ fontWeight: 900, fontSize: big ? 18 : 14.5, color: C[0], whiteSpace: "nowrap", textShadow: `0 0 12px ${C[1]}` }}>
+                    {hiddenVal ? "🔒" : (tab === "earnings_7d" || tab === "wealth") ? <CountUp to={raw} fmt={(n) => `${short(n)} €`} />
+                      : tab === "growth_pct" || tab === "per_vehicle" ? podiumValue(r, tab) : <CountUp to={raw} fmt={(n) => value({ ...r, [tab]: Math.round(n) } as Row, tab)} />}
+                  </div>
+                  <div style={{ minHeight: 18 }}>{move(k + 1, prevRank.get(r.org_id)) && <span style={{ background: "#fff", borderRadius: 8, padding: "0 5px" }}>{move(k + 1, prevRank.get(r.org_id))}</span>}</div>
+                  <div style={{ marginTop: 4, height: big ? 96 : k === 1 ? 70 : 52, borderRadius: "14px 14px 0 0", transformOrigin: "50% 100%", animation: `fsRise .6s ${200 + k * 120}ms cubic-bezier(.2,.9,.3,1.2) both`,
+                                background: `linear-gradient(180deg, ${C[0]}, ${C[1]} 70%, ${C[2]})`, position: "relative", overflow: "hidden",
+                                display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: big ? 40 : 30, textShadow: "0 3px 6px rgba(0,0,0,.35)",
+                                boxShadow: `inset 0 2px 0 rgba(255,255,255,.6), 0 -6px 24px ${C[1]}55` }}>
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, transparent 35%, rgba(255,255,255,.45) 50%, transparent 65%)", backgroundSize: "250% 100%", animation: `fsShine ${3 + k}s linear infinite` }} />
+                    <span style={{ position: "relative" }}>{k + 1}</span>
+                  </div>
+                </a>;
+              })}
+            </div>
           </div>}
 
           {/* dal 4° in giù */}
@@ -369,7 +411,7 @@ export default function Classifica() {
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ fontWeight: 900, fontSize: 15, whiteSpace: "nowrap", color: tab === "growth_pct" && r.growth_pct !== null ? (r.growth_pct >= 0 ? "#15803D" : "#B91C1C") : "#0F172A" }}>{value(r, tab)}</div>
                     {x && x.d != null && x.d !== 0 && <div style={{ marginTop: 2 }}><Chip bg={x.d > 0 ? "#DCFCE7" : "#FEE2E2"} fg={x.d > 0 ? "#15803D" : "#B91C1C"}>{fmtDelta(x.d)} · {agoShort}</Chip></div>}
-                    {x && x.gap > 0 && <div style={{ fontSize: 11, marginTop: 2, color: x.close ? "#EA580C" : "#94A3B8", fontWeight: x.close ? 900 : 600, whiteSpace: "nowrap" }}>{x.close ? "🔥 " : ""}a {fmtDelta(x.gap).slice(1)} dal {i}°</div>}
+                    {x && x.gap > 0 && <div style={{ fontSize: 11, marginTop: 2, color: x.close ? "#EA580C" : "#94A3B8", fontWeight: x.close ? 900 : 600, whiteSpace: "nowrap" }}>{x.close && <span className="fs-fire">🔥</span>} a {fmtDelta(x.gap).slice(1)} dal {i}°</div>}
                   </div>
                 </div>);
             })}

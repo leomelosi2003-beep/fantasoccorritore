@@ -7,7 +7,8 @@ export const NOVITA: Novita[] = [
     id: "2026-11-26b", date: "26 novembre 2026", title: "🏆 Classifiche nuove di zecca + 🆘 Maxi emergenze",
     items: ["Nuova grafica: schede colorate, podio con corona, la tua posizione in alto, barre e premi in evidenza. Le classifiche di stagione ora si aprono subito.",
             "Nuova classifica premiata «🆘 Maxi emergenze»: chi manda più mezzi sulle maxi nel mese. Premi da 5 milioni al 1° fino a 500.000 € al 10°.",
-            "Quando condividi una sede col gemello il nome della sede non cambia più."],
+            "Quando condividi una sede col gemello il nome della sede non cambia più.",
+            "Barra in basso: Mappa, Garage, 🏆 Classifica, Officina, Squadra. Il menu completo si apre dal pulsante ☰ sulla mappa."],
   },
   {
     id: "2026-11-26a", date: "26 novembre 2026", title: "🏆 Classifiche rinnovate e nuova classifica 🔴 Codici rossi",
