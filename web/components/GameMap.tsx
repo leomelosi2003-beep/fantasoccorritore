@@ -651,6 +651,7 @@ export default function GameMap() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MissionPin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuQ, setMenuQ] = useState("");
   // la barra in basso del telefono ("Altro") apre il menu; da un'altra pagina arriva con ?menu=1
   useEffect(() => {
     const open = () => setMenuOpen(true);
@@ -1393,90 +1394,96 @@ export default function GameMap() {
                     style={{ background: "#FFF1E7", marginBottom: 4 }}>
               <img src="/logo-192.jpg" alt="" style={{ width: 38, height: 38, borderRadius: "50%", flexShrink: 0 }} />Come si gioca
             </button>
-            {([
-              ["Gioco", [
-                ["🎯", "Obiettivi", "#15803D", "/obiettivi"],
-                ["🆕", "Novità del gioco", "#7C3AED", "/novita"],
-                ["📰", "FantaGiornale 24", "#374151", "/notizie"],
-                ["🤖", org.auto_enabled ? "Modalità automatica · ON" : "Modalità automatica", "#0F766E", "/automatico"],
-                ["🔁", "Trasferimenti", "#0E7490", "/trasferimenti"],
-              ]],
-              ["La mia associazione", [
-                ["🚑", "Garage", "#F97316", "/garage"],
-                ["🔧", "Officina", "#7C3AED", "/officina"],
-                ["👥", "Squadra", "#1E3A8A", "/squadra"],
-                ["🏠", "Sedi", "#9333EA", "/sedi"],
-                ["🖌️", "Editor livrea", "#0EA5E9", "/livrea"],
-                ["🪪", "Il mio profilo", "#DB2777", "/associazione"],
-              ]],
-              ["Mercato", [
-                ["🛒", "Presidi", "#374151", "/negozio"],
-                ["🏷️", "Usato e aste", "#B45309", "/usate"],
-                ["💼", "Offerte e acquisti", "#1E3A8A", "/offerte"],
-              ]],
-              ["Altre associazioni", [
-                ["🪪", "Profili delle associazioni", "#0F766E", "/profili"],
-                ["📢", "Richieste di personale", "#DC2626", "/personale"],
-                ["🤝", "Alleanza", "#15803D", "/alleanza"],
-                ["🔗", "Gemellaggio", "#0E7490", "/gemellaggio"],
-                ["🏆", "Classifica", "#B45309", "/classifica"],
-              ]],
-              ["Numeri", [
-                ["📈", "Statistiche", "#1E40AF", "/statistiche"],
-                ["📊", "Entrate e uscite", "#166534", "/finanze"],
-                ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
-              ]],
-              ["Impostazioni", [
-                ["📖", "Tutorial", "#2563EB", "__tutorial__"],
-                ["🔑", "Cambia password", "#475569", "/password"],
-                [sound ? "🔊" : "🔇", sound ? "Suoni: attivi" : "Suoni: spenti", "#0F766E", "__sound__"],
-                ["⚡", perfMode === "on" ? "Modalità leggera: sempre" : perfMode === "off" ? "Modalità leggera: mai"
-                       : lite ? "Modalità leggera: automatica (attiva)" : "Modalità leggera: automatica", "#CA8A04", "__perf__"],
-                ["👆", oneFinger ? "Zoom col pollice sul bordo: attivo" : "Zoom col pollice sul bordo: spento", "#2563EB", "__thumb__"],
-                ...(notifySupported() ? [[notif ? "🔔" : "🔕", notif ? "Notifiche: attive" : "Notifiche: spente", "#B45309", "__notify__"]] : []),
-                ...(isAdmin ? [["🛠️", "Admin", "#7C3AED", "/admin"]] : []),
-              ]],
-            ] as [string, [string, string, string, string][]][]).map(([group, items]) => (
-              <Fragment key={group}>
-              <div className="fs-drawer-group">{group}</div>
-              {items.map(([icon, label, color, href]) => {
-                const badge = href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
-                  : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
-                  : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : href === "/novita" ? (novUnseen ? 1 : 0) : href === "/personale" ? staffNew : 0;
-                return (
-              <button key={href} className="fs-drawer-item" onClick={() => {
-                  if (href === "__perf__") {
-                    const m: PerfMode = perfMode === "auto" ? "on" : perfMode === "on" ? "off" : "auto";
-                    setPerfMode(m); setPerfModeState(m); setLite(m === "on");
-                    showToast(m === "on" ? "⚡ Modalità leggera sempre attiva" : m === "off" ? "Modalità leggera spenta: animazioni sempre accese"
-                              : "⚡ Modalità leggera automatica: si accende da sola se la mappa va a scatti");
-                    return;
-                  }
-                  if (href === "__sound__") { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); return; }
-                  if (href === "__thumb__") {
-                    const v = !oneFinger; setOneFinger(v); try { localStorage.setItem("fs_onefinger", v ? "1" : "0"); } catch {}
-                    showToast(v ? "👆 Zoom col pollice: appoggia il dito vicino al bordo destro o sinistro e scorri in su per avvicinare, in giù per allontanare." : "Zoom col pollice spento.");
-                    return;
-                  }
-                  if (href === "__notify__") {
-                    setNotifyOn(!notif).then((v) => {
-                      setNotif(v);
-                      showToast(v ? "🔔 Ti avviso di maxi-emergenze, incendi, obiettivi pronti e proposte quando il gioco è in un'altra scheda."
-                                  : notif ? "🔕 Notifiche spente." : "Il browser non ha dato il permesso per le notifiche.");
-                    });
-                    return;
-                  }
-                  setMenuOpen(false);
-                  if (href === "__tutorial__") restartTutorial(); else router.push(href);
-                }}>
-                <span className="fs-drawer-ico" style={{ background: color }}>{icon}</span>
-                <span style={{ flex: 1 }}>{label}</span>
-                {badge > 0 && <b className="fs-drawer-badge">{badge}</b>}
-              </button>
-                );
-              })}
-              </Fragment>
-            ))}
+            {(() => {
+              type It = [string, string, string, string];
+              const groups: [string, It[]][] = [
+                ["La mia associazione", [
+                  ["🚑", "Garage", "#F97316", "/garage"], ["👥", "Squadra", "#7C3AED", "/squadra"], ["🔧", "Officina", "#475569", "/officina"],
+                  ["🏠", "Sedi", "#2563EB", "/sedi"], ["🤖", org.auto_enabled ? "Automatica ON" : "Automatica", "#0D9488", "/automatico"], ["🖌️", "Livrea", "#DB2777", "/livrea"],
+                ]],
+                ["Ogni giorno", [
+                  ["🎯", "Obiettivi", "#16A34A", "/obiettivi"], ["🔁", "Trasferimenti", "#0891B2", "/trasferimenti"], ["📰", "Giornale 24", "#B91C1C", "/notizie"],
+                  ["🆕", "Novità", "#7C3AED", "/novita"], ["🏆", "Classifica", "#D97706", "/classifica"], ["🪪", "Il mio profilo", "#1D4ED8", "/associazione"],
+                ]],
+                ["Compra e vendi", [
+                  ["🛒", "Presidi", "#0D9488", "/negozio"], ["🏷️", "Usato e aste", "#D97706", "/usate"], ["💼", "Offerte", "#1E3A8A", "/offerte"],
+                ]],
+                ["Altre associazioni", [
+                  ["🤝", "Alleanza", "#16A34A", "/alleanza"], ["🔗", "Gemellaggio", "#0891B2", "/gemellaggio"], ["📢", "Personale", "#E11D48", "/personale"],
+                  ["🔎", "Profili", "#475569", "/profili"],
+                ]],
+                ["Conti", [
+                  ["📊", "Entrate e uscite", "#16A34A", "/finanze"], ["📈", "Statistiche", "#2563EB", "/statistiche"], ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
+                ]],
+              ];
+              if (isAdmin) groups.push(["Admin", [["🛠️", "Admin", "#7C3AED", "/admin"]]]);
+              const badgeOf = (href: string) => href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
+                : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
+                : href === "/obiettivi" ? objReady : href === "/officina" ? shopAlerts : href === "/novita" ? (novUnseen ? 1 : 0) : href === "/personale" ? staffNew : 0;
+              const q = menuQ.trim().toLowerCase();
+              const shown = groups.map(([g, items]) => [g, items.filter(([, l]) => !q || l.toLowerCase().includes(q) || g.toLowerCase().includes(q))] as [string, It[]])
+                                  .filter(([, items]) => items.length);
+              const toggles: [string, string, boolean | null, () => void][] = [
+                [sound ? "🔊" : "🔇", "Suoni", sound, () => { const v = !sound; setSound(v); setSoundOn(v); if (v) playSound("dispatch"); }],
+                ["⚡", perfMode === "on" ? "Leggera: sempre" : perfMode === "off" ? "Leggera: mai" : lite ? "Leggera: auto (attiva)" : "Leggera: auto", perfMode === "on" ? true : perfMode === "off" ? false : null, () => {
+                  const m: PerfMode = perfMode === "auto" ? "on" : perfMode === "on" ? "off" : "auto";
+                  setPerfMode(m); setPerfModeState(m); setLite(m === "on");
+                  showToast(m === "on" ? "⚡ Modalità leggera sempre attiva" : m === "off" ? "Modalità leggera spenta: animazioni sempre accese"
+                            : "⚡ Modalità leggera automatica: si accende da sola se la mappa va a scatti");
+                }],
+                ["👆", "Zoom col pollice", oneFinger, () => {
+                  const v = !oneFinger; setOneFinger(v); try { localStorage.setItem("fs_onefinger", v ? "1" : "0"); } catch {}
+                  showToast(v ? "👆 Zoom col pollice: appoggia il dito vicino al bordo destro o sinistro e scorri in su per avvicinare, in giù per allontanare." : "Zoom col pollice spento.");
+                }],
+                ...(notifySupported() ? [[notif ? "🔔" : "🔕", "Notifiche", notif, () => {
+                  setNotifyOn(!notif).then((v) => {
+                    setNotif(v);
+                    showToast(v ? "🔔 Ti avviso di maxi-emergenze, incendi, obiettivi pronti e proposte quando il gioco è in un'altra scheda."
+                                : notif ? "🔕 Notifiche spente." : "Il browser non ha dato il permesso per le notifiche.");
+                  });
+                }] as [string, string, boolean | null, () => void]] : []),
+              ];
+              return (
+                <>
+                  <input className="fs-menu-search" value={menuQ} onChange={(e) => setMenuQ(e.target.value)} placeholder="🔎 Cerca nel menu…" />
+                  {shown.map(([group, items]) => (
+                    <Fragment key={group}>
+                      <div className="fs-drawer-group">{group}</div>
+                      <div className="fs-mgrid">
+                        {items.map(([icon, label, color, href]) => {
+                          const badge = badgeOf(href);
+                          return (
+                            <button key={href} className="fs-mtile" onClick={() => { setMenuOpen(false); setMenuQ(""); router.push(href); }}>
+                              <span className="fs-mtile-ico" style={{ background: color }}>{icon}</span>
+                              <span className="fs-mtile-l">{label}</span>
+                              {badge > 0 && <b className="fs-mtile-b">{badge}</b>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Fragment>
+                  ))}
+                  {shown.length === 0 && <div style={{ padding: "10px 16px", color: "#64748B", fontSize: 13 }}>Nessuna voce trovata.</div>}
+                  {!q && (
+                    <>
+                      <div className="fs-drawer-group">Impostazioni</div>
+                      <div className="fs-mset">
+                        {toggles.map(([icon, label, on, act]) => (
+                          <button key={label} className="fs-mset-row" onClick={act}>
+                            <span style={{ fontSize: 17 }}>{icon}</span><span style={{ flex: 1 }}>{label}</span>
+                            <span className={`fs-switch${on === true ? " on" : on === null ? " mid" : ""}`}><i /></span>
+                          </button>
+                        ))}
+                        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                          <button className="fs-mset-btn" onClick={() => { setMenuOpen(false); restartTutorial(); }}>📖 Tutorial</button>
+                          <button className="fs-mset-btn" onClick={() => { setMenuOpen(false); router.push("/password"); }}>🔑 Password</button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             <div style={{ flex: 1 }} />
             <button className="fs-drawer-item fs-drawer-exit" onClick={logout}>
               <span className="fs-drawer-ico" style={{ background: "#e5e5e0" }}>🚪</span>Esci

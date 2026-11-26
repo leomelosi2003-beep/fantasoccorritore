@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26f", date: "26 novembre 2026", title: "☰ Menu nuovo e meno scorrimento",
+    items: ["Menu rifatto a riquadri, con una barra per cercare: le voci stanno tutte in una schermata. Le impostazioni ora sono interruttori.",
+            "Pannello di invio più corto: le spiegazioni lunghe si aprono solo se le tocchi, e il tasto «Parti!» dice quale mezzo parte e tra quanti minuti arriva.",
+            "Sul telefono i riquadri con i numeri e i filtri stanno su una riga che scorre di lato, con meno spazi vuoti. Il tasto ↑ in basso a sinistra riporta in cima."],
+  },
+  {
     id: "2026-11-26e", date: "26 novembre 2026", title: "🧭 Pagine più facili da usare",
     items: ["Ogni pagina ha la stessa testata: torna indietro, icona, a cosa serve la pagina, soldi e scorciatoie alle pagine vicine.",
             "Garage diviso in schede: 🚑 I miei mezzi, 🛒 Compra e ⛽ Benzinaio. Le regole su chilometri e revisione stanno in un riquadro da aprire.",

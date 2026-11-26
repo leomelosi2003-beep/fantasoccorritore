@@ -461,7 +461,7 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           </div>
           <button onClick={onClose} style={{ ...btn, background: "rgba(0,0,0,.25)", padding: "4px 10px" }}>✕</button>
         </div>
-        <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 14, flexWrap: "wrap" }}>
+        <div className="fs-mp-chips" style={{ display: "flex", gap: 6, marginTop: 10, fontSize: 13.5, flexWrap: "wrap", fontWeight: 700 }}>
           <span>💶 {mission.reward_funds.toLocaleString("it-IT")} €</span>
           <span>🚑 {mission.slots_taken}/{mission.slots_total} mezzi</span>
           <span>⏱️ {contest ? "corsa in atto" : secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}` : "scaduto"}</span>
@@ -516,10 +516,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           </div>
         )}
         {isBoat && (
-          <div style={{ background: "#E0F2FE", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#0C4A6E" }}>
-            ⛵ <strong>Barca:</strong> parte dall&apos;ormeggio, recupera il paziente in mare e lo porta al porto più vicino,
+          <details style={{ background: "#E0F2FE", borderRadius: 10, padding: "8px 10px", marginBottom: 10, fontSize: 13, color: "#0C4A6E" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>⛵ Come funziona la barca</summary>
+            Parte dall&apos;ormeggio, recupera il paziente in mare e lo porta al porto più vicino,
             dove aspetta una tua ambulanza (max 15 minuti, altrimenti niente premio): sul porto compare una bandierina rossa «!». A bordo 1 bagnino e 1 o 2 soccorritori.
-          </div>
+          </details>
         )}
         {mission.category === "mare" && waiting && (
           <div style={{ background: "#E0F2FE", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#0C4A6E" }}>
@@ -527,10 +528,11 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
           </div>
         )}
         {isAm && !waiting && (
-          <div style={{ background: "#FEE2E2", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13, color: "#7F1D1D" }}>
+          <details style={{ background: "#FEE2E2", borderRadius: 10, padding: "8px 10px", marginBottom: 10, fontSize: 13, color: "#7F1D1D" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>{isMoto ? "🛵 Come funziona la moto" : "🩺 Come funziona l'automedica"}</summary>
             {isMoto ? <>🛵 <strong>Moto:</strong> a bordo 1 o 2 soccorritori (il secondo è facoltativo).</> : <>🩺 <strong>Automedica:</strong> a bordo 1 autista + 1 medico.</>} Arriva prima e si prende lo slot, poi aspetta una tua ambulanza
             (max 15 minuti, altrimenti rientra senza premio). {mission.code === "rosso" ? "Sul rosso segue l'ambulanza in ospedale." : "Sul giallo si libera all'arrivo dell'ambulanza."}
-          </div>
+          </details>
         )}
         {contest && (() => {
           const theirs = mission.first_arrival ? new Date(mission.first_arrival) : null;
@@ -548,20 +550,14 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
         })()}
 
         {support && (
-          <div style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
-            <strong>➕ Mezzo di supporto</strong><br />
+          <details style={{ background: "#EFF6FF", border: "2px solid #2563EB", borderRadius: 10, padding: "8px 10px", marginBottom: 10, fontSize: 13 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>➕ Mezzo di supporto: cosa succede</summary>
             Hai già {mission.my_vehicles} {mission.my_vehicles === 1 ? "ambulanza" : "ambulanze"} su questo servizio. Puoi mandarne un&apos;altra per arrivare prima degli altri:
             appena qualcuno arriva sul posto restano <strong>solo i primi {mission.slots_total} arrivati</strong>, le altre tornano in sede senza premio.
             {mission.code === "rosso" && " Sul codice rosso, con due mezzi tuoi il servizio è bloccato agli altri."}
-          </div>
+          </details>
         )}
 
-        {contest && (
-          <div style={{ background: "#FFEDD5", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 13 }}>
-            ⚔️ <strong>Posti già presi, ma nessuno è ancora arrivato.</strong> Se arrivi prima tu ti prendi lo slot:
-            l'ultima ambulanza ad arrivare senza posto torna in sede senza ricompensa.
-          </div>
-        )}
 
         {/* Requisiti */}
         <div style={{ fontSize: 13, background: "#f6f6f4", borderRadius: 10, padding: 10, marginBottom: 14 }}>
@@ -746,11 +742,12 @@ export default function MissionPanel({ mission, onClose, onClaimed }: {
       </div>
 
       {/* Partenza */}
-      <div style={{ padding: 16, borderTop: "1px solid #eee" }}>
+      <div className="fs-mp-go" style={{ padding: "12px 16px calc(12px + env(safe-area-inset-bottom))", borderTop: "1px solid #eee" }}>
         {error && <div style={{ color: "#B91C1C", fontSize: 14, marginBottom: 8 }}>{error}</div>}
         <button onClick={claim} disabled={!canGo}
                 style={{ ...btn, width: "100%", padding: 14, fontSize: 17, background: code.color, opacity: canGo ? 1 : 0.4 }}>
           {busy ? "Invio…" : full ? "Servizio già coperto" : support ? "➕ Manda in supporto" : contest ? "⚔️ Parti e arriva primo!" : secondsLeft <= 0 ? "Servizio scaduto" : isEvent ? "🏟️ Vai in postazione" : "🚨 Parti!"}
+          {canGo && !busy && eta && <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>{vehicles.find((x) => x.id === vehicleId)?.call_sign} · arriva in {eta.minutes} min · {eta.km} km</span>}
         </button>
       </div>
     </div>

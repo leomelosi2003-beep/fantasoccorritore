@@ -41,6 +41,16 @@ function Splash() {
 const NAV: [string, string, string][] = [
   ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["🔧", "Officina", "/officina"], ["👥", "Squadra", "/squadra"],
 ];
+function ToTop() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const on = () => setShow(window.scrollY > 600);
+    window.addEventListener("scroll", on, { passive: true }); on();
+    return () => window.removeEventListener("scroll", on);
+  }, []);
+  return <button className={`fs-totop${show ? " show" : ""}`} aria-label="Torna su" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>↑</button>;
+}
+
 const NO_CHROME = ["/login", "/onboarding", "/reset", "/recupero", "/maxi", "/admin"];
 
 export default function AppChrome() {
@@ -84,6 +94,7 @@ export default function AppChrome() {
     <>
       <style dangerouslySetInnerHTML={{ __html: MODERN_CSS + MODERN_CSS_V2 }} />
       <Splash />
+      {path !== "/" && <ToTop />}
       {help && (
         <button className={`fs-help-fab${fresh ? " pulse" : ""}`} onClick={openHelp} aria-label="Come funziona questa pagina" title="Come funziona">?</button>
       )}

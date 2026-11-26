@@ -240,6 +240,79 @@ ${D} main th { background: #17233D; color: #93A3BA; }
 ${D} .fs-chips > span { background: rgba(148,163,184,.16); }
 ${D} .fs-pill > span:first-child, ${D} .fs-pill > div:first-child { box-shadow: 0 0 0 2px #111A2E, 0 4px 10px rgba(0,0,0,.4); }
 
+
+/* ---------- menu a riquadri ---------- */
+.fs-drawer { width: min(360px, 92vw) !important; }
+.fs-menu-search { margin: 8px 12px 2px; width: calc(100% - 24px); box-sizing: border-box; padding: 10px 12px; border-radius: 14px; border: 1px solid #DCE4EF;
+  background: #F3F6FB; font: inherit; font-size: 14px; outline: none; }
+.fs-menu-search:focus { border-color: #3B82F6; box-shadow: 0 0 0 4px rgba(59,130,246,.18); }
+.fs-mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 2px 12px 4px; }
+.fs-mtile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 9px; border-radius: 16px;
+  border: 1px solid #E6ECF4 !important; background: #fff !important; cursor: pointer; font: inherit; color: #0B1B33 !important;
+  box-shadow: 0 2px 6px rgba(15,23,42,.05) !important; }
+.fs-mtile:hover { border-color: #BFD3F5 !important; box-shadow: 0 8px 18px rgba(37,99,235,.14) !important; }
+.fs-mtile-ico { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 21px;
+  box-shadow: 0 6px 14px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.3); }
+.fs-mtile-l { font-size: 12px; font-weight: 700; line-height: 1.15; text-align: center; }
+.fs-mtile-b { position: absolute; top: 4px; right: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #E11D48; color: #fff;
+  font-size: 11px; display: grid; place-items: center; box-shadow: 0 0 0 2px #fff; animation: fsBadge 1.8s ease-in-out infinite; }
+@keyframes fsBadge { 0%,100% { transform: scale(1) } 50% { transform: scale(1.15) } }
+.fs-mset { margin: 2px 12px 6px; padding: 6px; border-radius: 16px; background: #F3F6FB; }
+.fs-mset-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 8px; border: none !important; background: transparent !important;
+  font: inherit; font-size: 14px; font-weight: 600; color: #0B1B33 !important; cursor: pointer; border-radius: 12px; box-shadow: none !important; text-align: left; }
+.fs-mset-btn { flex: 1; padding: 9px; border-radius: 12px; border: 1px solid #DCE4EF !important; background: #fff !important; color: #0B1B33 !important;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: none !important; }
+.fs-switch { width: 40px; height: 24px; border-radius: 99px; background: #CBD5E1; position: relative; flex-shrink: 0; transition: background .2s; }
+.fs-switch i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.25); transition: left .2s cubic-bezier(.3,1.4,.5,1); }
+.fs-switch.on { background: #22C55E; } .fs-switch.on i { left: 19px; }
+.fs-switch.mid { background: #60A5FA; } .fs-switch.mid i { left: 11px; }
+${D} .fs-menu-search { background: #0D1424 !important; border-color: rgba(148,163,184,.2) !important; color: #E6EDF7; }
+${D} .fs-mtile { background: #111A2E !important; border-color: rgba(148,163,184,.14) !important; color: #E6EDF7 !important; }
+${D} .fs-mtile-b { box-shadow: 0 0 0 2px #111A2E; }
+${D} .fs-mset { background: #0D1424; }
+${D} .fs-mset-row { color: #E6EDF7 !important; }
+${D} .fs-mset-btn { background: #111A2E !important; border-color: rgba(148,163,184,.18) !important; color: #E6EDF7 !important; }
+${D} .fs-switch { background: #334155; }
+
+
+/* ---------- pannello invio ---------- */
+.fs-mp-chips > span { background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 4px 10px; }
+.fs-mpanel { border-radius: 24px 0 0 24px; overflow: hidden; }
+.fs-mpanel > div:first-child { background-image: linear-gradient(135deg, rgba(255,255,255,.2), transparent 60%) !important; }
+.fs-mp-go { background: rgba(255,255,255,.9); backdrop-filter: blur(10px); }
+.fs-mp-go button { border-radius: 16px !important; box-shadow: 0 10px 24px rgba(0,0,0,.22) !important; }
+.fs-mpanel details > summary { list-style: none; } .fs-mpanel details > summary::after { content: " ▾"; opacity: .6; }
+.fs-mpanel details[open] > summary { margin-bottom: 4px; }
+${D} .fs-mpanel { background: #0D1424 !important; }
+${D} .fs-mp-go { background: rgba(13,20,36,.92); border-top-color: rgba(148,163,184,.14) !important; }
+@media (max-width: 640px) { .fs-mpanel { border-radius: 0; } }
+
+/* ---------- meno scorrimento sul telefono ---------- */
+@media (max-width: 640px) {
+  /* riquadri di riepilogo (numeri): una sola riga che scorre di lato invece di 2-3 righe */
+  main div[style*="grid-template-columns: repeat(auto-fit, minmax(118px"], main div[style*="grid-template-columns: repeat(auto-fit, minmax(120px"],
+  main div[style*="grid-template-columns: repeat(auto-fit, minmax(130px"], main div[style*="grid-template-columns: repeat(auto-fit, minmax(150px"] {
+    display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; gap: 8px !important; }
+  main div[style*="grid-template-columns: repeat(auto-fit, minmax(118px"] > *, main div[style*="grid-template-columns: repeat(auto-fit, minmax(120px"] > *,
+  main div[style*="grid-template-columns: repeat(auto-fit, minmax(130px"] > *, main div[style*="grid-template-columns: repeat(auto-fit, minmax(150px"] > * {
+    flex: 0 0 auto; min-width: 112px; scroll-snap-align: start; }
+  /* file di filtri a pastiglia: una riga che scorre di lato */
+  main div[style*="flex-wrap: wrap"]:has(> button[style*="border-radius: 999px"] ~ button[style*="border-radius: 999px"] ~ button[style*="border-radius: 999px"]) {
+    flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+  main div[style*="flex-wrap: wrap"]:has(> button[style*="border-radius: 999px"] ~ button[style*="border-radius: 999px"] ~ button[style*="border-radius: 999px"]) > * { flex-shrink: 0; white-space: nowrap; }
+  /* spazi più stretti */
+  main > div[style*="max-width"] { padding-left: 10px !important; padding-right: 10px !important; padding-top: 4px !important; }
+  main [style*="padding: 16px"][style*="border-radius"] { padding: 12px !important; }
+  main [style*="margin-bottom: 16px"] { margin-bottom: 10px !important; }
+  main h2 { font-size: 18px !important; margin: 14px 2px 8px !important; }
+  .fs-ph { margin-bottom: 8px; }
+}
+/* torna su */
+.fs-totop { position: fixed; left: 14px; bottom: calc(var(--fs-nav-h, 0px) + 16px + env(safe-area-inset-bottom)); z-index: 1200; width: 44px; height: 44px;
+  border-radius: 50%; border: none; background: linear-gradient(135deg, #3B82F6, #1E3A8A); color: #fff; font-size: 20px; cursor: pointer;
+  box-shadow: 0 10px 24px rgba(30,58,138,.35); opacity: 0; transform: translateY(14px) scale(.8); pointer-events: none; transition: all .25s ease !important; }
+.fs-totop.show { opacity: 1; transform: none; pointer-events: auto; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }
