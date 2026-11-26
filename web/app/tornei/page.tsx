@@ -20,6 +20,7 @@ type Match = {
 };
 type Detail = { id: number; kind: Kind; title: string; status: TItem["status"]; starts_at: string; rounds: number | null; size: number | null;
   current_round: number; prize: number; entry_fee: number; me: string; entries: Org[]; matches: Match[] };
+type BoardRow = { id: string; name: string; type: string; logo_url: string | null; wins: number; finals: number; semis: number; challenges: number; points: number; me: boolean };
 type Challenge = {
   id: number; kind: Kind; stake: number; status: "in_attesa" | "in_corso" | "finita" | "rifiutata" | "scaduta" | "annullata";
   created_at: string; starts_at: string | null; ends_at: string | null; mine: boolean; winner: string | null; me: string;
@@ -63,7 +64,8 @@ function roundName(r: number, rounds: number) {
 }
 
 export default function Tornei() {
-  const [tab, setTab] = useState<"tornei" | "sfide">("tornei");
+  const [tab, setTab] = useState<"tornei" | "sfide" | "classifica">("tornei");
+  const [board, setBoard] = useState<BoardRow[] | null>(null);
   const [demo, setDemo] = useState<number | null>(null); // inizio della simulazione (ms)
   const [list, setList] = useState<TItem[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -101,7 +103,7 @@ export default function Tornei() {
   useEffect(() => {
     loadList(); loadChs(); loadFunds();
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
-    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("demo")) setDemo(Date.now()); } catch {}
+    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } if (q.get("demo")) setDemo(Date.now()); } catch {}
     const t1 = setInterval(() => setNow(Date.now()), 250);
     const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); } }, 30000);
     return () => { clearInterval(t1); clearInterval(t2); };
@@ -135,8 +137,8 @@ export default function Tornei() {
       <PageHeader icon="⚔️" title="Tornei e sfide" tone="purple" funds={funds}
         sub="Ogni incontro dura 1 ora: vince chi conclude più servizi del tipo richiesto"
         tabs={[{ key: "tornei", label: "🏆 Tornei", badge: openT.filter((t) => !t.joined).length || null },
-               { key: "sfide", label: "⚔️ Sfide 1 contro 1", badge: incoming || live || null }]}
-        tab={tab} onTab={(k) => setTab(k as "tornei" | "sfide")}
+               { key: "sfide", label: "⚔️ Sfide 1 contro 1", badge: incoming || live || null }, { key: "classifica", label: "🏅 Classifica" }]}
+        tab={tab} onTab={(k) => { setTab(k as "tornei" | "sfide" | "classifica"); if (k === "classifica") supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); }}
         links={[{ href: "/classifica", label: "🏆 Classifica" }, { href: "/obiettivi", label: "🎯 Obiettivi" }]} />
       <div style={wrap}>
         {msg && <div style={{ ...card, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 700 }}>{msg.text}</div>}
@@ -217,6 +219,42 @@ export default function Tornei() {
                   </button>
                 ))}
               </div>
+            )}
+          </>
+        )}
+
+        {tab === "classifica" && (
+          <>
+            <div style={{ ...card, padding: "10px 14px", fontSize: 13, color: "#475569" }}>
+              Punti: 🏆 torneo vinto 10 · 🥈 finale 5 · 🥉 semifinale 2 · ⚔️ sfida vinta 1
+            </div>
+            {board === null && <div style={card}>Caricamento…</div>}
+            {board && board.length === 0 && <div style={{ ...card, textAlign: "center", color: "#64748B" }}>Ancora nessun torneo concluso: il primo campione potresti essere tu!</div>}
+            {board && board.length > 0 && (
+              <>
+                <div className="fs-tb-podium">
+                  {[1, 0, 2].map((i) => board[i] && (
+                    <div key={board[i].id} className={`fs-tb-p p${i + 1}${board[i].me ? " me" : ""}`}>
+                      <span className="fs-tb-medal">{["🥇", "🥈", "🥉"][i]}</span>
+                      <FactionEmblem type={board[i].type as never} size={i === 0 ? 64 : 50} logo={board[i].logo_url} />
+                      <b>{board[i].name}</b>
+                      <small>🏆 {board[i].wins} · {board[i].points} punti</small>
+                      <i style={{ height: [110, 80, 60][i] }}>{i + 1}</i>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                  {board.map((r, i) => (
+                    <div key={r.id} className={`fs-tb-row${r.me ? " me" : ""}`}>
+                      <span className="fs-tb-pos">{i + 1}</span>
+                      <FactionEmblem type={r.type as never} size={32} logo={r.logo_url} />
+                      <span className="fs-tb-name">{r.name}</span>
+                      <span className="fs-tb-stats"><span title="Tornei vinti">🏆 {r.wins}</span><span title="Finali">🥈 {r.finals}</span><span title="Semifinali">🥉 {r.semis}</span><span title="Sfide vinte">⚔️ {r.challenges}</span></span>
+                      <b className="fs-tb-pts">{r.points}</b>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}
@@ -472,6 +510,24 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
 }
 
 const CSS = `
+.fs-tb-podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin: 6px 0 14px; padding: 18px 10px 0; border-radius: 24px;
+  background: radial-gradient(circle at 50% 0%, rgba(253,224,71,.35), transparent 60%), linear-gradient(160deg, #2E1065, #0B1B33); overflow: hidden; }
+.fs-tb-p { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; text-align: center; min-width: 0; }
+.fs-tb-p b { font-size: 13.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-tb-p small { font-size: 11.5px; opacity: .85; font-weight: 700; }
+.fs-tb-p i { font-style: normal; width: 100%; margin-top: 6px; border-radius: 14px 14px 0 0; display: grid; place-items: center; font-size: 28px; font-weight: 900;
+  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.06)); }
+.fs-tb-p.p1 i { background: linear-gradient(180deg, #FDE047, #CA8A04); color: #713F12; }
+.fs-tb-medal { font-size: 28px; } .fs-tb-p.p1 .fs-tb-medal { font-size: 36px; animation: fsBadge 2s ease-in-out infinite; }
+.fs-tb-p.me b { color: #FDE047; }
+.fs-tb-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid #EEF2F7; }
+.fs-tb-row:first-child { border-top: none; } .fs-tb-row.me { background: #F5F3FF; }
+.fs-tb-pos { width: 28px; text-align: center; font-weight: 900; color: #6D28D9; }
+.fs-tb-name { flex: 1; min-width: 0; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-tb-stats { display: flex; gap: 8px; font-size: 12.5px; font-weight: 700; color: #475569; }
+.fs-tb-pts { min-width: 44px; text-align: right; font-size: 17px; color: #6D28D9; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .fs-tb-stats span:nth-child(n+3) { display: none; } }
+html.dark .fs-tb-row { border-color: rgba(148,163,184,.12); } html.dark .fs-tb-row.me { background: #251C47; } html.dark .fs-tb-stats { color: #A8B4C7; }
 .fs-sim-open { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 14px; border: none !important; border-radius: 20px;
   background: linear-gradient(135deg, #A78BFA, #5B21B6) !important; color: #fff !important; font: inherit; cursor: pointer; box-shadow: 0 12px 28px rgba(91,33,182,.3) !important; }
 .fs-sim-open > span:first-child { font-size: 30px; } .fs-sim-open b, .fs-sim-open small { display: block; } .fs-sim-open b { font-size: 16px; } .fs-sim-open small { opacity: .9; font-weight: 600; }

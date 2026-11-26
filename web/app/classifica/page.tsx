@@ -264,6 +264,7 @@ export default function Classifica() {
           {TABS.map((x) => tabBtn(view === "tab" && tab === x.key, x.th, x.icon, x.label, () => { setTab(x.key); setView("tab"); setShowAll(false); }, x.key))}
           {tabBtn(view === "ally", ALLY_TH, "🤝", "Alleanze", () => setView("ally"), "ally")}
           {tabBtn(view === "liv", LIV_TH, "🎨", "Livree", () => setView("liv"), "liv")}
+          {tabBtn(false, LIV_TH, "⚔️", "Tornei", () => router.push("/tornei?tab=classifica"), "tornei")}
         </div>
 
         {view === "liv" && <LiveryContest />}

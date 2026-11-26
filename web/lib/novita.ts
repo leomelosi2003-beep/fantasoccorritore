@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26n", date: "26 novembre 2026", title: "🏅 Classifica dei tornei e simulazione",
+    items: ["Nuova classifica di chi vince più tornei (Tornei e sfide → 🏅 Classifica, oppure dalla Classifica → ⚔️ Tornei): torneo vinto 10 punti, finale 5, semifinale 2, sfida vinta 1.",
+            "Nella pagina dei tornei c'è «▶️ Guarda una simulazione»: un torneo di 6 ore mostrato in 50 secondi, con il tabellone che avanza."],
+  },
+  {
     id: "2026-11-26m", date: "26 novembre 2026", title: "⚔️ Arrivano i TORNEI e le SFIDE!",
     items: ["Tornei a eliminazione diretta ogni giorno alle 9, alle 15 e alle 21: di codici rossi, gialli, verdi oppure ordinari. Iscrizioni 3 ore prima (100.000 €, vanno nel montepremi).",
             "Ogni incontro dura 1 ora: passa il turno chi conclude più servizi del tipo del torneo. Tabellone in diretta con i punteggi che si aggiornano; fino a 64 associazioni = 6 ore.",
