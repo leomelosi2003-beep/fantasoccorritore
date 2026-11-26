@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase, friendlyError } from "@/lib/supabase";
 import { page, card, input, button, errorBox } from "@/lib/ui";
+import PageHeader from "@/components/PageHeader";
 
 // Cambio password da dentro il gioco (utente già collegato). Menu → Impostazioni → Cambia password.
 export default function CambiaPassword() {
@@ -37,10 +38,9 @@ export default function CambiaPassword() {
   }
 
   return (
-    <main style={page}>
-      <div style={card}>
-        <a href="/" style={{ color: "#64748B", fontSize: 14, textDecoration: "none" }}>← Torna al gioco</a>
-        <h1 style={{ margin: "10px 0 6px", fontSize: 22 }}>🔑 Cambia password</h1>
+    <main style={{ ...page, display: "block", padding: 0 }}>
+      <PageHeader icon="🔑" title="Cambia password" tone="slate" sub="Scegli una password nuova per il tuo account" />
+      <div style={{ ...card, margin: "0 auto", maxWidth: 420 }}>
         {email && <p style={{ marginTop: 0, color: "#555", fontSize: 14 }}>Account: <b>{email}</b></p>}
 
         {done ? (
@@ -58,7 +58,7 @@ export default function CambiaPassword() {
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, color: "#555", margin: "0 0 12px" }}>
               <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Mostra password
             </label>
-            <button style={{ ...button, background: "#F97316", opacity: busy ? 0.6 : 1 }} disabled={busy}>
+            <button style={{ ...button, background: "linear-gradient(135deg,#3B82F6,#1E3A8A)", borderRadius: 14, opacity: busy ? 0.6 : 1 }} disabled={busy}>
               {busy ? "Attendi…" : "Salva la nuova password"}
             </button>
           </form>

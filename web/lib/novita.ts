@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26h", date: "26 novembre 2026", title: "🗺️ Mappa a tutto schermo, Chat nella barra e pagine rinnovate",
+    items: ["Sul telefono la mappa arriva fino in fondo: la barra in basso galleggia sopra, senza la striscia bianca. Filtri e legenda stanno in basso, appena sopra la barra.",
+            "Nella barra in basso c'è 💬 Chat al posto di Officina (che trovi nel menu e nel Garage), col pallino rosso se hai messaggi nuovi.",
+            "Obiettivi a carte con l'anello di avanzamento; Statistiche e Fatturato con numeri grandi; Sedi, Personale e Negozio divisi in schede; Novità come linea del tempo; Automatica più chiara.",
+            "Nuova schermata di accesso con le schede Accedi / Registrati. Sul PC l'elenco dei volontari sta su due colonne."],
+  },
+  {
     id: "2026-11-26g", date: "26 novembre 2026", title: "🎨 Icone disegnate, barra laterale sul PC e siamo in BETA!",
     items: ["Il gioco passa in BETA: l'etichetta «ALPHA TEST» in basso non c'è più, ora c'è una piccola scritta BETA nel menu.",
             "Nuove icone disegnate (ambulanza, squadra, officina, sede, coppa…) nel menu, nelle testate delle pagine e nella barra in basso.",

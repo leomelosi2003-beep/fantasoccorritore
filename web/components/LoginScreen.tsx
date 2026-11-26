@@ -63,10 +63,23 @@ export default function LoginScreen() {
                      letterSpacing: "-0.02em", textAlign: "center", textShadow: "0 4px 24px rgba(0,0,0,.6)" }}>
           Fanta<span style={{ color: "#F97316" }}>Soccorritore</span>
         </h1>
+        <div style={{ marginTop: -10, color: "rgba(255,255,255,.92)", fontWeight: 600, fontSize: 15, textAlign: "center", textShadow: "0 2px 10px rgba(0,0,0,.6)" }}>
+          Gestisci la tua associazione di soccorso · <span style={{ background: "linear-gradient(135deg,#22D3EE,#2563EB)", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 900, letterSpacing: ".08em" }}>BETA</span>
+        </div>
 
         <form onSubmit={submit}
-              style={{ width: "100%", maxWidth: 380, background: "rgba(255,255,255,.92)", backdropFilter: "blur(8px)",
-                       borderRadius: 16, padding: 22, boxShadow: "0 10px 40px rgba(0,0,0,.5)", boxSizing: "border-box" }}>
+              style={{ width: "100%", maxWidth: 400, background: "rgba(255,255,255,.94)", backdropFilter: "blur(14px)",
+                       borderRadius: 26, padding: 22, boxShadow: "0 24px 60px rgba(0,0,0,.5)", boxSizing: "border-box", border: "1px solid rgba(255,255,255,.6)" }}>
+          <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 16, background: "#EEF2F7", marginBottom: 16 }}>
+            {(["accedi", "registrati"] as const).map((m) => (
+              <button key={m} type="button" onClick={() => { setMode(m); setError(null); }}
+                      style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 12, font: "inherit", fontWeight: 800, fontSize: 15, cursor: "pointer",
+                               background: mode === m ? "#fff" : "transparent", color: mode === m ? "#0B1B33" : "#64748B",
+                               boxShadow: mode === m ? "0 4px 12px rgba(15,23,42,.12)" : "none" }}>
+                {m === "accedi" ? "🔑 Accedi" : "🚑 Registrati"}
+              </button>
+            ))}
+          </div>
           {error && <div style={errorBox}>{error}</div>}
           {info && <div style={{ background: "#eefbf0", color: "#15803D", border: "1px solid #b7e2c1", borderRadius: 10, padding: "10px 12px", fontSize: 14, marginBottom: 12 }}>{info}</div>}
 
@@ -76,7 +89,7 @@ export default function LoginScreen() {
                  autoComplete={mode === "accedi" ? "current-password" : "new-password"}
                  value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
 
-          <button style={{ ...button, background: "#F97316", opacity: busy ? 0.6 : 1 }} disabled={busy}>
+          <button style={{ ...button, background: "linear-gradient(135deg,#FB923C,#E11D48)", borderRadius: 14, boxShadow: "0 10px 24px rgba(225,29,72,.35)", opacity: busy ? 0.6 : 1 }} disabled={busy}>
             {busy ? "Attendi…" : mode === "accedi" ? "Entra in servizio" : "Arruolati"}
           </button>
 

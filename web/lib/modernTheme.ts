@@ -447,6 +447,42 @@ ${L} main div[style*="border-radius: 14px"][style*="rgb(255, 255, 255)"], ${L} m
 /* righe delle liste: passaggio del mouse */
 @media (hover: hover) { main [style*="border-top: 1px solid rgb(240, 240, 240)"]:hover { background: #F8FAFD; } }
 
+
+/* ---------- intestazioni dei gruppi (sedi, tipi di mezzo) in Garage e Officina ---------- */
+main button[style*="linear-gradient(135deg,#1D3D6B,#13294B)"], main button[style*="linear-gradient(135deg, rgb(29, 61, 107), rgb(19, 41, 75))"] {
+  background: linear-gradient(135deg, #3B82F6, #1E3A8A) !important; border-radius: 16px !important; padding: 12px 16px !important;
+  box-shadow: 0 8px 20px rgba(30,58,138,.25) !important; }
+main div[style*="linear-gradient(135deg,#1D3D6B,#13294B)"], main div[style*="linear-gradient(135deg, rgb(29, 61, 107), rgb(19, 41, 75))"] {
+  background: radial-gradient(circle at 90% -20%, rgba(255,255,255,.22), transparent 45%), linear-gradient(135deg, #3B82F6, #1E3A8A) !important; border-radius: 22px !important;
+  box-shadow: 0 12px 28px rgba(30,58,138,.28) !important; }
+${D} main button[style*="linear-gradient(135deg,#1D3D6B,#13294B)"], ${D} main button[style*="linear-gradient(135deg, rgb(29, 61, 107), rgb(19, 41, 75))"] {
+  background: linear-gradient(135deg, #1D4ED8, #172554) !important; }
+
+
+/* ---------- squadra: elenco volontari su due colonne sul PC ---------- */
+@media (min-width: 1000px) { .fs-vlist { column-count: 2; column-gap: 0; column-rule: 1px solid #EEF2F7; } .fs-vrow { break-inside: avoid; } }
+.fs-vrow > button:hover { background: #F5F8FC !important; }
+${D} .fs-vlist { column-rule-color: rgba(148,163,184,.12); } ${D} .fs-vrow > button:hover { background: #17233D !important; }
+
+
+/* ---------- mappa a tutto schermo sotto la barra galleggiante (telefono) ---------- */
+@media (max-width: 760px) {
+  body.fs-has-nav .fs-map { height: 100vh !important; height: 100dvh !important; }
+  body.fs-has-nav .fs-chat-btn { display: none !important; }
+  body.fs-has-nav .fs-legend { bottom: calc(var(--fs-nav-h) + 14px + env(safe-area-inset-bottom)) !important; }
+  body.fs-has-nav .fs-map .leaflet-bottom { bottom: calc(var(--fs-nav-h) + env(safe-area-inset-bottom)) !important; }
+  body.fs-has-nav .fs-toast { bottom: calc(var(--fs-nav-h) + 62px + env(safe-area-inset-bottom)) !important; }
+  body.fs-has-nav .fs-first { bottom: calc(var(--fs-nav-h) + 60px + env(safe-area-inset-bottom)) !important; }
+  body.fs-has-nav .fs-chat { bottom: calc(var(--fs-nav-h) + 16px + env(safe-area-inset-bottom)) !important; height: 58vh !important; z-index: 1245; }
+  body.fs-has-nav .fs-help-fab { bottom: calc(var(--fs-nav-h) + 14px + env(safe-area-inset-bottom)) !important; }
+  .fs-legend-btn { padding: 9px 14px !important; font-size: 13.5px !important; }
+}
+.fs-nav-chat { position: relative; }
+body.fs-chat-unread .fs-nav-chat .ico::after { content: ""; position: absolute; top: 4px; margin-left: 24px; width: 10px; height: 10px; border-radius: 50%;
+  background: #E11D48; box-shadow: 0 0 0 2px #fff; animation: fsBadge 1.8s ease-in-out infinite; }
+body.fs-chat-open .fs-nav-chat { color: var(--m-blue, #2563EB) !important; }
+body.fs-chat-open .fs-nav-chat .ico svg { filter: drop-shadow(0 4px 8px rgba(37,99,235,.35)) !important; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }

@@ -162,6 +162,11 @@ const ICONS: Record<string, Def> = {
     <path d="M24 40S6 29 6 17a9 9 0 0 1 18-2 9 9 0 0 1 18 2c0 12-18 23-18 23z" fill={W} />
     <path d="M12 23h6l3-5 4 10 3-5h8" stroke={R} strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
   </> },
+  chat: { bg: ["#60A5FA", "#1D4ED8"], draw: <>
+    <path d="M8 10h24a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H18l-7 6v-6H8a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4z" fill={W} />
+    <path d="M38 18h2a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-2v5l-6-5h-8a4 4 0 0 1-3-1.5" fill="#BFDBFE" />
+    <circle cx="13" cy="20" r="2.4" fill="#2563EB" /><circle cx="20" cy="20" r="2.4" fill="#2563EB" /><circle cx="27" cy="20" r="2.4" fill={Y} />
+  </> },
   book: { bg: ["#60A5FA", "#1D4ED8"], draw: <>
     <path d="M24 12c-5-4-12-4-18-2v28c6-2 13-2 18 2z" fill={W} /><path d="M24 12c5-4 12-4 18-2v28c-6-2-13-2-18 2z" fill="#DBEAFE" />
     <path d="M24 12v28" stroke="#93C5FD" strokeWidth="2" />
@@ -173,7 +178,7 @@ const EMOJI: Record<string, string> = {
   "🚑": "ambulance", "👥": "team", "🔧": "wrench", "🏠": "house", "🤖": "robot", "🖌️": "brush", "🎯": "target", "🔁": "transfer",
   "📰": "news", "🆕": "sparkle", "🏆": "trophy", "🪪": "idcard", "🛒": "medbag", "🏷️": "tag", "💼": "briefcase", "🤝": "shield",
   "🔗": "link", "📢": "megaphone", "🔎": "search", "📊": "coins", "📈": "chart", "🏢": "building", "🛠️": "gear", "🗺️": "map",
-  "⛽": "fuel", "📖": "book", "💝": "heart",
+  "⛽": "fuel", "📖": "book", "💝": "heart", "💬": "chat",
 };
 export const iconFor = (k: string) => (ICONS[k] ? k : EMOJI[k]) ?? null;
 

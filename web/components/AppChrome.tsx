@@ -42,7 +42,7 @@ function Splash() {
 }
 
 const NAV: [string, string, string][] = [
-  ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["🔧", "Officina", "/officina"], ["👥", "Squadra", "/squadra"],
+  ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["💬", "Chat", "__chat__"], ["👥", "Squadra", "/squadra"],
 ];
 function DesktopRail({ path }: { path: string }) {
   const router = useRouter();
@@ -149,7 +149,17 @@ export default function AppChrome() {
       {showNav && (
         <nav className="fs-nav" aria-label="Sezioni principali">
           {NAV.map(([ico, label, href]) => (
-            <a key={href} href={href} className={path === href ? "on" : ""} onClick={(e) => { e.preventDefault(); router.push(href); }}>
+            <a key={href} href={href === "__chat__" ? "/" : href} className={`${path === href ? "on" : ""}${href === "__chat__" ? " fs-nav-chat" : ""}`}
+               onClick={(e) => {
+                 e.preventDefault();
+                 if (href === "__chat__") {
+                   const b = document.querySelector(".fs-chat-btn") as HTMLButtonElement | null;
+                   if (path === "/" && b) b.click();
+                   else { try { sessionStorage.setItem("fs_open_chat", "1"); } catch {} router.push("/"); }
+                   return;
+                 }
+                 router.push(href);
+               }}>
               <span className="ico"><AppIcon name={ico} size={30} radius={10} /></span>{label}
             </a>
           ))}

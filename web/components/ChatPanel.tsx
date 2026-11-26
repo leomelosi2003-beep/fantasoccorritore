@@ -88,6 +88,11 @@ export default function ChatPanel({ orgId }: { orgId: string }) {
     loadMsgs();
   }
 
+  // barra in basso: pallino dei non letti, chat aperta, apertura chiesta da un'altra pagina
+  useEffect(() => { document.body.classList.toggle("fs-chat-unread", !!anyUnread); return () => document.body.classList.remove("fs-chat-unread"); }, [anyUnread]);
+  useEffect(() => { document.body.classList.toggle("fs-chat-open", open); return () => document.body.classList.remove("fs-chat-open"); }, [open]);
+  useEffect(() => { try { if (sessionStorage.getItem("fs_open_chat")) { sessionStorage.removeItem("fs_open_chat"); setOpen(true); } } catch {} }, []);
+
   return (
     <>
       <button className="fs-chat-btn" onClick={() => setOpen(!open)} aria-label="Chat">

@@ -445,7 +445,7 @@ export default function Squadra() {
             </div>
           ))}</div>
         ) : (
-          <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+          <div className="fs-vlist" style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
             {shown.map((c, i) => {
               const lv = cardLevel(c.services_completed ?? 0);
               const rest = c.state === "riposo" && c.rest_until && new Date(c.rest_until) > new Date();
@@ -453,7 +453,7 @@ export default function Squadra() {
                 : c.training_until && new Date(c.training_until) > new Date() ? ["📚", "Corso", "#7C3AED"] : ["●", "Pronto", "#16A34A"];
               const isOpen = open === c.id;
               return (
-                <div key={c.id} style={{ borderTop: i ? "1px solid #f0f0f0" : "none" }}>
+                <div key={c.id} className="fs-vrow" style={{ borderTop: i ? "1px solid #f0f0f0" : "none" }}>
                   <button onClick={() => setOpen(isOpen ? null : c.id)}
                           style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", border: "none",
                                    background: isOpen ? "#f6f6f4" : "transparent", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit" }}>
