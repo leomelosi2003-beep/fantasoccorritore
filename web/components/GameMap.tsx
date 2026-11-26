@@ -967,6 +967,10 @@ export default function GameMap() {
       const open = Array.from(new Set(runs.map((r) => r.grp))).filter((g) => !runs.some((r) => r.grp === g && r.my_vote) && runs.some((r) => r.grp === g && !r.mine));
       const { data: pr } = await supabase.rpc("my_press_request");
       if (((pr as unknown[]) ?? []).length) list.push({ id: "press-request", href: "/notizie", text: "🎙️ Il FantaGiornale 24 vuole intervistarvi: rispondete alle domande per finire in prima pagina!" });
+      const { data: ca } = await supabase.rpc("my_contest_alerts");
+      const al = (ca as { challenges_in: number; live: number } | null);
+      if (al?.challenges_in) list.push({ id: "challenge-in", href: "/tornei?tab=sfide", text: `⚔️ ${al.challenges_in === 1 ? "Un'associazione ti ha sfidato" : `Hai ${al.challenges_in} sfide`}: accetta entro 30 minuti!` });
+      if (al?.live) list.push({ id: "contest-live", href: "/tornei", text: `🔥 Hai ${al.live === 1 ? "un incontro" : `${al.live} incontri`} in corso: manda più servizi che puoi!` });
       if (open.length) list.push({ id: "livery-runoff", href: "/classifica?livree=1", text: "⚖️ Pareggio nel concorso livree: vota la più bella tra le livree a pari voti!" });
       setNotes(list);
     }

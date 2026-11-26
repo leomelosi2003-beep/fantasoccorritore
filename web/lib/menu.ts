@@ -7,7 +7,7 @@ export const MENU: [string, MenuItem[]][] = [
   ]],
   ["Ogni giorno", [
     ["🎯", "Obiettivi", "/obiettivi"], ["🔁", "Trasferimenti", "/trasferimenti"], ["📰", "Giornale 24", "/notizie"],
-    ["🆕", "Novità", "/novita"], ["🏆", "Classifica", "/classifica"], ["🪪", "Il mio profilo", "/associazione"],
+    ["🆕", "Novità", "/novita"], ["⚔️", "Tornei e sfide", "/tornei"], ["🏆", "Classifica", "/classifica"], ["🪪", "Il mio profilo", "/associazione"],
   ]],
   ["Compra e vendi", [["🛒", "Presidi", "/negozio"], ["🏷️", "Usato e aste", "/usate"], ["💼", "Offerte", "/offerte"]]],
   ["Altre associazioni", [["🤝", "Alleanza", "/alleanza"], ["🔗", "Gemellaggio", "/gemellaggio"], ["📢", "Personale", "/personale"], ["🔎", "Profili", "/profili"]]],

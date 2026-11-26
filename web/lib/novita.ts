@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26m", date: "26 novembre 2026", title: "⚔️ Arrivano i TORNEI e le SFIDE!",
+    items: ["Tornei a eliminazione diretta ogni giorno alle 9, alle 15 e alle 21: di codici rossi, gialli, verdi oppure ordinari. Iscrizioni 3 ore prima (100.000 €, vanno nel montepremi).",
+            "Ogni incontro dura 1 ora: passa il turno chi conclude più servizi del tipo del torneo. Tabellone in diretta con i punteggi che si aggiornano; fino a 64 associazioni = 6 ore.",
+            "Premi: 60% al vincitore, 25% al finalista, 7,5% ai semifinalisti.",
+            "Sfide 1 contro 1: scegli un'associazione, il tipo di servizi e la posta (anche solo per l'onore). Dura 1 ora, chi vince prende tutto. Menu → Tornei e sfide."],
+  },
+  {
     id: "2026-11-26l", date: "26 novembre 2026", title: "🔎 Garage con ricerca e grafica nuova ovunque",
     items: ["Garage: barra per cercare un mezzo per nome, modello o sede; filtri per tipo a pastiglie; di base tutti i mezzi insieme (puoi sempre raggruppare per sede o per tipo). Il riepilogo (pronti, in servizio, in officina) è nella testata.",
             "In tutte le pagine: sfondo azzurrino, riquadri più arrotondati con ombra morbida, tasti blu sfumati e le scelte attive in blu invece che nere."],
