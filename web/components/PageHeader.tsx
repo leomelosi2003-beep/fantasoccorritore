@@ -3,6 +3,7 @@
 // collegamenti alle pagine vicine e schede. Resta in alto mentre si scorre.
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import AppIcon, { iconFor } from "@/components/AppIcon";
 
 export type PHTab = { key: string; label: string; badge?: string | number | null };
 export type PHLink = { href: string; label: string; badge?: string | number | null; hot?: boolean };
@@ -26,6 +27,7 @@ export const PH_CSS = `
 .fs-ph-back b { font-size: 18px; line-height: 1; }
 .fs-ph-ico { width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0; display: grid; place-items: center; font-size: 22px;
   background: rgba(255,255,255,.95); box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+.fs-ph-icon { flex-shrink: 0; border-radius: 14px; box-shadow: 0 0 0 2px rgba(255,255,255,.55), 0 8px 18px rgba(0,0,0,.22); line-height: 0; }
 .fs-ph-t { flex: 1; min-width: 0; }
 .fs-ph-t h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fs-ph-t p { margin: 2px 0 0; font-size: 12.5px; opacity: .86; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -50,6 +52,7 @@ export const PH_CSS = `
   .fs-ph-back span { display: none; }
   .fs-ph-back { width: 38px; justify-content: center; padding: 0; }
   .fs-ph-ico { width: 36px; height: 36px; font-size: 19px; border-radius: 12px; }
+  .fs-ph-icon svg { width: 38px; height: 38px; }
   .fs-ph-t h1 { font-size: 17px; }
   .fs-ph-t p { -webkit-line-clamp: 1; }
   .fs-ph-funds { font-size: 12.5px; padding: 6px 9px; }
@@ -77,7 +80,7 @@ export default function PageHeader({
               <b>←</b><span>{backLabel}</span>
             </button>
           )}
-          <div className="fs-ph-ico">{icon}</div>
+          {typeof icon === "string" && iconFor(icon) ? <span className="fs-ph-icon"><AppIcon name={icon} size={46} /></span> : <div className="fs-ph-ico">{icon}</div>}
           <div className="fs-ph-t">
             <h1>{title}</h1>
             {sub && <p>{sub}</p>}

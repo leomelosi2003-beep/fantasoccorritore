@@ -24,6 +24,9 @@ import { shuttleState, shuttleTravelS, distKm } from "@/lib/maxiShuttle";
 import { notify, notifyOn, notifySupported, setNotifyOn } from "@/lib/notify";
 import { useLiveries, vehicleImg } from "@/lib/liveries";
 import { fetchLeg, getLeg, legKey, onRoadsLoaded, pointAt, slice, type LatLng } from "@/components/roads";
+import AppIcon from "@/components/AppIcon";
+import { BetaChip } from "@/components/AlphaBadge";
+import { MENU } from "@/lib/menu";
 
 type RoutePoint = { lat: number; lng: number; t: string; label: string };
 type Hospital = { id: string; name: string; capabilities: string[]; lat: number; lng: number };
@@ -1385,7 +1388,7 @@ export default function GameMap() {
             <div className="fs-drawer-head">
               <FactionEmblem type={org.type} size={38} logo={org.logo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="fs-drawer-name">{org.name}</div>
+                <div className="fs-drawer-name">{org.name} <BetaChip /></div>
                 <div className="fs-drawer-sub">💶 {(shownFunds ?? org.funds).toLocaleString("it-IT")} € · ⭐ {org.reputation}</div>
               </div>
               <button className="fs-drawer-x" onClick={() => setMenuOpen(false)} aria-label="Chiudi">✕</button>
@@ -1396,26 +1399,7 @@ export default function GameMap() {
             </button>
             {(() => {
               type It = [string, string, string, string];
-              const groups: [string, It[]][] = [
-                ["La mia associazione", [
-                  ["🚑", "Garage", "#F97316", "/garage"], ["👥", "Squadra", "#7C3AED", "/squadra"], ["🔧", "Officina", "#475569", "/officina"],
-                  ["🏠", "Sedi", "#2563EB", "/sedi"], ["🤖", org.auto_enabled ? "Automatica ON" : "Automatica", "#0D9488", "/automatico"], ["🖌️", "Livrea", "#DB2777", "/livrea"],
-                ]],
-                ["Ogni giorno", [
-                  ["🎯", "Obiettivi", "#16A34A", "/obiettivi"], ["🔁", "Trasferimenti", "#0891B2", "/trasferimenti"], ["📰", "Giornale 24", "#B91C1C", "/notizie"],
-                  ["🆕", "Novità", "#7C3AED", "/novita"], ["🏆", "Classifica", "#D97706", "/classifica"], ["🪪", "Il mio profilo", "#1D4ED8", "/associazione"],
-                ]],
-                ["Compra e vendi", [
-                  ["🛒", "Presidi", "#0D9488", "/negozio"], ["🏷️", "Usato e aste", "#D97706", "/usate"], ["💼", "Offerte", "#1E3A8A", "/offerte"],
-                ]],
-                ["Altre associazioni", [
-                  ["🤝", "Alleanza", "#16A34A", "/alleanza"], ["🔗", "Gemellaggio", "#0891B2", "/gemellaggio"], ["📢", "Personale", "#E11D48", "/personale"],
-                  ["🔎", "Profili", "#475569", "/profili"],
-                ]],
-                ["Conti", [
-                  ["📊", "Entrate e uscite", "#16A34A", "/finanze"], ["📈", "Statistiche", "#2563EB", "/statistiche"], ["🏢", "Fatturato sedi", "#1E3A8A", "/fatturato"],
-                ]],
-              ];
+              const groups: [string, It[]][] = MENU.map(([g, items]) => [g, items.map(([i, l, h]) => [i, h === "/automatico" && org.auto_enabled ? "Automatica ON" : l, "", h] as It)]);
               if (isAdmin) groups.push(["Admin", [["🛠️", "Admin", "#7C3AED", "/admin"]]]);
               const badgeOf = (href: string) => href === "/alleanza" ? notes.filter((n) => n.href === "/alleanza").length
                 : href === "/offerte" ? notes.filter((n) => n.href === "/offerte").length
@@ -1450,11 +1434,11 @@ export default function GameMap() {
                     <Fragment key={group}>
                       <div className="fs-drawer-group">{group}</div>
                       <div className="fs-mgrid">
-                        {items.map(([icon, label, color, href]) => {
+                        {items.map(([icon, label, , href]) => {
                           const badge = badgeOf(href);
                           return (
                             <button key={href} className="fs-mtile" onClick={() => { setMenuOpen(false); setMenuQ(""); router.push(href); }}>
-                              <span className="fs-mtile-ico" style={{ background: color }}>{icon}</span>
+                              <AppIcon name={icon} size={46} />
                               <span className="fs-mtile-l">{label}</span>
                               {badge > 0 && <b className="fs-mtile-b">{badge}</b>}
                             </button>

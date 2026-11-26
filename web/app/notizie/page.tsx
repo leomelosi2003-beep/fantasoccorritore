@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PageHeader from "@/components/PageHeader";
 
 // ---------- FantaGiornale 24: prima pagina col gioco di adesso ----------
 type News = { at: string; icon: string; title: string; body: string };
@@ -101,12 +102,10 @@ export default function Notizie() {
 
   return (
     <main style={{ minHeight: "100vh", background: PAPER, color: INK, paddingBottom: 40 }}>
+      <PageHeader icon="📰" title="FantaGiornale 24" tone="red" sub={<span style={{ textTransform: "capitalize" }}>{today} · notizie dal territorio</span>} />
       {/* testata */}
       <div style={{ ...wrap, paddingTop: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "system-ui, sans-serif", fontSize: 12 }}>
-          <button onClick={() => router.push("/")} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${RULE}`, background: "transparent", fontWeight: 700, cursor: "pointer" }}>← Mappa</button>
-          <span style={{ textTransform: "capitalize" }}>{today}</span>
-        </div>
+        
         <div style={{ textAlign: "center", borderBottom: `4px double ${RULE}`, padding: "8px 0 6px" }}>
           <div style={{ fontFamily: serif, fontWeight: 900, fontSize: "clamp(34px, 8vw, 64px)", letterSpacing: -1, lineHeight: 1 }}>FantaGiornale <span style={{ color: "#B91C1C" }}>24</span></div>
           <div style={{ fontFamily: serif, fontStyle: "italic", fontSize: 13, marginTop: 4 }}>Il quotidiano del soccorso · notizie dal territorio, sempre aggiornate</div>

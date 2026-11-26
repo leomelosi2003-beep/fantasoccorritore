@@ -1,21 +1,23 @@
 "use client";
 import { useState } from "react";
 
-// Etichetta fissa "versione ALPHA": il gioco è in fase di test.
-export default function AlphaBadge() {
+// Piccola etichetta "BETA" (nel menu e nella barra laterale del PC): tocca per sapere cosa vuol dire.
+export function BetaChip() {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ position: "fixed", left: 8, bottom: "calc(8px + var(--fs-nav-h, 0px) + env(safe-area-inset-bottom))", zIndex: 100000, maxWidth: 300, fontFamily: "system-ui, sans-serif" }}>
+    <span style={{ position: "relative", display: "inline-block" }}>
+      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }} title="Il gioco è in beta"
+              style={{ background: "linear-gradient(135deg,#22D3EE,#2563EB)", color: "#fff", border: "none", borderRadius: 999, padding: "1px 8px",
+                       fontSize: 10.5, fontWeight: 900, letterSpacing: ".08em", cursor: "pointer", verticalAlign: "middle", boxShadow: "none" }}>BETA</button>
       {open && (
-        <div style={{ background: "#fff", color: "#111", border: "2px solid #F59E0B", borderRadius: 10, padding: "10px 12px", marginBottom: 6, fontSize: 13, lineHeight: 1.4, boxShadow: "0 4px 14px rgba(0,0,0,.25)" }}>
-          <strong>🧪 Versione ALPHA (in test)</strong><br />
-          FantaSoccorritore è ancora in fase di sviluppo: possono esserci <strong>bug</strong>, <strong>cambi di bilanciamento</strong> e brevi <strong>interruzioni</strong> durante gli aggiornamenti. Stiamo lavorando per sistemare tutto: grazie per la pazienza e per le segnalazioni!
-        </div>
+        <span onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
+              style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 5, width: 240, background: "#fff", color: "#0B1B33", borderRadius: 12,
+                       padding: "9px 11px", fontSize: 12.5, fontWeight: 500, lineHeight: 1.4, boxShadow: "0 10px 28px rgba(15,23,42,.25)", whiteSpace: "normal" }}>
+          <b>FantaSoccorritore è in beta.</b> Il gioco è completo ma lo stiamo rifinendo: possono capitare piccoli bug o ritocchi di bilanciamento. Grazie per le segnalazioni!
+        </span>
       )}
-      <button onClick={() => setOpen((o) => !o)} title="Il gioco è in versione alpha di test"
-              style={{ background: "#F59E0B", color: "#111", border: "none", borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,.3)" }}>
-        🧪 ALPHA TEST {open ? "✕" : "ⓘ"}
-      </button>
-    </div>
+    </span>
   );
 }
+
+export default function AlphaBadge() { return null; }

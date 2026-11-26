@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26g", date: "26 novembre 2026", title: "🎨 Icone disegnate, barra laterale sul PC e siamo in BETA!",
+    items: ["Il gioco passa in BETA: l'etichetta «ALPHA TEST» in basso non c'è più, ora c'è una piccola scritta BETA nel menu.",
+            "Nuove icone disegnate (ambulanza, squadra, officina, sede, coppa…) nel menu, nelle testate delle pagine e nella barra in basso.",
+            "Sul PC, in tutte le pagine c'è una barra laterale fissa con tutto il menu: si passa da una pagina all'altra senza tornare alla mappa. Le pagine sono più larghe.",
+            "Entrate e uscite: periodi nella testata, numeri grandi in evidenza, tasse in riquadri da aprire. Trasferimenti: percorso da → a, due colonne sul PC. Giornale con la nuova testata."],
+  },
+  {
     id: "2026-11-26f", date: "26 novembre 2026", title: "☰ Menu nuovo e meno scorrimento",
     items: ["Menu rifatto a riquadri, con una barra per cercare: le voci stanno tutte in una schermata. Le impostazioni ora sono interruttori.",
             "Pannello di invio più corto: le spiegazioni lunghe si aprono solo se le tocchi, e il tasto «Parti!» dice quale mezzo parte e tra quanti minuti arriva.",

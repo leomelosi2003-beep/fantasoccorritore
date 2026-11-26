@@ -1,10 +1,13 @@
 "use client";
 // Parti comuni a tutte le pagine: barra in basso sul telefono e tasto "?" con la spiegazione della pagina.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { helpFor } from "@/lib/help";
 import { MODERN_CSS, MODERN_CSS_V2 } from "@/lib/modernTheme";
+import AppIcon from "@/components/AppIcon";
+import { BetaChip } from "@/components/AlphaBadge";
+import { MENU } from "@/lib/menu";
 
 /** schermata d'ingresso: logo, sirene, ambulanza che attraversa; si salta toccando */
 let splashDone = false;   // una sola volta per apertura del gioco
@@ -41,6 +44,27 @@ function Splash() {
 const NAV: [string, string, string][] = [
   ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["🔧", "Officina", "/officina"], ["👥", "Squadra", "/squadra"],
 ];
+function DesktopRail({ path }: { path: string }) {
+  const router = useRouter();
+  const go = (h: string) => (e: MouseEvent) => { e.preventDefault(); router.push(h); };
+  return (
+    <aside className="fs-rail" aria-label="Menu">
+      <a href="/" className="fs-rail-home" onClick={go("/")}><AppIcon name="map" size={38} /><span><b>FantaSoccorritore</b><small>Torna alla mappa</small></span></a>
+      <div style={{ padding: "0 8px 4px" }}><BetaChip /></div>
+      {MENU.map(([g, items]) => (
+        <div key={g} className="fs-rail-g">
+          <div className="fs-rail-h">{g}</div>
+          {items.map(([i, l, h]) => (
+            <a key={h} href={h} className={path === h || path.startsWith(h + "/") ? "on" : ""} onClick={go(h)}>
+              <AppIcon name={i} size={28} radius={9} /><span>{l}</span>
+            </a>
+          ))}
+        </div>
+      ))}
+    </aside>
+  );
+}
+
 function ToTop() {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -95,6 +119,7 @@ export default function AppChrome() {
       <style dangerouslySetInnerHTML={{ __html: MODERN_CSS + MODERN_CSS_V2 }} />
       <Splash />
       {path !== "/" && <ToTop />}
+      {logged && path !== "/" && <DesktopRail path={path} />}
       {help && (
         <button className={`fs-help-fab${fresh ? " pulse" : ""}`} onClick={openHelp} aria-label="Come funziona questa pagina" title="Come funziona">?</button>
       )}
@@ -125,7 +150,7 @@ export default function AppChrome() {
         <nav className="fs-nav" aria-label="Sezioni principali">
           {NAV.map(([ico, label, href]) => (
             <a key={href} href={href} className={path === href ? "on" : ""} onClick={(e) => { e.preventDefault(); router.push(href); }}>
-              <span className="ico">{ico}</span>{label}
+              <span className="ico"><AppIcon name={ico} size={30} radius={10} /></span>{label}
             </a>
           ))}
         </nav>

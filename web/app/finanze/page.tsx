@@ -66,34 +66,20 @@ export default function Finanze() {
     <main style={shell}>
       <PageHeader icon="📊" title="Entrate e uscite" tone="green"
         sub="Da dove arrivano e dove vanno i tuoi soldi"
-        links={[{ href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/statistiche", label: "📈 Statistiche" }]} />
+        links={[{ href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/statistiche", label: "📈 Statistiche" }]}
+        tabs={PERIODS.map((p) => ({ key: String(p.h), label: p.label }))} tab={String(hours)}
+        onTab={(k) => { setHours(Number(k)); setRows(null); }} />
 
       <div style={wrap}>
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>
-          {PERIODS.map((p) => (
-            <button key={p.h} onClick={() => { setHours(p.h); setRows(null); }}
-                    style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 700,
-                             fontSize: 14, background: hours === p.h ? "#111" : "#fff", color: hours === p.h ? "#fff" : "#111",
-                             boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{p.label}</button>
-          ))}
-        </div>
 
-        <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Entrate</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#15803D" }}>+{income.toLocaleString("it-IT")} €</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Uscite</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#DC2626" }}>−{expense.toLocaleString("it-IT")} €</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Risultato</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: net >= 0 ? "#15803D" : "#DC2626" }}>
-              {net >= 0 ? "📈 Sopra di " : "📉 Sotto di "}{Math.abs(net).toLocaleString("it-IT")} €
-            </div>
-          </div>
+
+        <div className="fs-kpis">
+          <div className="fs-kpi" style={{ ["--k" as string]: "#16A34A" }}><span>💚 Entrate</span><b style={{ color: "#15803D" }}>+{income.toLocaleString("it-IT")} €</b></div>
+          <div className="fs-kpi" style={{ ["--k" as string]: "#DC2626" }}><span>❤️ Uscite</span><b style={{ color: "#DC2626" }}>−{expense.toLocaleString("it-IT")} €</b></div>
+          <div className="fs-kpi" style={{ ["--k" as string]: net >= 0 ? "#16A34A" : "#DC2626" }}><span>{net >= 0 ? "📈 Sei sopra di" : "📉 Sei sotto di"}</span>
+            <b style={{ color: net >= 0 ? "#15803D" : "#DC2626" }}>{Math.abs(net).toLocaleString("it-IT")} €</b></div>
         </div>
+        <div className="fs-2col">
 
         <div style={card}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Per voce</div>
@@ -116,9 +102,25 @@ export default function Finanze() {
           ))}
         </div>
 
+        <div style={card}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Ultimi movimenti</div>
+          {moves.length === 0 && <div style={{ color: "#888", fontSize: 14 }}>Ancora nessun movimento.</div>}
+          {moves.map((m, i) => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i ? "1px solid #f0f0f0" : "none", fontSize: 13 }}>
+              <span>{ICON[m.reason] ?? "💶"}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {m.reason}
+                <span style={{ color: "#888" }}> · {new Date(m.created_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+              </span>
+              <strong style={{ color: m.amount >= 0 ? "#15803D" : "#DC2626", whiteSpace: "nowrap" }}>{m.amount >= 0 ? "+" : ""}{euro(Number(m.amount))}</strong>
+              <span style={{ color: "#888", whiteSpace: "nowrap", minWidth: 90, textAlign: "right" }}>{Number(m.balance).toLocaleString("it-IT")} €</span>
+            </div>
+          ))}
+        </div>
+        </div>
         {ptax && (
-          <div style={card}>
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>⚖️ Tasse progressive</div>
+          <details style={card}>
+            <summary style={{ fontWeight: 800, cursor: "pointer" }}>⚖️ Tasse progressive: quanto paghi</summary>
             <div style={{ fontSize: 13, color: "#555" }}>
               Per tenere il gioco equilibrato chi ha più soldi paga di più. Tutto finisce nel <strong>fondo di solidarietà</strong>,
               che ogni ora viene diviso tra le associazioni piccole (patrimonio sotto i 2 milioni) attive negli ultimi 3 giorni.
@@ -138,12 +140,12 @@ export default function Finanze() {
               {" "}· patrimoniale <strong style={{ color: Number(ptax.wealth_tax_hour) > 0 ? "#DC2626" : "#166534" }}>{Number(ptax.wealth_tax_hour).toLocaleString("it-IT")} € all&apos;ora</strong>
               <br /><span style={{ color: "#666" }}>Nel fondo di solidarietà ora: {Number(ptax.fund).toLocaleString("it-IT")} €</span>
             </div>
-          </div>
+          </details>
         )}
 
         {tax && (
-          <div style={card}>
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>🏛️ Tassa dell&apos;alleanza</div>
+          <details style={card}>
+            <summary style={{ fontWeight: 800, cursor: "pointer" }}>🏛️ Tassa dell&apos;alleanza</summary>
             <div style={{ fontSize: 13, color: "#555" }}>
               Le associazioni con un patrimonio sopra 1 milione pagano ogni ora lo 0,1% della parte che supera il milione.
               I soldi vanno in beneficenza, divisi in parti uguali tra gli altri membri dell&apos;alleanza.
@@ -154,24 +156,9 @@ export default function Finanze() {
                 : Number(tax.tax_hour) > 0 ? <>paghi circa <strong style={{ color: "#DC2626" }}>{Number(tax.tax_hour).toLocaleString("it-IT")} € all&apos;ora</strong> a {tax.members} {tax.members === 1 ? "associazione" : "associazioni"}</>
                 : "sotto il milione: niente tassa"}
             </div>
-          </div>
+          </details>
         )}
 
-        <div style={card}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Ultimi movimenti</div>
-          {moves.length === 0 && <div style={{ color: "#888", fontSize: 14 }}>Ancora nessun movimento.</div>}
-          {moves.map((m, i) => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i ? "1px solid #f0f0f0" : "none", fontSize: 13 }}>
-              <span>{ICON[m.reason] ?? "💶"}</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                {m.reason}
-                <span style={{ color: "#888" }}> · {new Date(m.created_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-              </span>
-              <strong style={{ color: m.amount >= 0 ? "#15803D" : "#DC2626", whiteSpace: "nowrap" }}>{m.amount >= 0 ? "+" : ""}{euro(Number(m.amount))}</strong>
-              <span style={{ color: "#888", whiteSpace: "nowrap", minWidth: 90, textAlign: "right" }}>{Number(m.balance).toLocaleString("it-IT")} €</span>
-            </div>
-          ))}
-        </div>
       </div>
     </main>
   );

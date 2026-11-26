@@ -313,6 +313,69 @@ ${D} .fs-mp-go { background: rgba(13,20,36,.92); border-top-color: rgba(148,163,
   box-shadow: 0 10px 24px rgba(30,58,138,.35); opacity: 0; transform: translateY(14px) scale(.8); pointer-events: none; transition: all .25s ease !important; }
 .fs-totop.show { opacity: 1; transform: none; pointer-events: auto; }
 
+
+/* ---------- barra in basso con icone disegnate ---------- */
+.fs-nav .ico { line-height: 0 !important; }
+.fs-nav a:not(.on) .ico svg { filter: saturate(.55) opacity(.75); }
+.fs-nav .on .ico svg { filter: drop-shadow(0 4px 8px rgba(37,99,235,.35)); }
+
+/* ---------- PC: barra laterale fissa con tutto il menu ---------- */
+.fs-rail { display: none; }
+@media (min-width: 900px) {
+  .fs-rail { display: flex; flex-direction: column; gap: 2px; position: fixed; z-index: 1240; left: 0; top: 0; bottom: 0; width: 232px; overflow-y: auto;
+    padding: 12px 10px 20px; background: rgba(255,255,255,.88); backdrop-filter: saturate(1.4) blur(18px); -webkit-backdrop-filter: saturate(1.4) blur(18px);
+    border-right: 1px solid #E2E8F0; scrollbar-width: thin; }
+  body:has(.fs-rail) main { margin-left: 232px; }
+  body:has(.fs-rail) .fs-help-fab { right: 22px; }
+  body:has(.fs-rail) .fs-totop { left: 250px; }
+  .fs-rail a { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; color: #0B1B33; text-decoration: none;
+    font-size: 14px; font-weight: 600; transition: background .15s, transform .15s; }
+  .fs-rail a:hover { background: #EEF3FA; transform: translateX(2px); }
+  .fs-rail a.on { background: linear-gradient(135deg, rgba(59,130,246,.16), rgba(37,99,235,.06)); color: #1D4ED8; font-weight: 800; box-shadow: inset 3px 0 0 #2563EB; }
+  .fs-rail-home { padding: 8px !important; margin-bottom: 6px; border: 1px solid #E2E8F0; background: #fff; }
+  .fs-rail-home span { display: flex; flex-direction: column; line-height: 1.15; }
+  .fs-rail-home b { font-size: 14px; } .fs-rail-home small { font-size: 11.5px; color: #64748B; font-weight: 600; }
+  .fs-rail-h { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #94A3B8; padding: 12px 8px 4px; }
+  /* pagine più larghe sul PC, con le liste su due colonne dove ha senso */
+  main > div[style*="max-width: 760px"], main > div[style*="max-width: 720px"], main > div[style*="max-width: 800px"] { max-width: 1080px !important; }
+  .fs-ph-in { max-width: 1120px; }
+  .fs-ph { border-radius: 0 0 28px 28px; margin-left: 12px; margin-right: 12px; }
+  ${D} .fs-rail { background: rgba(10,16,30,.9); border-right-color: rgba(148,163,184,.12); }
+  ${D} .fs-rail a { color: #CBD5E1; } ${D} .fs-rail a:hover { background: #17233D; }
+  ${D} .fs-rail a.on { color: #93C5FD; background: rgba(59,130,246,.16); }
+  ${D} .fs-rail-home { background: #111A2E; border-color: rgba(148,163,184,.14); }
+}
+
+
+/* ---------- numeri in evidenza e due colonne sul PC ---------- */
+.fs-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.fs-kpi { position: relative; overflow: hidden; background: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 2px 10px rgba(15,23,42,.06); }
+.fs-kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--k, #2563EB); }
+.fs-kpi::after { content: ""; position: absolute; right: -30px; top: -30px; width: 90px; height: 90px; border-radius: 50%; background: var(--k, #2563EB); opacity: .08; }
+.fs-kpi span { display: block; font-size: 12.5px; font-weight: 700; color: #64748B; }
+.fs-kpi b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .fs-kpis { gap: 6px; } .fs-kpi { padding: 10px; border-radius: 14px; } .fs-kpi b { font-size: 15px; } .fs-kpi span { font-size: 11px; } }
+.fs-2col { display: grid; grid-template-columns: 1fr; gap: 0 14px; align-items: start; }
+@media (min-width: 1000px) { .fs-2col { grid-template-columns: 1fr 1fr; } }
+${D} .fs-kpi { background: #111A2E; border: 1px solid rgba(148,163,184,.12); }
+${D} .fs-kpi span { color: #93A3BA; }
+main details > summary { list-style: none; }
+main details > summary::-webkit-details-marker { display: none; }
+main details > summary::after { content: "▾"; float: right; opacity: .5; transition: transform .2s; }
+main details[open] > summary::after { transform: rotate(180deg); }
+main details[open] > summary { margin-bottom: 8px; }
+
+
+/* ---------- trasferimenti: percorso da → a ---------- */
+.fs-cards2 { display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 1000px) { .fs-cards2 { grid-template-columns: 1fr 1fr; } }
+.fs-trf-route { position: relative; padding-left: 20px; }
+.fs-trf-route::before { content: ""; position: absolute; left: 5px; top: 11px; bottom: 11px; border-left: 2px dashed #94A3B8; }
+.fs-trf-route > div { position: relative; font-weight: 800; font-size: 15px; line-height: 1.35; padding: 2px 0; }
+.fs-trf-route > div > i { position: absolute; left: -20px; top: 7px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #CBD5E1; }
+${D} .fs-trf { background: #111A2E !important; border: 1px solid rgba(148,163,184,.12); }
+${D} .fs-trf-route > div > i { box-shadow: 0 0 0 3px #111A2E, 0 0 0 4px #334155; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }

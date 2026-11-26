@@ -64,11 +64,12 @@ export default function Trasferimenti() {
         sub="Viaggi tra ospedali disponibili adesso, con il premio stimato" />
 
       <div style={wrap}>
-        <div style={{ fontSize: 13, color: "#666", margin: "0 2px 12px" }}>
+        <details style={{ fontSize: 13, color: "#475569", margin: "0 2px 12px", background: "#fff", borderRadius: 14, padding: "10px 12px" }}>
+          <summary style={{ fontWeight: 800, cursor: "pointer", color: "#0E7490" }}>ℹ️ Come funzionano i trasferimenti</summary>
           Trasferimenti tra ospedali disponibili adesso. Il premio stimato tiene conto di quanto è lontana la tua sede più vicina;
           allestimento, presidi e carte rare aggiungono altri bonus. Con l&apos;M-Sprinterix XL i trasferimenti pagano il 25% in più.
           La durata è il tempo dalla partenza a quando l&apos;ambulanza si libera all&apos;ospedale di arrivo.
-        </div>
+        </details>
 
         {toast && <div style={{ background: "#DCFCE7", color: "#166534", borderRadius: 10, padding: 12, marginBottom: 12, fontWeight: 600 }}>{toast}</div>}
 
@@ -79,15 +80,15 @@ export default function Trasferimenti() {
           </div>
         )}
 
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className="fs-cards2">
           {list.map((q) => {
             const pin = pins[q.id];
             return (
-              <div key={q.id} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", padding: 14 }}>
+              <div key={q.id} className="fs-trf" style={{ background: "#fff", borderRadius: 20, boxShadow: "0 2px 12px rgba(15,23,42,.07)", padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>🏥 {q.from_name}</div>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>➡️ {q.to_name}</div>
+                  <div style={{ minWidth: 0 }} className="fs-trf-route">
+                    <div><i style={{ background: "#0891B2" }} />{q.from_name}</div>
+                    <div><i style={{ background: "#E11D48" }} />{q.to_name}</div>
                     <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                       {q.road_km} km di strada
                       {q.fuori && <span style={{ color: "#7C3AED", fontWeight: 700 }}> · fuori regione</span>}
