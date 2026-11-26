@@ -10,13 +10,14 @@ type Row = {
   org_id: string; name: string; type: Organization["type"]; logo_url: string | null; alliance: string | null;
   earnings_7d: number | null; services_7d: number | null; wealth: number | null; growth_pct: number | null; reputation: number | null;
   hidden?: boolean; stolen_7d?: number; stolen_total?: number; lost_7d?: number;
-  season_points?: number; per_vehicle?: number; vehicles?: number;
+  season_points?: number; per_vehicle?: number; vehicles?: number; reds?: number;
 };
 type Award = { season: string; category: "punti" | "rivelazione"; rank: number; org_id: string; points: number };
 
 const TABS = [
   { key: "season_points", label: "🏁 Stagione", hint: "Punti di questo mese: rosso 3, giallo 2, altri 1, maxi e incendi 5, obiettivo ritirato 20. Si riparte da zero ogni mese (solo la classifica: soldi e mezzi restano)." },
   { key: "per_vehicle", label: "🌱 Rivelazione", hint: "Punti di stagione per mezzo: premia chi lavora meglio, anche con pochi mezzi." },
+  { key: "reds", label: "🔴 Codici rossi", hint: "Servizi in codice rosso portati a termine in questo mese. Si riparte da zero ogni mese." },
   { key: "earnings_7d", label: "💶 Guadagni", hint: "Soldi guadagnati con i servizi negli ultimi 7 giorni" },
   { key: "growth_pct", label: "📈 Crescita", hint: "Quanto è cresciuto il patrimonio negli ultimi 7 giorni" },
   { key: "wealth", label: "🏦 Patrimonio", hint: "Soldi in cassa + valore di ambulanze, sedi e volontari" },
@@ -38,6 +39,7 @@ function value(r: Row, k: Key) {
   if (k === "stolen_7d") return `🥷 ${r.stolen_7d ?? 0}`;
   if (k === "season_points") return `${(r.season_points ?? 0).toLocaleString("it-IT")} pt`;
   if (k === "per_vehicle") return `${(r.per_vehicle ?? 0).toLocaleString("it-IT")} pt/mezzo`;
+  if (k === "reds") return `🔴 ${(r.reds ?? 0).toLocaleString("it-IT")}`;
   if (r.growth_pct === null) return "—";
   return `${r.growth_pct > 0 ? "+" : ""}${r.growth_pct.toLocaleString("it-IT")}%`;
 }
@@ -63,15 +65,17 @@ export default function Classifica() {
       if (!session) { router.replace("/"); return; }
       const { data: o } = await supabase.from("organizations").select("id").eq("owner_id", session.user.id).maybeSingle();
       setMe(o?.id ?? null);
-      const [{ data, error }, st, se, aw] = await Promise.all([
+      const [{ data, error }, st, se, aw, rd] = await Promise.all([
         supabase.rpc("leaderboard_v2"), supabase.rpc("steals_board"), supabase.rpc("season_board"),
         supabase.from("season_awards").select("*").order("season", { ascending: false }),
+        supabase.rpc("reds_board"),
       ]);
+      const reds = new Map(((rd.data as { org_id: string; reds: number }[]) ?? []).map((x) => [x.org_id, Number(x.reds)]));
       if (error) { setError("Classifica non disponibile al momento."); return; }
       const steals = new Map(((st.data as { org_id: string; stolen_7d: number; stolen_total: number; lost_7d: number }[]) ?? []).map((x) => [x.org_id, x]));
       const season = new Map(((se.data as { org_id: string; points: number; per_vehicle: number; vehicles: number }[]) ?? [])
         .map((x) => [x.org_id, { season_points: Number(x.points), per_vehicle: Number(x.per_vehicle), vehicles: x.vehicles }]));
-      setRows(((data as Row[]) ?? []).map((r) => ({ ...r, ...(steals.get(r.org_id) ?? {}), ...(season.get(r.org_id) ?? {}), org_id: r.org_id })));
+      setRows(((data as Row[]) ?? []).map((r) => ({ ...r, ...(steals.get(r.org_id) ?? {}), ...(season.get(r.org_id) ?? {}), reds: reds.get(r.org_id) ?? 0, org_id: r.org_id })));
       setAwards((aw.data as Award[]) ?? []);
       const { data: aa } = await supabase.from("alliance_season_awards").select("season,rank,alliance_name,points,prize_funds,prize_note").order("season", { ascending: false }).order("rank");
       setAllyAwards((aa as typeof allyAwards) ?? []);
@@ -90,16 +94,21 @@ export default function Classifica() {
   const pastSeasons = [...new Set(awards.map((a) => a.season))];
   const orgName = (id: string) => rows.find((r) => r.org_id === id)?.name ?? "Associazione";
 
-  const sorted = [...rows].filter((r) => !isSeason || (r.season_points ?? 0) > 0).sort((a, b) => {
+  const prized = isSeason || tab === "reputation" || tab === "reds";
+  const sorted = [...rows].filter((r) => (!isSeason || (r.season_points ?? 0) > 0) && (tab !== "reds" || (r.reds ?? 0) > 0)).sort((a, b) => {
     const x = (a[tab] ?? -Infinity) as number, y = (b[tab] ?? -Infinity) as number;
     return y - x;
   });
   const t = TABS.find((x) => x.key === tab)!;
+  const leadVal = Math.max(0, ...sorted.filter((r) => !r.hidden).map((r) => Number(r[tab] ?? 0)));
+  const barColor = ({ season_points: "linear-gradient(90deg,#F59E0B,#EA580C)", per_vehicle: "linear-gradient(90deg,#22C55E,#15803D)", reds: "linear-gradient(90deg,#F87171,#B91C1C)",
+    earnings_7d: "linear-gradient(90deg,#60A5FA,#1D4ED8)", growth_pct: "linear-gradient(90deg,#34D399,#059669)", wealth: "linear-gradient(90deg,#A78BFA,#6D28D9)",
+    reputation: "linear-gradient(90deg,#FDE047,#CA8A04)", stolen_7d: "linear-gradient(90deg,#94A3B8,#334155)" } as Record<string, string>)[tab];
   // posizioni di circa 24 ore fa, calcolate con le stesse regole di adesso
   const prevRank = (() => {
     const m = new Map<string, number>();
     if (!prev) return m;
-    const pr = prev.rows.filter((r) => !isSeason || Number(r.season_points ?? 0) > 0)
+    const pr = prev.rows.filter((r) => (!isSeason || Number(r.season_points ?? 0) > 0) && (tab !== "reds" || Number(r.reds ?? 0) > 0))
       .sort((a, b) => Number(b[tab] ?? -Infinity) - Number(a[tab] ?? -Infinity));
     pr.forEach((r, i) => r.org_id && m.set(r.org_id, i + 1));
     return m;
@@ -119,6 +128,7 @@ export default function Classifica() {
     if (tab === "reputation") return `${sgn}${Math.round(a)} ⭐`;
     if (tab === "stolen_7d") return `${sgn}${Math.round(a)}`;
     if (tab === "per_vehicle") return `${sgn}${a.toLocaleString("it-IT", { maximumFractionDigits: 1 })} pt/mezzo`;
+    if (tab === "reds") return `${sgn}${Math.round(a)} rossi`;
     return `${sgn}${Math.round(a).toLocaleString("it-IT")} pt`;
   };
   const prevMin = prev ? Math.max(1, Math.round((Date.now() - new Date(prev.at).getTime()) / 60_000)) : 0;
@@ -145,11 +155,14 @@ export default function Classifica() {
 
   return (
     <main style={shell}>
-      <div style={{ background: "linear-gradient(135deg,#B45309,#78350F)", color: "#fff" }}>
+      <div style={{ background: "radial-gradient(circle at 85% -20%, rgba(253,224,71,.45), transparent 55%), linear-gradient(135deg,#B45309,#78350F 70%)", color: "#fff", boxShadow: "0 4px 18px rgba(120,53,15,.25)" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 12, paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => router.push("/")} style={{ padding: "8px 12px", borderRadius: 10, border: "none",
                   background: "rgba(0,0,0,.25)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>← Mappa</button>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>🏆 Classifica</div>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: -0.3 }}>🏆 Classifiche</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>{allyTab ? "🤝 Alleanze" : livTab ? "🎨 Livree" : t.label} · {endOfSeason} alla fine della stagione</div>
+          </div>
         </div>
       </div>
 
@@ -166,7 +179,7 @@ export default function Classifica() {
           {TABS.map((x) => (
             <button key={x.key} onClick={() => { setTab(x.key); setLivTab(false); setAllyTab(false); }}
                     style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                             fontWeight: 700, fontSize: 14, background: !livTab && !allyTab && tab === x.key ? "#111" : "#fff",
+                             fontWeight: 700, fontSize: 14, background: !livTab && !allyTab && tab === x.key ? "linear-gradient(135deg,#1F2937,#111827)" : "#fff",
                              color: !livTab && !allyTab && tab === x.key ? "#fff" : "#111", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{x.label}</button>
           ))}
         </div>
@@ -220,7 +233,7 @@ export default function Classifica() {
           {t.hint}
           {prev && <span style={{ color: "#94A3B8" }}> · ▲▼ posti e +/− punti guadagnati o persi rispetto a {prevHours} fa; 🔥 = sta per superare chi ha davanti.</span>}
         </div>
-        {(isSeason || tab === "reputation") && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
+        {prized && <div style={{ background: "linear-gradient(135deg,#92400E,#D97706)", color: "#fff", borderRadius: 14, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>🎁 Premi di fine stagione · {t.label}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "2px 12px" }}>
             {(tab === "season_points" ? [50, 40, 32, 25, 20, 15, 12, 10, 7, 5] : [10, 8, 6.5, 5, 4, 3, 2.5, 2, 1.5, 1]).map((m, i) => <div key={i}>{MEDAL[i] ?? `${i + 1}°`} <b>{m.toLocaleString("it-IT")} milioni</b></div>)}
@@ -230,13 +243,32 @@ export default function Classifica() {
 
         {error && <div style={{ background: "#fff1f1", color: "#a00", borderRadius: 10, padding: 12 }}>{error}</div>}
 
-        <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+        {sorted.length > 0 && !sorted.slice(0, 3).some((r) => r.hidden && tab !== "growth_pct" && tab !== "stolen_7d") && <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr 1fr", alignItems: "end", gap: 8, margin: "6px 0 14px" }}>
+          {[1, 0, 2].map((k) => {
+            const r = sorted[k]; if (!r) return <div key={k} />;
+            const C = [["#FDE68A", "#F59E0B", "#92400E"], ["#E2E8F0", "#94A3B8", "#334155"], ["#FED7AA", "#EA580C", "#7C2D12"]][k];
+            return <a key={r.org_id} href={`/profili/${r.org_id}`} style={{ textDecoration: "none", color: "#111", textAlign: "center" }}>
+              <div style={{ fontSize: k === 0 ? 30 : 24 }}>{MEDAL[k]}</div>
+              <div style={{ display: "inline-block", padding: 3, borderRadius: 18, background: `linear-gradient(135deg, ${C[0]}, ${C[1]})`, boxShadow: k === 0 ? "0 6px 18px rgba(245,158,11,.35)" : "0 3px 10px rgba(0,0,0,.12)" }}>
+                <div style={{ background: "#fff", borderRadius: 15, padding: 4 }}><FactionEmblem type={r.type} size={k === 0 ? 64 : 50} logo={r.logo_url} /></div>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: k === 0 ? 14.5 : 13, marginTop: 5, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{r.name}{r.org_id === me ? " (tu)" : ""}</div>
+              <div style={{ fontWeight: 900, fontSize: k === 0 ? 16 : 14, color: C[2] }}>{value(r, tab)}</div>
+              <div style={{ marginTop: 6, height: k === 0 ? 74 : k === 1 ? 54 : 40, borderRadius: "12px 12px 0 0", background: `linear-gradient(180deg, ${C[0]}, ${C[1]})`,
+                            display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 26, textShadow: "0 1px 2px rgba(0,0,0,.3)" }}>{k + 1}</div>
+            </a>;
+          })}
+        </div>}
+
+        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 2px 10px rgba(15,23,42,.06)", overflow: "hidden" }}>
           {sorted.map((r, i) => (
-            <div key={r.org_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                                         borderTop: i ? "1px solid #f0f0f0" : "none",
-                                         background: r.org_id === me ? "#FFFBEB" : undefined }}>
-              <div style={{ width: 34, textAlign: "center", fontWeight: 800, fontSize: i < 3 ? 22 : 15, color: "#666", lineHeight: 1.05 }}>
-                {MEDAL[i] ?? i + 1}
+            <div key={r.org_id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "11px 12px",
+                                         borderTop: i > 3 ? "1px solid #f1f5f9" : "none",
+                                         background: r.org_id === me ? "linear-gradient(90deg,#FEF3C7,#FFFBEB)" : undefined }}>
+              {r.org_id === me && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: "#F59E0B" }} />}
+              <div style={{ width: 36, textAlign: "center", lineHeight: 1.05 }}>
+                <div style={{ display: "inline-grid", placeItems: "center", width: 30, height: 30, borderRadius: 10, fontWeight: 900, fontSize: 14,
+                              background: i < 10 && prized ? "#FEF3C7" : "#F1F5F9", color: i < 10 && prized ? "#92400E" : "#475569" }}>{i + 1}</div>
                 <div style={{ lineHeight: 1 }}><Move now={i + 1} before={prevRank.get(r.org_id)} /></div>
               </div>
               <FactionEmblem type={r.type} size={34} logo={r.logo_url} />
@@ -245,6 +277,9 @@ export default function Classifica() {
                   <a href={`/profili/${r.org_id}`} style={{ color: "inherit", textDecoration: "none" }}>{r.name}</a>{badges(r.org_id) && <span title="Titoli vinti nelle stagioni passate"> {badges(r.org_id)}</span>}
                   {r.org_id === me && <span style={{ color: "#B45309" }}> (tu)</span>}
                 </div>
+                {!r.hidden && leadVal > 0 && <div style={{ height: 5, background: "#F1F5F9", borderRadius: 99, margin: "4px 0 2px", overflow: "hidden" }}>
+                  <div style={{ width: `${Math.max(2, Math.min(100, (Number(r[tab] ?? 0) / leadVal) * 100))}%`, height: "100%", borderRadius: 99, background: barColor }} />
+                </div>}
                 <div style={{ fontSize: 12, color: "#777" }}>
                   {isSeason ? (r.hidden ? "statistiche nascoste" : `${r.vehicles ?? 0} mezzi`)
                     : tab === "stolen_7d" ? `${r.stolen_total ?? 0} in totale · ${r.lost_7d ?? 0} subiti in 7 giorni`

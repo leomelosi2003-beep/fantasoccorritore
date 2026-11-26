@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26a", date: "26 novembre 2026", title: "🏆 Classifiche rinnovate e nuova classifica 🔴 Codici rossi",
+    items: ["Nuova classifica premiata «🔴 Codici rossi»: i servizi in rosso portati a termine nel mese. Ai primi 10 da 10 milioni a 1 milione.",
+            "Le classifiche hanno il podio con i primi 3, una barra che mostra quanto manca al primo e la tua riga evidenziata."],
+  },
+  {
     id: "2026-11-25d", date: "25 novembre 2026", title: "🎓 Corso anche per chi è in servizio",
     items: ["Nel corso di formazione puoi scegliere anche i soccorritori in servizio (🚑): paghi subito e il corso parte da solo appena rientrano in sede.",
             "Al corso autisti possono andare sia i base sia gli avanzati: i base diventano autisti base, gli avanzati autisti avanzati."],
