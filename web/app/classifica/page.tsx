@@ -14,7 +14,7 @@ type Row = {
   org_id: string; name: string; type: Organization["type"]; logo_url: string | null; alliance: string | null;
   earnings_7d: number | null; services_7d: number | null; wealth: number | null; growth_pct: number | null; reputation: number | null;
   hidden?: boolean; stolen_7d?: number; stolen_total?: number; lost_7d?: number;
-  season_points?: number; per_vehicle?: number; vehicles?: number; reds?: number; maxi?: number; mare?: number; fires?: number;
+  season_points?: number; per_vehicle?: number; vehicles?: number; reds?: number; maxi?: number; mare?: number; fires?: number; pc?: number;
 };
 type Award = { season: string; category: "punti" | "rivelazione"; rank: number; org_id: string; points: number };
 type AllyAward = { season: string; rank: number; alliance_name: string; points: number; prize_funds: number; prize_note: string | null };
@@ -31,6 +31,8 @@ const TABS: { key: Key; icon: string; label: string; hint: string; th: Theme; pr
     th: { a: "#FB923C", b: "#9A3412", soft: "#FFF7ED", ink: "#7C2D12" }, prizes: [5, 4, 3.25, 2.5, 2, 1.5, 1.25, 1, 0.75, 0.5] },
   { key: "mare", icon: "⛵", label: "Servizi in mare", hint: "Soccorsi in mare conclusi con le barche in questo mese. Si riparte da zero ogni mese.",
     th: { a: "#38BDF8", b: "#0369A1", soft: "#F0F9FF", ink: "#075985" }, prizes: [3, 2.4, 1.95, 1.5, 1.2, 0.9, 0.75, 0.6, 0.45, 0.3] },
+  { key: "pc", icon: "🦺", label: "Protezione Civile", hint: "Mezzi mandati sulle missioni di Protezione Civile (alluvioni, manifestazioni, ricerche…) in questo mese. Si riparte da zero ogni mese.",
+    th: { a: "#FACC15", b: "#1E3A8A", soft: "#FEFCE8", ink: "#1E3A8A" }, prizes: [3, 2.4, 1.95, 1.5, 1.2, 0.9, 0.75, 0.6, 0.45, 0.3] },
   { key: "fires", icon: "🔥", label: "Antincendio", hint: "Mezzi AIB mandati sugli incendi boschivi in questo mese. Si riparte da zero ogni mese.",
     th: { a: "#F97316", b: "#B91C1C", soft: "#FFF7ED", ink: "#9A3412" }, prizes: [3, 2.4, 1.95, 1.5, 1.2, 0.9, 0.75, 0.6, 0.45, 0.3] },
   { key: "reputation", icon: "⭐", label: "Reputazione", hint: "Reputazione totale guadagnata.",
@@ -44,7 +46,7 @@ const TABS: { key: Key; icon: string; label: string; hint: string; th: Theme; pr
   { key: "stolen_7d", icon: "🥷", label: "Rubati", hint: "Servizi soffiati agli altri arrivando prima di loro, negli ultimi 7 giorni.",
     th: { a: "#94A3B8", b: "#334155", soft: "#F1F5F9", ink: "#1E293B" }, prizes: null },
 ];
-type Key = "season_points" | "per_vehicle" | "reds" | "maxi" | "mare" | "fires" | "reputation" | "earnings_7d" | "growth_pct" | "wealth" | "stolen_7d";
+type Key = "season_points" | "per_vehicle" | "reds" | "maxi" | "mare" | "fires" | "pc" | "reputation" | "earnings_7d" | "growth_pct" | "wealth" | "stolen_7d";
 const ALLY_TH: Theme = { a: "#60A5FA", b: "#1E3A8A", soft: "#EFF6FF", ink: "#1E3A8A" };
 const LIV_TH: Theme = { a: "#FB7185", b: "#BE123C", soft: "#FFF1F2", ink: "#9F1239" };
 
@@ -68,6 +70,7 @@ function value(r: Row, k: Key) {
     case "maxi": return `${(r.maxi ?? 0).toLocaleString("it-IT")} 🚑`;
     case "mare": return `${(r.mare ?? 0).toLocaleString("it-IT")} ⛵`;
     case "fires": return `${(r.fires ?? 0).toLocaleString("it-IT")} 🚒`;
+    case "pc": return `${(r.pc ?? 0).toLocaleString("it-IT")} 🚑`;
     default: return r.growth_pct === null ? "—" : `${r.growth_pct > 0 ? "+" : ""}${r.growth_pct.toLocaleString("it-IT")}%`;
   }
 }
@@ -122,8 +125,8 @@ export default function Classifica() {
       ]);
       if (lb.error) { setError("Classifica non disponibile al momento: riprova tra poco."); setLoading(false); return; }
       const steals = new Map(((st.data as { org_id: string; stolen_7d: number; stolen_total: number; lost_7d: number }[]) ?? []).map((x) => [x.org_id, x]));
-      const season = new Map(((sb.data as { org_id: string; points: number; per_vehicle: number; vehicles: number; reds: number; maxi: number; mare: number; fires: number }[]) ?? [])
-        .map((x) => [x.org_id, { season_points: Number(x.points ?? 0), per_vehicle: Number(x.per_vehicle ?? 0), vehicles: x.vehicles, reds: Number(x.reds ?? 0), maxi: Number(x.maxi ?? 0), mare: Number(x.mare ?? 0), fires: Number(x.fires ?? 0) }]));
+      const season = new Map(((sb.data as { org_id: string; points: number; per_vehicle: number; vehicles: number; reds: number; maxi: number; mare: number; fires: number; pc: number }[]) ?? [])
+        .map((x) => [x.org_id, { season_points: Number(x.points ?? 0), per_vehicle: Number(x.per_vehicle ?? 0), vehicles: x.vehicles, reds: Number(x.reds ?? 0), maxi: Number(x.maxi ?? 0), mare: Number(x.mare ?? 0), fires: Number(x.fires ?? 0), pc: Number(x.pc ?? 0) }]));
       setRows(((lb.data as Row[]) ?? []).map((r) => ({ ...r, ...(steals.get(r.org_id) ?? {}), ...(season.get(r.org_id) ?? {}), org_id: r.org_id })));
       setAwards((aw.data as Award[]) ?? []);
       setAllyAwards((aa.data as AllyAward[]) ?? []);
@@ -135,7 +138,7 @@ export default function Classifica() {
   const t = TABS.find((x) => x.key === tab)!;
   const th: Theme = view === "ally" ? ALLY_TH : view === "liv" ? LIV_TH : t.th;
   const isSeason = tab === "season_points" || tab === "per_vehicle";
-  const keep = (r: Partial<Row>) => (!isSeason || num(r, "season_points") > 0) && (tab !== "reds" || num(r, "reds") > 0) && (tab !== "maxi" || num(r, "maxi") > 0) && (tab !== "mare" || num(r, "mare") > 0) && (tab !== "fires" || num(r, "fires") > 0);
+  const keep = (r: Partial<Row>) => (!isSeason || num(r, "season_points") > 0) && (tab !== "reds" || num(r, "reds") > 0) && (tab !== "maxi" || num(r, "maxi") > 0) && (tab !== "mare" || num(r, "mare") > 0) && (tab !== "fires" || num(r, "fires") > 0) && (tab !== "pc" || num(r, "pc") > 0);
 
   const sorted = useMemo(() => rows.filter(keep).sort((a, b) => num(b, tab) - num(a, tab)),
     [rows, tab]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -159,7 +162,7 @@ export default function Classifica() {
     if (tab === "stolen_7d") return `${sgn}${Math.round(a)}`;
     if (tab === "per_vehicle") return `${sgn}${a.toLocaleString("it-IT", { maximumFractionDigits: 1 })} pt/mezzo`;
     if (tab === "reds") return `${sgn}${Math.round(a)} rossi`;
-    if (tab === "maxi" || tab === "fires") return `${sgn}${Math.round(a)} mezzi`;
+    if (tab === "maxi" || tab === "fires" || tab === "pc") return `${sgn}${Math.round(a)} mezzi`;
     if (tab === "mare") return `${sgn}${Math.round(a)} servizi`;
     return `${sgn}${Math.round(a).toLocaleString("it-IT")} pt`;
   };
@@ -412,7 +415,7 @@ export default function Classifica() {
                       <div style={{ width: `${Math.max(3, Math.min(100, (num(r, tab) / leadVal) * 100))}%`, height: "100%", borderRadius: 99, background: `linear-gradient(90deg, ${t.th.a}, ${t.th.b})` }} />
                     </div>}
                     <div style={{ fontSize: 11.5, color: "#64748B", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      <span>{r.hidden ? "statistiche nascoste" : isSeason || tab === "reds" || tab === "maxi" || tab === "mare" || tab === "fires" ? `${r.vehicles ?? 0} mezzi` : tab === "stolen_7d" ? `${r.stolen_total ?? 0} in totale · ${r.lost_7d ?? 0} subiti` : `${r.services_7d ?? 0} servizi in 7 giorni`}</span>
+                      <span>{r.hidden ? "statistiche nascoste" : isSeason || tab === "reds" || tab === "maxi" || tab === "mare" || tab === "fires" || tab === "pc" ? `${r.vehicles ?? 0} mezzi` : tab === "stolen_7d" ? `${r.stolen_total ?? 0} in totale · ${r.lost_7d ?? 0} subiti` : `${r.services_7d ?? 0} servizi in 7 giorni`}</span>
                       {r.alliance && <Chip bg="#EEF2FF" fg="#4338CA">🤝 {r.alliance}</Chip>}
                     </div>
                   </div>

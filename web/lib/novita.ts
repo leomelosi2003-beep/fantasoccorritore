@@ -4,6 +4,10 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26r", date: "26 novembre 2026", title: "🦺 Classifica Protezione Civile",
+    items: ["Nuova classifica del mese: mezzi mandati sulle missioni di Protezione Civile. Premi ai primi 10: 3 milioni al primo, poi a scendere fino a 300.000 €."],
+  },
+  {
     id: "2026-11-26q", date: "26 novembre 2026", title: "⚔️ Tornei: basta passaggi gratis",
     items: ["Al primo turno giocano tutti. Solo se le squadre sono dispari la prima testa di serie passa da sola (al massimo una).",
             "Nei turni dopo, se chi passa è in numero dispari, viene RIPESCATO il miglior perdente (chi ha fatto più servizi tra gli eliminati del turno): così nessuno passa senza giocare."],
