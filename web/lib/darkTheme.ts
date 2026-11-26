@@ -2,24 +2,25 @@
 // vengono sostituiti con una palette scura pensata apposta. Vale solo con <html class="dark">.
 
 const BG: Record<string, string> = {
-  // pagine e carte
-  "#fff": "#1b1f27", "#ffffff": "#1b1f27", "#f4f4f1": "#0f1217", "#f6f6f4": "#232834", "#f0f0ec": "#232834",
-  "#eee": "#2a303c", "#f1f1f1": "#2a303c", "#f3f3f3": "#2a303c", "#e5e5e0": "#2a303c", "#ddd": "#2a303c",
-  // tasti scuri: un po' più chiari per staccare dallo sfondo
-  "#111": "#2b3240", "#333": "#363e4e",
+  // pagine e carte: blu notte profondo
+  "#fff": "#111A2E", "#ffffff": "#111A2E", "#f4f4f1": "#070D1A", "#f6f6f4": "#17233D", "#f0f0ec": "#17233D",
+  "#eee": "#17233D", "#f1f1f1": "#17233D", "#f3f3f3": "#17233D", "#e5e5e0": "#1C2A47", "#ddd": "#1C2A47", "#F8FAFC": "#17233D",
+  "#EEF3F8": "#070D1A", "#fffdf8": "#111A2E", "#E2E8F0": "#1C2A47", "#EEF2F7": "#1C2A47", "#e5e7eb": "#1C2A47",
+  // tasti scuri
+  "#111": "#1E2B48", "#333": "#24324F",
   // sfondi pastello → versioni scure dello stesso colore
-  "#fff1f1": "#3a1d22", "#fff3f3": "#3a1d22", "#FFFBEB": "#3a3120", "#FFF7ED": "#3a2a1c", "#FEF3C7": "#3a3120",
-  "#DCFCE7": "#163321", "#effaf1": "#163321", "#DBEAFE": "#1a2a47", "#EFF6FF": "#1a2a47", "#E5E7EB": "#2f3542",
-  "#F5F3FF": "#2a2342", "#EDE9FE": "#2f2650",
+  "#fff1f1": "#3A1622", "#fff3f3": "#3A1622", "#FEF2F2": "#3A1622", "#FEE2E2": "#3A1622", "#FFFBEB": "#33290F", "#FFF7ED": "#3A2412", "#FEF3C7": "#33290F",
+  "#DCFCE7": "#0F3324", "#effaf1": "#0F3324", "#ECFDF5": "#0F3324", "#DBEAFE": "#162A52", "#EFF6FF": "#162A52", "#E0F2FE": "#0E2C44", "#E5E7EB": "#1C2A47",
+  "#F5F3FF": "#251C47", "#EDE9FE": "#2A1F55",
 };
 const FG: Record<string, string> = {
-  "#111": "#eceef3", "#333": "#d5d9e1", "#374151": "#d5d9e1", "#555": "#b4bac6", "#666": "#a9b0bd", "#777": "#9aa1ad",
-  "#888": "#959cab", "#999": "#8d93a0", "#6B7280": "#a3aab8",
-  "#166534": "#6ee7a0", "#15803D": "#4ade80", "#16A34A": "#4ade80",
-  "#1E40AF": "#93b4ff", "#2563EB": "#7aa7ff", "#1E3A8A": "#93b4ff",
-  "#92400E": "#f5c072", "#B45309": "#f0a54a", "#A16207": "#f0c14a", "#a16207": "#f0c14a", "#CA8A04": "#f0c14a",
-  "#B91C1C": "#ff8f8f", "#a00": "#ff8f8f", "#900": "#ff8f8f", "#DC2626": "#ff7a7a",
-  "#7C3AED": "#b9a2ff", "#5B21B6": "#c9b6ff",
+  "#111": "#E6EDF7", "#333": "#CBD5E1", "#374151": "#CBD5E1", "#555": "#A8B4C7", "#666": "#9AA8BD", "#777": "#8D9BB2",
+  "#888": "#8D9BB2", "#999": "#7B8BA5", "#6B7280": "#9AA8BD", "#64748B": "#93A3BA", "#475569": "#A8B4C7", "#0F172A": "#E6EDF7", "#13294B": "#BFD3F5",
+  "#166534": "#6EE7A0", "#15803D": "#4ADE80", "#16A34A": "#4ADE80",
+  "#1E40AF": "#93B4FF", "#2563EB": "#7AA7FF", "#1E3A8A": "#93B4FF", "#1D4ED8": "#7AA7FF",
+  "#92400E": "#F5C072", "#B45309": "#F0A54A", "#A16207": "#F0C14A", "#a16207": "#F0C14A", "#CA8A04": "#F0C14A", "#9A3412": "#FDBA74",
+  "#B91C1C": "#FF8F8F", "#a00": "#FF8F8F", "#900": "#FF8F8F", "#DC2626": "#FF7A7A", "#991B1B": "#FCA5A5",
+  "#7C3AED": "#B9A2FF", "#5B21B6": "#C9B6FF",
 };
 const BORDER = ["#ccc", "#ddd", "#eee", "#f0f0f0", "#e99"];
 
@@ -46,11 +47,11 @@ for (const [hex, light] of Object.entries(FG)) {
 }
 for (const hex of BORDER) {
   const r = rgb(hex);
-  rules.push(`html.dark [style*="solid ${hex}"], html.dark [style*="solid ${r}"] { border-color: #3a4152 !important; }`);
+  rules.push(`html.dark [style*="solid ${hex}"], html.dark [style*="solid ${r}"] { border-color: rgba(148,163,184,.2) !important; }`);
 }
 
 export const DARK_CSS = `
-html.dark, html.dark body { background: #0f1217; color: #eceef3; color-scheme: dark; }
+html.dark, html.dark body { background: #070D1A; color: #E6EDF7; color-scheme: dark; }
 html.dark input, html.dark select, html.dark textarea {
   background: #232834 !important; color: #eceef3 !important; border-color: #3a4152 !important; }
 html.dark input::placeholder, html.dark textarea::placeholder { color: #7d8594; }
@@ -59,7 +60,7 @@ html.dark ::-webkit-scrollbar-thumb { background: #363e4e; border-radius: 6px; }
 html.dark ::-webkit-scrollbar-track { background: #151920; }
 
 /* mappa scura: le strade restano leggibili */
-html.dark .leaflet-container { background: #0f1217; }
+html.dark .leaflet-container { background: #070D1A; }
 html.dark .leaflet-tile-pane { filter: brightness(.62) invert(1) contrast(1.15) hue-rotate(195deg) saturate(.35) brightness(.95); }
 html.dark .leaflet-popup-content-wrapper, html.dark .leaflet-popup-tip { background: #1b1f27; color: #eceef3;
   box-shadow: 0 6px 22px rgba(0,0,0,.6); }

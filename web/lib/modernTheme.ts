@@ -115,3 +115,132 @@ ${L} .fs-help-head { background: linear-gradient(135deg, #2563EB, #13294B) !impo
 html.dark .fs-splash { background: radial-gradient(900px 500px at 50% 35%, #1E293B, #0B1220); }
 html.dark .fs-splash .title { color: #F1F5F9; }
 `;
+
+// ============================================================================================
+// Sistema grafico v2: tutte le pagine (chiaro + scuro), animazioni leggere solo nel telefono/browser
+// ============================================================================================
+const D = "html.dark";
+function rgbOf(hex: string) {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+}
+/** selettore per uno stile scritto nella pagina: "background:#111" (server) o "background: rgb(17, 17, 17)" (browser) */
+function bgSel(scope: string, hex: string, tag = "") {
+  const r = rgbOf(hex);
+  return [`${scope} ${tag}[style*="background:${hex};"]`, `${scope} ${tag}[style$="background:${hex}"]`,
+          `${scope} ${tag}[style*="background: ${r};"]`, `${scope} ${tag}[style*="background: ${r} "]`].join(",");
+}
+// tasti colorati → sfumatura viva con bagliore dello stesso colore
+const BTN_GRAD: [string, string, string][] = [
+  ["#15803D", "#22C55E", "#15803D"], ["#16A34A", "#34D399", "#16A34A"], ["#DC2626", "#FB7185", "#DC2626"], ["#B91C1C", "#F87171", "#B91C1C"],
+  ["#F97316", "#FDBA74", "#EA580C"], ["#EA6A1F", "#FB923C", "#E11D48"], ["#7C3AED", "#A78BFA", "#6D28D9"], ["#2563EB", "#60A5FA", "#1D4ED8"],
+  ["#1E3A8A", "#3B82F6", "#1E3A8A"], ["#13294B", "#2563EB", "#13294B"], ["#B45309", "#F59E0B", "#B45309"], ["#0369A1", "#38BDF8", "#0369A1"],
+  ["#6B7280", "#94A3B8", "#475569"], ["#5B21B6", "#8B5CF6", "#5B21B6"], ["#F59E0B", "#FCD34D", "#D97706"],
+];
+const btnRules = BTN_GRAD.map(([hex, a, b]) =>
+  `${bgSel("html", hex, "button")} { background: linear-gradient(135deg, ${a}, ${b}) !important; box-shadow: 0 6px 16px ${b}40, inset 0 1px 0 rgba(255,255,255,.25); border-radius: 12px !important; }`).join("\n");
+
+export const MODERN_CSS_V2 = `
+/* ---------- tasti: morbidi, si sollevano al passaggio e "si schiacciano" al tocco ---------- */
+button { transition: transform .14s cubic-bezier(.2,.9,.3,1.3), box-shadow .18s ease, filter .18s ease, background-color .18s ease !important; }
+button:not(:disabled):not([style*="transform"]):hover { transform: translateY(-1px); }
+button:not(:disabled):not([style*="transform"]):active { transform: translateY(0) scale(.96); filter: brightness(.96); }
+${btnRules}
+/* tasto "indietro"/secondario delle testate (prima grigio scuro) → vetro */
+${bgSel("html", "#333", "button")} { background: rgba(255,255,255,.16) !important; border: 1px solid rgba(255,255,255,.28) !important; border-radius: 12px !important;
+  backdrop-filter: blur(6px); color: #fff !important; }
+
+/* ---------- pagine ---------- */
+main > * { animation: fsIn .35s cubic-bezier(.2,.8,.2,1) backwards; }
+main > *:nth-child(2) { animation-delay: .04s } main > *:nth-child(3) { animation-delay: .08s } main > *:nth-child(4) { animation-delay: .12s }
+@keyframes fsIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+/* testata della pagina */
+${L} main > div:first-child[style*="rgb(17, 17, 17)"], ${L} main > div:first-child[style*="background:#111"],
+${D} main > div:first-child[style*="rgb(17, 17, 17)"], ${D} main > div:first-child[style*="background:#111"] {
+  position: sticky; top: 0; z-index: 50; animation: none; }
+${D} main > div:first-child[style*="rgb(17, 17, 17)"], ${D} main > div:first-child[style*="background:#111"] {
+  background: radial-gradient(circle at 85% -40%, rgba(96,165,250,.25), transparent 50%), linear-gradient(135deg, #172554, #0B1220 80%) !important;
+  border-radius: 0 0 26px 26px; box-shadow: 0 12px 30px rgba(0,0,0,.5) !important; border-bottom: 1px solid rgba(148,163,184,.12); }
+/* schede grigie chiare (#eee, #f6f6f4) → azzurrino pulito */
+${bgSel(L, "#eee")}, ${bgSel(L, "#f6f6f4")}, ${bgSel(L, "#f1f1f1")}, ${bgSel(L, "#F8FAFC")} { background: #EEF3FA !important; }
+/* finestre sopra la pagina: sfondo sfocato, finestra che "salta fuori" */
+[style*="position: fixed"][style*="rgba(0, 0, 0, 0.5"], [style*="position: fixed"][style*="rgba(0, 0, 0, 0.4"], [style*="position: fixed"][style*="rgba(0, 0, 0, 0.6"] {
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fsFade .2s ease backwards; }
+[style*="position: fixed"][style*="rgba(0, 0, 0, 0.5"] > div, [style*="position: fixed"][style*="rgba(0, 0, 0, 0.4"] > div, [style*="position: fixed"][style*="rgba(0, 0, 0, 0.6"] > div {
+  animation: fsPopIn .28s cubic-bezier(.2,1.2,.3,1) backwards; border-radius: 24px !important; }
+@keyframes fsFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fsPopIn { from { opacity: 0; transform: translateY(14px) scale(.97) } to { opacity: 1; transform: none } }
+/* tabelle */
+${L} main table { border-collapse: separate; border-spacing: 0; }
+${L} main th { background: #F1F5FA; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+/* titoli più decisi */
+main h1, main h2, main h3 { letter-spacing: -0.02em; }
+/* barre di avanzamento (sfondi grigi sottili) arrotondate */
+${L} main [style*="height: 6px"][style*="border-radius"], ${L} main [style*="height: 8px"][style*="border-radius"] { background-color: #E7EDF5; }
+
+/* ---------- modalità notturna nuova: blu notte profondo con vetro ---------- */
+${D} { --m-bg: #070D1A; --m-surface: rgba(17,26,46,.78); --m-line: rgba(148,163,184,.14); --m-ink: #E6EDF7; --m-sub: #93A3BA;
+  --m-shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45); --m-shadow-lg: 0 24px 60px rgba(0,0,0,.6); }
+${D}, ${D} body { background: radial-gradient(1200px 600px at 50% -200px, #12203D, #070D1A 70%) fixed !important; color: #E6EDF7; font-family: Inter, system-ui, sans-serif; }
+${D} main [style*="border-radius"][style*="rgb(27, 31, 39)"] { background: #111A2E !important; border: 1px solid rgba(148,163,184,.12); box-shadow: 0 10px 30px rgba(0,0,0,.35) !important; }
+${D} .fs-pill, ${D} .fs-fleet-btn, ${D} .fs-theme-btn, ${D} .fs-legend-btn {
+  background: rgba(17,26,46,.78) !important; backdrop-filter: saturate(1.4) blur(18px); -webkit-backdrop-filter: saturate(1.4) blur(18px);
+  border: 1px solid rgba(148,163,184,.16) !important; box-shadow: 0 12px 30px rgba(0,0,0,.45) !important; border-radius: 18px !important; color: #E6EDF7 !important; }
+${D} .fs-theme-btn, ${D} .fs-legend-btn { border-radius: 999px !important; }
+${D} .fs-burger { border-radius: 16px !important; background: linear-gradient(135deg, #FB923C, #E11D48) !important; box-shadow: 0 10px 26px rgba(225,29,72,.35) !important; }
+${D} .fs-fleet-ico { border-radius: 16px !important; background: linear-gradient(135deg, #3B82F6, #1E3A8A) !important; }
+${D} .fs-chat-btn { background: linear-gradient(135deg, #3B82F6, #1E3A8A) !important; border-color: #111A2E !important; }
+${D} .fs-stats-pop, ${D} .fs-fleet-list, ${D} .fs-legend-box, ${D} .fs-chat, ${D} .leaflet-popup-content-wrapper {
+  background: rgba(13,20,36,.96) !important; color: #E6EDF7 !important; border: 1px solid rgba(148,163,184,.14) !important; border-radius: 22px !important; box-shadow: 0 24px 60px rgba(0,0,0,.6) !important; }
+${D} .leaflet-popup-tip { background: rgba(13,20,36,.96) !important; }
+${D} .fs-stats-head, ${D} .fs-fleet-head, ${D} .fs-drawer-head, ${D} .fs-help-head { background: linear-gradient(135deg, #1D4ED8, #172554) !important; border-bottom: none !important; }
+${D} .fs-mis-body, ${D} .fs-amb-title, ${D} .fs-amb-row b { color: #E6EDF7 !important; }
+${D} .fs-mis-meta span, ${D} .fs-stat-btn { background: #17233D !important; color: #E6EDF7 !important; }
+${D} .fs-drawer-bg { background: rgba(0,0,0,.45) !important; backdrop-filter: blur(4px); }
+${D} .fs-drawer { background: rgba(10,16,30,.97) !important; border-radius: 0 26px 26px 0; border-right: 1px solid rgba(148,163,184,.12); }
+${D} .fs-drawer-item { color: #E6EDF7 !important; border-radius: 14px !important; }
+${D} .fs-drawer-item:hover { background: #17233D !important; }
+${D} .fs-drawer-group { color: #64748B !important; letter-spacing: .12em !important; }
+${D} .leaflet-control-zoom a { background: rgba(17,26,46,.85) !important; color: #E6EDF7 !important; border-color: rgba(148,163,184,.14) !important; }
+${D} .fs-help { background: #0D1424 !important; border-radius: 28px 28px 0 0 !important; }
+${D} input, ${D} select, ${D} textarea { background: #0D1424 !important; border: 1px solid rgba(148,163,184,.22) !important; border-radius: 12px !important; }
+${D} input:focus, ${D} select:focus, ${D} textarea:focus { outline: none; border-color: #3B82F6 !important; box-shadow: 0 0 0 4px rgba(59,130,246,.25); }
+${D} main th { background: #17233D; color: #93A3BA; }
+@media (max-width: 760px) {
+  ${D} .fs-nav { left: 10px !important; right: 10px !important; bottom: calc(8px + env(safe-area-inset-bottom)) !important; padding-bottom: 0 !important;
+    height: 62px !important; border-radius: 24px; border-top: none !important; background: rgba(13,20,36,.86) !important;
+    backdrop-filter: saturate(1.5) blur(22px); -webkit-backdrop-filter: saturate(1.5) blur(22px); border: 1px solid rgba(148,163,184,.16);
+    box-shadow: 0 18px 40px rgba(0,0,0,.55) !important; }
+  ${D} body.fs-has-nav { --fs-nav-h: 78px; }
+  ${D} .fs-nav a, ${D} .fs-nav button { color: #7B8BA5 !important; }
+  ${D} .fs-nav .on { color: #60A5FA !important; }
+  ${D} .fs-nav .on::after { display: none; }
+  ${D} .fs-nav .on::before { content: ""; position: absolute; inset: 6px 10px; border-radius: 16px; background: rgba(59,130,246,.16); z-index: -1; }
+}
+
+
+/* ---------- mappa: testata più chiara da leggere ---------- */
+.fs-pill .fs-pill-text { gap: 2px; }
+.fs-pill > span:first-child, .fs-pill > div:first-child { border-radius: 12px; box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(15,23,42,.18); }
+.fs-money { font-size: 17px !important; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.fs-rep { border: none !important; background: linear-gradient(135deg, #FEF3C7, #FDE68A) !important; color: #92400E !important; font-weight: 800 !important; }
+.fs-chips { gap: 5px !important; margin-top: 3px !important; }
+.fs-chips > span { padding: 1px 7px; border-radius: 999px; background: rgba(148,163,184,.14); }
+.fs-auto { border-radius: 999px !important; background: linear-gradient(135deg, #14B8A6, #0F766E) !important; padding: 1px 8px !important; }
+.fs-fuel-btn, .fs-weather-btn { border-radius: 18px !important; }
+.fs-fuel-bar { border-radius: 99px !important; }
+.fs-fuel-bar > span { background-image: linear-gradient(90deg, rgba(255,255,255,.25), transparent) !important; }
+.fs-legend-box .fs-legend-h { color: #64748B !important; }
+.fs-notes .fs-note { backdrop-filter: blur(8px); }
+.fs-badge, .fs-fleet-badge { border-width: 2px !important; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.fs-mis-popup .fs-mis-bar, .fs-amb-popup .fs-amb-bar { background-image: linear-gradient(135deg, rgba(255,255,255,.18), transparent) !important; }
+.fs-amb-cancel { border-radius: 12px !important; background: linear-gradient(135deg, #475569, #1E293B) !important; }
+${D} .fs-chips > span { background: rgba(148,163,184,.16); }
+${D} .fs-pill > span:first-child, ${D} .fs-pill > div:first-child { box-shadow: 0 0 0 2px #111A2E, 0 4px 10px rgba(0,0,0,.4); }
+
+/* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+body.fs-lite main > * { animation: none !important; }
+`;

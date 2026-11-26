@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { helpFor } from "@/lib/help";
-import { MODERN_CSS } from "@/lib/modernTheme";
+import { MODERN_CSS, MODERN_CSS_V2 } from "@/lib/modernTheme";
 
 /** schermata d'ingresso: logo, sirene, ambulanza che attraversa; si salta toccando */
 let splashDone = false;   // una sola volta per apertura del gioco
@@ -79,10 +79,10 @@ export default function AppChrome() {
 
   const help = helpFor(path);
   const noSplash = ["/maxi", "/recupero", "/reset"].some((p) => path === p || path.startsWith(p + "/"));
-  if (hidden) return <><style dangerouslySetInnerHTML={{ __html: MODERN_CSS }} />{!noSplash && <Splash />}</>;
+  if (hidden) return <><style dangerouslySetInnerHTML={{ __html: MODERN_CSS + MODERN_CSS_V2 }} />{!noSplash && <Splash />}</>;
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: MODERN_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: MODERN_CSS + MODERN_CSS_V2 }} />
       <Splash />
       {help && (
         <button className={`fs-help-fab${fresh ? " pulse" : ""}`} onClick={openHelp} aria-label="Come funziona questa pagina" title="Come funziona">?</button>

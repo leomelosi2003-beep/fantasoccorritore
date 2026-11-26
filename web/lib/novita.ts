@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26d", date: "26 novembre 2026", title: "🌙 Nuova modalità notturna + pulsanti animati",
+    items: ["Modalità notturna rifatta: blu notte profondo, comandi a vetro, menu e finestre più leggibili.",
+            "Tutte le pagine hanno la testata blu che resta in alto mentre scorri, schede e pulsanti nuovi.",
+            "I pulsanti si sollevano e si «schiacciano» al tocco; le finestre si aprono con un'animazione morbida (spenta in modalità leggera).",
+            "In alto sulla mappa soldi più grandi e chiari, reputazione e andamento a pastiglie."],
+  },
+  {
     id: "2026-11-26c", date: "26 novembre 2026", title: "✨ Gioco tutto nuovo da vedere",
     items: ["Nuova schermata d'ingresso con sirene e ambulanza (tocca per saltarla).",
             "Nuova grafica chiara e moderna: comandi della mappa a vetro, barra in basso galleggiante, menu, finestre e pulsanti più morbidi e colorati, carattere nuovo."],
