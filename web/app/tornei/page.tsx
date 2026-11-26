@@ -522,6 +522,15 @@ html.dark .fs-tor-past { color: #E6EDF7 !important; } html.dark .fs-tor-btn.ghos
 .fs-ch-picked b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-ch-picked button { border: none !important; background: #fff !important; color: #6D28D9 !important; border-radius: 10px; padding: 6px 10px; font: inherit; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: none !important; }
 @media (max-width: 640px) {
+  .fs-tor-top { flex-wrap: wrap; justify-content: flex-start; }
+  .fs-tor-st { white-space: normal; }
+  .fs-tor-meta { gap: 4px 10px; }
+  .fs-ch-bar { flex-wrap: wrap; gap: 2px 10px; }
+  .fs-ch-vs b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.2; }
+  .fs-bk-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+  .fs-tb-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; font-size: 14px; }
+  .fs-tb-p b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; }
+  .fs-tor-past { flex-wrap: wrap; } .fs-tor-past > span:last-child { width: 100%; padding-left: 28px; font-size: 13px; }
   .fs-tor-grid { grid-template-columns: 1fr; gap: 10px; }
   .fs-tor-card { padding: 14px; border-radius: 20px; }
   .fs-tor-title { font-size: 17px; } .fs-tor-prize { font-size: 22px; }

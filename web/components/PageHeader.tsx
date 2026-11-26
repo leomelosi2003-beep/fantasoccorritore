@@ -56,6 +56,14 @@ export const PH_CSS = `
   .fs-ph-t h1 { font-size: 17px; }
   .fs-ph-t p { -webkit-line-clamp: 1; }
   .fs-ph-funds { font-size: 12.5px; padding: 6px 9px; }
+  /* sul telefono niente scorrimento di lato: schede e scorciatoie stanno tutte nello schermo */
+  .fs-ph-tabs { overflow: visible; gap: 3px; padding: 3px; }
+  .fs-ph-tab { flex: 1 1 0; min-width: 0; white-space: normal; text-align: center; line-height: 1.15; font-size: 12.5px; padding: 7px 4px; flex-direction: column; gap: 2px; }
+  .fs-ph-tab .fs-ph-badge { min-width: 16px; height: 16px; font-size: 10px; }
+  .fs-ph-links { flex-wrap: wrap; overflow: visible; gap: 5px; margin-top: 8px; }
+  .fs-ph-link { padding: 5px 9px; font-size: 12px; }
+  .fs-ph-t h1 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .fs-ph-t p { -webkit-line-clamp: 2; font-size: 12px; }
 }
 html.dark .fs-ph { box-shadow: 0 14px 34px rgba(0,0,0,.55); border-bottom: 1px solid rgba(148,163,184,.12); }
 html.dark .fs-ph-ico { background: rgba(7,13,26,.55); }
