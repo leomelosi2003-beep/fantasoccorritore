@@ -244,10 +244,14 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
           <AllianceHero a={alliance} members={members.filter((m) => m.alliance_id === alliance.id).length}
                         isAdmin={alliance.founder_org === me.id} myOrg={me.id} onChanged={load} />
           {alliance.founder_org === me.id && <JoinRequestsAdmin />}
-          <AllianceFund key={"f" + alliance.id} onChanged={load} myFunds={me.funds} />
-          <AllianceChat allianceId={alliance.id} myOrg={me.id} />
+          <div className="fs-2col">
+            <div>
+              <AllianceFund key={"f" + alliance.id} onChanged={load} myFunds={me.funds} />
+              {myAlliance && <AllianceGoal key={myAlliance} />}
+            </div>
+            <div className="fs-sticky-col"><AllianceChat allianceId={alliance.id} myOrg={me.id} /></div>
+          </div>
         </>)}
-        {section === "mia" && myAlliance && <AllianceGoal key={myAlliance} />}
         {section === "alleanza" && <AllianceDirectory inAlliance={!!myAlliance} onChanged={load} />}
         {contract && (() => {
           const al = contract.invite ? alliances.find((a) => a.id === contract.invite!.alliance_id) : null;
@@ -267,9 +271,10 @@ export default function AlliancePage({ section }: { section: AllianceSection }) 
         {section === "gemellaggio" && (<>
         <div style={box}>
           <div style={h2}>🤝 Gemellaggio</div>
-          <div style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>
+          <details style={{ fontSize: 13, color: "#555", marginBottom: 10 }}>
+            <summary style={{ fontWeight: 800, cursor: "pointer", color: "#0E7490" }}>ℹ️ Cos'è il gemellaggio e cosa puoi fare</summary>
             Gemèllati con un&apos;altra associazione per aiutarla a crescere: puoi donarle <strong>soldi</strong>, <strong>ambulanze</strong> e <strong>sedi</strong>. Una <strong>sede in collaborazione</strong> prende il nome di entrambe e il gemello può <strong>mandare le tue ambulanze ferme lì</strong>.
-          </div>
+          </details>
 
           {twinReceived.map((t) => (
             <div key={t.id} style={{ ...row, border: "2px solid #F59E0B", borderRadius: 10, padding: 8, marginBottom: 8 }}>

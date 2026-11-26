@@ -358,7 +358,7 @@ ${D} .fs-mp-go { background: rgba(13,20,36,.92); border-top-color: rgba(148,163,
 .fs-kpis4 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 760px) { .fs-kpis4 { grid-template-columns: 1fr 1fr; } }
 .fs-2col { display: grid; grid-template-columns: 1fr; gap: 0 14px; align-items: start; }
-@media (min-width: 1000px) { .fs-2col { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1000px) { .fs-2col { grid-template-columns: 1fr 1fr; } .fs-sticky-col { position: sticky; top: 170px; } }
 ${D} .fs-kpi { background: #111A2E; border: 1px solid rgba(148,163,184,.12); }
 ${D} .fs-kpi span { color: #93A3BA; }
 main details > summary { list-style: none; }
