@@ -9,7 +9,7 @@ export const NOVITA: Novita[] = [
   },
   {
     id: "2026-11-26q", date: "26 novembre 2026", title: "⚔️ Tornei: basta passaggi gratis",
-    items: ["Al primo turno giocano tutti. Solo se le squadre sono dispari la prima testa di serie passa da sola (al massimo una).",
+    items: ["Al primo turno giocano tutti. Solo se le squadre sono dispari una squadra passa da sola, estratta a sorte (può capitare a chiunque).",
             "Nei turni dopo, se chi passa è in numero dispari, viene RIPESCATO il miglior perdente (chi ha fatto più servizi tra gli eliminati del turno): così nessuno passa senza giocare."],
   },
   {
