@@ -4,7 +4,7 @@
 
 export const BRAND = {
   navy: "#13294B", navy2: "#1D3D6B", orange: "#EA6A1F", orange2: "#F59E0B", sky: "#3BA3DB",
-  green: "#3E7D3A", yellow: "#F5D90A", paper: "#EEF3F8", ink: "#0F1E36",
+  green: "#3E7D3A", yellow: "#F5D90A", paper: "#F3F6FB", ink: "#0B1B33",
 };
 
 function rgb(hex: string) {

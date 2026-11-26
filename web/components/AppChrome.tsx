@@ -4,6 +4,39 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { helpFor } from "@/lib/help";
+import { MODERN_CSS } from "@/lib/modernTheme";
+
+/** schermata d'ingresso: logo, sirene, ambulanza che attraversa; si salta toccando */
+let splashDone = false;   // una sola volta per apertura del gioco
+function Splash() {
+  const [stage, setStage] = useState<"on" | "out" | "off">(() => (splashDone ? "off" : "on"));
+  useEffect(() => {
+    if (splashDone) return;
+    splashDone = true;
+    let lite = false;
+    try { lite = localStorage.getItem("fs_perf") === "sempre"; } catch { /* */ }
+    const a = setTimeout(() => setStage("out"), lite ? 900 : 2700), b = setTimeout(() => setStage("off"), lite ? 1300 : 3200);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, []);
+  if (stage === "off") return null;
+  const word = "Fanta", acc = "Soccorritore";
+  return (
+    <div className={`fs-splash${stage === "out" ? " out" : ""}`} onClick={() => { setStage("out"); setTimeout(() => setStage("off"), 450); }} role="presentation">
+      <div className="glow b" /><div className="glow r" />
+      <div className="box">
+        <img className="logo" src="/logo-192.jpg" alt="FantaSoccorritore" />
+        <div className="title">
+          {word.split("").map((c, i) => <span key={i} style={{ animationDelay: `${300 + i * 45}ms` }}>{c}</span>)}
+          {acc.split("").map((c, i) => <span key={"a" + i} className="acc" style={{ animationDelay: `${525 + i * 45}ms` }}>{c}</span>)}
+        </div>
+        <div className="sub">Centrale operativa · 118</div>
+        <div className="road"><span className="amb">🚑</span></div>
+        <div className="bar"><i /></div>
+      </div>
+      <div className="skip">Tocca per entrare</div>
+    </div>
+  );
+}
 
 const NAV: [string, string, string][] = [
   ["🗺️", "Mappa", "/"], ["🚑", "Garage", "/garage"], ["🏆", "Classifica", "/classifica"], ["🔧", "Officina", "/officina"], ["👥", "Squadra", "/squadra"],
@@ -45,9 +78,12 @@ export default function AppChrome() {
   }
 
   const help = helpFor(path);
-  if (hidden) return null;
+  const noSplash = ["/maxi", "/recupero", "/reset"].some((p) => path === p || path.startsWith(p + "/"));
+  if (hidden) return <><style dangerouslySetInnerHTML={{ __html: MODERN_CSS }} />{!noSplash && <Splash />}</>;
   return (
     <>
+      <style dangerouslySetInnerHTML={{ __html: MODERN_CSS }} />
+      <Splash />
       {help && (
         <button className={`fs-help-fab${fresh ? " pulse" : ""}`} onClick={openHelp} aria-label="Come funziona questa pagina" title="Come funziona">?</button>
       )}

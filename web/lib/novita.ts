@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26c", date: "26 novembre 2026", title: "✨ Gioco tutto nuovo da vedere",
+    items: ["Nuova schermata d'ingresso con sirene e ambulanza (tocca per saltarla).",
+            "Nuova grafica chiara e moderna: comandi della mappa a vetro, barra in basso galleggiante, menu, finestre e pulsanti più morbidi e colorati, carattere nuovo."],
+  },
+  {
     id: "2026-11-26b", date: "26 novembre 2026", title: "🏆 Classifiche nuove di zecca + 🆘 Maxi emergenze",
     items: ["Nuova grafica: schede colorate, podio con corona, la tua posizione in alto, barre e premi in evidenza. Le classifiche di stagione ora si aprono subito.",
             "Nuova classifica premiata «🆘 Maxi emergenze»: chi manda più mezzi sulle maxi nel mese. Premi da 5 milioni al 1° fino a 500.000 € al 10°.",
