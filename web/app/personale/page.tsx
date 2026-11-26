@@ -30,6 +30,7 @@ const left = (iso: string) => { const m = Math.max(0, Math.round((Date.parse(iso
 
 export default function Personale() {
   const router = useRouter();
+  const [ptab, setPtab] = useState<"altri" | "mia">("altri");
   const [org, setOrg] = useState<Organization | null>(null);
   const [reqs, setReqs] = useState<Req[]>([]);
   const [cards, setCards] = useState<MyCard[]>([]);
@@ -71,12 +72,14 @@ export default function Personale() {
     <main style={shell}>
       <PageHeader icon="📢" title="Richieste di personale" tone="pink" funds={org.funds}
         sub="Chiedi volontari in prestito o aiuta chi è a corto"
-        links={[{ href: "/squadra", label: "👥 Squadra" }]} />
+        links={[{ href: "/squadra", label: "👥 Squadra" }]}
+        tabs={[{ key: "altri", label: "🙌 Chi ha bisogno", badge: others.length || null }, { key: "mia", label: mine ? "📢 La mia richiesta · attiva" : "📢 Chiedi aiuto" }]}
+        tab={ptab} onTab={(k) => setPtab(k as "altri" | "mia")} />
       <div style={wrap}>
         {msg && <div style={{ ...box, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}
 
         {/* la mia richiesta */}
-        <div style={box}>
+        {ptab === "mia" && <div style={box}>
           <h2 style={{ fontSize: 18, margin: "0 0 8px" }}>Sei a corto di personale?</h2>
           {mine ? (
             <>
@@ -118,10 +121,10 @@ export default function Personale() {
               </div>
             </>
           )}
-        </div>
+        </div>}
 
         {/* richieste degli altri */}
-        <h2 style={{ fontSize: 18, margin: "16px 0 8px" }}>Chi ha bisogno di personale</h2>
+        {ptab === "altri" && <>
         {others.length === 0 && <div style={{ ...box, color: "#666" }}>Al momento nessuna associazione ha chiesto personale.</div>}
         {others.map((r) => {
           const needed = Object.keys(r.roles);
@@ -164,6 +167,7 @@ export default function Personale() {
             </div>
           );
         })}
+        </>}
       </div>
     </main>
   );

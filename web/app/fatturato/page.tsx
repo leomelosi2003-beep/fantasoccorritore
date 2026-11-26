@@ -49,31 +49,16 @@ export default function Fatturato() {
     <main style={shell}>
       <PageHeader icon="🏢" title="Fatturato delle sedi" tone="navy"
         sub="Quale sede guadagna di più"
-        links={[{ href: "/sedi", label: "🏠 Le mie sedi" }, { href: "/finanze", label: "📊 Entrate e uscite" }]} />
+        links={[{ href: "/sedi", label: "🏠 Le mie sedi" }, { href: "/finanze", label: "📊 Entrate e uscite" }]}
+        tabs={PERIODS.map((p) => ({ key: String(p.h), label: p.label }))} tab={String(hours)} onTab={(k) => { setHours(Number(k)); setRows(null); }} />
 
       <div style={wrap}>
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>
-          {PERIODS.map((p) => (
-            <button key={p.h} onClick={() => { setHours(p.h); setRows(null); }}
-                    style={{ padding: "9px 12px", borderRadius: 999, border: "none", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 700,
-                             fontSize: 14, background: hours === p.h ? "#111" : "#fff", color: hours === p.h ? "#fff" : "#111",
-                             boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{p.label}</button>
-          ))}
-        </div>
 
-        <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Fatturato totale</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#15803D" }}>{euro(total)}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Servizi conclusi</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{services.toLocaleString("it-IT")}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 13, color: "#666" }}>Media a servizio</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{euro(services ? total / services : 0)}</div>
-          </div>
+
+        <div className="fs-kpis">
+          <div className="fs-kpi" style={{ ["--k" as string]: "#16A34A" }}><span>💶 Fatturato totale</span><b style={{ color: "#15803D" }}>{euro(total)}</b></div>
+          <div className="fs-kpi" style={{ ["--k" as string]: "#2563EB" }}><span>🚑 Servizi conclusi</span><b>{services.toLocaleString("it-IT")}</b></div>
+          <div className="fs-kpi" style={{ ["--k" as string]: "#D97706" }}><span>📐 Media a servizio</span><b>{euro(services ? total / services : 0)}</b></div>
         </div>
 
         <div style={card}>

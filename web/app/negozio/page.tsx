@@ -19,6 +19,7 @@ const CATEGORIES: { slot: string; title: string }[] = [
   { slot: "borsoni", title: "Borsoni e zaini" },
   { slot: "maxi", title: "🆘 Moduli per le maxi emergenze (solo camion e furgone maxi)" },
 ];
+const CAT_SHORT: Record<string, string> = { monitor: "⚡ Defibrillatori", barella: "🛏️ Barelle", massaggiatore: "💓 Massaggiatori", immobilizzazione: "🦴 Immobilizzazione", borsoni: "🎒 Borsoni", maxi: "🆘 Maxi" };
 const isMaxiEq = (e: Equip) => e.slot.startsWith("maxi_");
 const euro = (n: number) => n.toLocaleString("it-IT") + " €";
 
@@ -30,6 +31,7 @@ const btn: CSSProperties = { padding: "10px 14px", borderRadius: 10, border: "no
 
 export default function Negozio() {
   const router = useRouter();
+  const [cat, setCat] = useState("tutti");
   const [org, setOrg] = useState<Organization | null>(null);
   const [equip, setEquip] = useState<Equip[]>([]);
   const [vehicles, setVehicles] = useState<SheetVehicle[]>([]);
@@ -63,7 +65,8 @@ export default function Negozio() {
     <main style={shell}>
       <PageHeader icon="🛒" title="Negozio presidi" tone="teal" funds={org.funds} back="/garage" backLabel="Garage"
         sub="Compra presidi e montali sulle ambulanze, anche a tutta una sede"
-        links={[{ href: "/officina?tab=presidi", label: "🧰 I miei presidi", hot: true }, { href: "/garage", label: "🚑 Garage" }]} />
+        links={[{ href: "/officina?tab=presidi", label: "🧰 I miei presidi", hot: true }, { href: "/garage", label: "🚑 Garage" }]}
+        tabs={[{ key: "tutti", label: "Tutti" }, ...CATEGORIES.map((c) => ({ key: c.slot, label: CAT_SHORT[c.slot] ?? c.title }))]} tab={cat} onTab={setCat} />
 
       <div style={wrap}>
         {msg && (
@@ -73,7 +76,7 @@ export default function Negozio() {
           Tocca un presidio: scegli <b>su quali ambulanze montarlo</b> (anche tutta una sede insieme) e <b>quanti comprarne</b>. Quelli in più restano in magazzino per dopo.
         </div>
 
-        {CATEGORIES.map(({ slot, title }) => {
+        {CATEGORIES.filter((c) => cat === "tutti" || c.slot === cat).map(({ slot, title }) => {
           const items = equip.filter((e) => e.category === slot);
           if (!items.length) return null;
           return (

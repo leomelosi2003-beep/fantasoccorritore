@@ -61,44 +61,47 @@ export default function Obiettivi() {
     const items = (list ?? []).filter((o) => o.kind === kind);
     const done = items.filter((o) => o.claimed).length;
     return (
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>{title}</div>
-          <div style={{ color: "#666", fontSize: 13 }}>{done}/{items.length} ritirati</div>
-          <div style={{ flex: 1 }} />
-          {items[0] && <div style={{ color: "#666", fontSize: 13 }}>⏳ {left(items[0].ends_at, now)}</div>}
+      <section className="fs-obj-sec">
+        <div className="fs-obj-head">
+          <div>
+            <h2>{title} <small>{done}/{items.length} ritirati</small></h2>
+            <p>{sub}</p>
+          </div>
+          {items[0] && <span className="fs-obj-time">⏳ {left(items[0].ends_at, now)}</span>}
         </div>
-        <div style={{ color: "#777", fontSize: 13, marginBottom: 10 }}>{sub}</div>
-        {items.map((o) => {
-          const pct = Math.min(100, (o.progress / Math.max(1, o.target)) * 100);
-          const ready = o.progress >= o.target && !o.claimed;
-          return (
-            <div key={o.key} style={{ borderTop: "1px solid #eee", padding: "12px 0", display: "flex", gap: 12, alignItems: "center",
-                                       opacity: o.claimed ? 0.55 : 1 }}>
-              <div style={{ fontSize: 26, width: 36, textAlign: "center" }}>{o.icon}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600 }}>{o.title}</div>
-                <div style={{ height: 8, background: "#eee", borderRadius: 6, margin: "6px 0 4px", overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", background: o.claimed ? "#9ca3af" : ready ? "#16a34a" : "#2563eb",
-                                transition: "width .4s" }} />
+        <div className="fs-obj-grid">
+          {items.map((o) => {
+            const pct = Math.min(100, (o.progress / Math.max(1, o.target)) * 100);
+            const ready = o.progress >= o.target && !o.claimed;
+            const col = o.claimed ? "#94A3B8" : ready ? "#16A34A" : "#2563EB";
+            const C = 2 * Math.PI * 26;
+            return (
+              <div key={o.key} className={`fs-obj${ready ? " ready" : ""}${o.claimed ? " done" : ""}`}>
+                <div className="fs-obj-ring">
+                  <svg width="64" height="64" viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="26" fill="none" stroke="#E2E8F0" strokeWidth="7" />
+                    <circle cx="32" cy="32" r="26" fill="none" stroke={col} strokeWidth="7" strokeLinecap="round"
+                            strokeDasharray={`${(pct / 100) * C} ${C}`} transform="rotate(-90 32 32)" style={{ transition: "stroke-dasharray .6s" }} />
+                  </svg>
+                  <span>{o.claimed ? "✅" : o.icon}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  {o.progress.toLocaleString("it-IT")} / {o.target.toLocaleString("it-IT")} · premio {euro(o.reward)} + {o.reputation} ⭐
-                </div>
+                <div className="fs-obj-t">{o.title}</div>
+                <div className="fs-obj-n">{o.progress.toLocaleString("it-IT")} / {o.target.toLocaleString("it-IT")}</div>
+                <div className="fs-obj-prize">💶 {euro(o.reward)} · ⭐ {o.reputation}</div>
+                {o.claimed ? <div className="fs-obj-btn off">Ritirato</div> : (
+                  <button className={`fs-obj-btn${ready ? "" : " off"}`} disabled={!ready || busy !== null} onClick={() => claim(o)}>
+                    {busy === o.period + o.key ? "…" : ready ? "🎁 Ritira il premio" : `${Math.round(pct)}% fatto`}
+                  </button>
+                )}
               </div>
-              {o.claimed ? <div style={{ fontWeight: 700, color: "#16a34a" }}>✓</div> : (
-                <button disabled={!ready || busy !== null} onClick={() => claim(o)}
-                        style={{ padding: "8px 12px", borderRadius: 10, border: "none", fontWeight: 700, cursor: ready ? "pointer" : "default",
-                                 background: ready ? "#16a34a" : "#e5e7eb", color: ready ? "#fff" : "#9ca3af", whiteSpace: "nowrap" }}>
-                  {busy === o.period + o.key ? "…" : "Ritira"}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </section>
     );
   };
+  const readyN = (list ?? []).filter((o) => o.progress >= o.target && !o.claimed).length;
+  const prizeLeft = (list ?? []).filter((o) => !o.claimed).reduce((t, o) => t + o.reward, 0);
 
   return (
     <main style={shell}>
@@ -110,8 +113,13 @@ export default function Obiettivi() {
         {msg && <div style={{ ...card, background: "#ecfdf5", color: "#14532d", fontWeight: 600 }}>{msg}</div>}
         {list === null ? <div style={card}>Caricamento…</div> : (
           <>
-            {section("d", "Oggi", "Cambiano ogni giorno a mezzanotte. Sono proporzionati alla tua flotta.")}
-            {section("w", "Questa settimana", "Cambiano ogni lunedì. Premio più alto.")}
+            <div className="fs-kpis">
+              <div className="fs-kpi" style={{ ["--k" as string]: "#16A34A" }}><span>🎁 Pronti da ritirare</span><b style={{ color: readyN ? "#15803D" : undefined }}>{readyN}</b></div>
+              <div className="fs-kpi" style={{ ["--k" as string]: "#2563EB" }}><span>✅ Ritirati</span><b>{list.filter((o) => o.claimed).length}/{list.length}</b></div>
+              <div className="fs-kpi" style={{ ["--k" as string]: "#D97706" }}><span>💶 Premi ancora da prendere</span><b>{euro(prizeLeft)}</b></div>
+            </div>
+            {section("d", "☀️ Oggi", "Cambiano ogni giorno a mezzanotte. Sono proporzionati alla tua flotta.")}
+            {section("w", "📅 Questa settimana", "Cambiano ogni lunedì. Premio più alto.")}
           </>
         )}
       </div>

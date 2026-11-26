@@ -37,6 +37,7 @@ const MAX_LEVEL = 10;
 
 export default function Sedi() {
   const router = useRouter();
+  const [stab, setStab] = useState<"mie" | "nuova">("mie");
   const [org, setOrg] = useState<Organization | null>(null);
   const ally = useMyAllianceBadge(org?.id);
   const [bases, setBases] = useState<Base[]>([]);
@@ -166,11 +167,12 @@ export default function Sedi() {
     <main style={shell}>
       <PageHeader icon="🏠" title="Le tue sedi" tone="blue" funds={org.funds}
         sub="Posti nel garage, affitti, migliorie e colori delle sedi"
-        links={[{ href: "/garage", label: "🚑 Garage" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/usate", label: "🏷️ Sedi in vendita" }]} />
+        links={[{ href: "/garage", label: "🚑 Garage" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }, { href: "/usate", label: "🏷️ Sedi in vendita" }]}
+        tabs={[{ key: "mie", label: "🏠 Le mie sedi", badge: bases.length || null }, { key: "nuova", label: "➕ Nuova sede" }]} tab={stab} onTab={(k) => setStab(k as "mie" | "nuova")} />
 
       <div style={wrap}>
         {/* riepilogo delle sedi */}
-        {bases.length > 0 && (() => {
+        {stab === "mie" && bases.length > 0 && (() => {
           const mine = bases.filter((b) => !b.owner_name);
           const cap = bases.reduce((t, b) => t + b.vehicle_capacity, 0);
           const used = bases.reduce((t, b) => t + (parked[b.id] ?? 0), 0);
@@ -192,8 +194,7 @@ export default function Sedi() {
             </div>
           );
         })()}
-        <div style={box}>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>Le tue sedi</div>
+        {stab === "mie" && <div style={box}>
           <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Con ⚙️ Personalizza amplia il garage e aggiungi pannelli solari, caldaia, area volontari, officina, centrale radio, bar sociale e colore: rendono ogni ora o migliorano mezzi e volontari.</div>
           {msg && <div style={{ color: msg.ok ? "#15803D" : "#B91C1C", margin: "6px 0", fontWeight: 600 }}>{msg.text}</div>}
           {bases.map((b) => (
@@ -240,9 +241,9 @@ export default function Sedi() {
             {custom === b.id && <BasePerksPanel base={b} funds={org.funds} onChange={load} />}
             </div>
           ))}
-        </div>
+        </div>}
 
-        <div style={box}>
+        {stab === "nuova" && <div style={box}>
           <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 4 }}>Nuova sede: compra o affitta</div>
           <div style={{ fontSize: 14, color: "#555", marginBottom: 10 }}>
             🏠 <strong>Compra</strong>: {euro(cost)} una volta sola. Più sedi hai, più costa la prossima (massimo 3.000.000 €).
@@ -266,7 +267,7 @@ export default function Sedi() {
               </button>
             )}
           </div>
-        </div>
+        </div>}
       </div>
     </main>
   );

@@ -76,32 +76,24 @@ export default function Statistiche() {
     <main style={shell}>
       <PageHeader icon="📈" title="Le mie statistiche" tone="blue"
         sub="Servizi, incassi e tempi giorno per giorno"
-        links={[{ href: "/finanze", label: "📊 Entrate e uscite" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }]} />
+        links={[{ href: "/finanze", label: "📊 Entrate e uscite" }, { href: "/fatturato", label: "🏢 Fatturato sedi" }]}
+        tabs={PERIODS.map((p) => ({ key: String(p), label: `${p} giorni` }))} tab={String(days)} onTab={(k) => { setDays(Number(k)); setRows(null); }} />
       <div style={wrap}>
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          {PERIODS.map((p) => (
-            <button key={p} onClick={() => { setDays(p); setRows(null); }}
-                    style={{ padding: "8px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontWeight: 700,
-                             background: days === p ? "#111" : "#fff", color: days === p ? "#fff" : "#111",
-                             boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>{p} giorni</button>
-          ))}
-        </div>
+
 
         {rows === null ? <div style={card}>Caricamento…</div> : rows.length === 0 ? <div style={card}>Nessun servizio concluso nel periodo.</div> : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
-              {[
-                ["Incassato", euro(tot("earnings"))],
-                ["Servizi conclusi", services.toLocaleString("it-IT")],
-                ["Arrivo medio (118)", avgArr === null ? "—" : `${Math.round(avgArr)} s`],
-                ["Giorno migliore", best ? `${dayLabel(best.day)} · ${short(best.earnings)} €` : "—"],
-              ].map(([l, v]) => (
-                <div key={l} style={{ ...card, marginBottom: 0, padding: 12 }}>
-                  <div style={{ fontSize: 12, color: "#666" }}>{l}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{v}</div>
-                </div>
+            <div className="fs-kpis fs-kpis4">
+              {([
+                ["💶 Incassato", euro(tot("earnings")), "#16A34A"],
+                ["🚑 Servizi conclusi", services.toLocaleString("it-IT"), "#2563EB"],
+                ["⏱️ Arrivo medio (118)", avgArr === null ? "—" : `${Math.round(avgArr)} s`, "#D97706"],
+                ["🏅 Giorno migliore", best ? `${dayLabel(best.day)} · ${short(best.earnings)} €` : "—", "#7C3AED"],
+              ] as const).map(([l, v, c]) => (
+                <div key={l} className="fs-kpi" style={{ ["--k" as string]: c }}><span>{l}</span><b>{v}</b></div>
               ))}
             </div>
+            <div className="fs-2col">
 
             <div style={card}>
               <div style={{ fontWeight: 800 }}>💶 Incasso al giorno</div>
@@ -117,6 +109,7 @@ export default function Statistiche() {
               <Bars data={rows} value={(d) => d.avg_arrival_sec ?? 0} fmt={(n) => `${Math.round(n)} secondi`} color="#2563EB" />
             </div>
 
+            </div>
             <div style={card}>
               <div style={{ fontWeight: 800, marginBottom: 8 }}>📋 Servizi per tipo</div>
               <div style={{ overflowX: "auto" }}>

@@ -167,10 +167,10 @@ export default function Automatico() {
         {!loaded ? <div style={{ padding: 20, color: "#888", textAlign: "center" }}>Caricamento…</div> : (
           <>
             <AutoDiagnosis reserve={reserve} codes={codes} onReserve={(r) => save({ reserve: r })} onCodes={(c) => save({ codes: c })} />
-            <div style={card}>
+            <div style={card} className={`fs-auto-hero${enabled ? " on" : ""}`}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: 17 }}>{enabled ? "Attiva" : "Spenta"}</div>
+                  <div style={{ fontWeight: 900, fontSize: 22 }}>{enabled ? "🟢 Automatica ACCESA" : "⚪ Automatica spenta"}</div>
                   <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
                     La centrale assegna da sola i servizi alle tue ambulanze libere, ogni minuto, anche quando non sei collegato.
                     Sceglie il mezzo più vicino e l&apos;equipaggio più riposato.
@@ -202,7 +202,7 @@ export default function Automatico() {
                 Ogni turno costa {prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} l&apos;ora per sede.
               </div>
               {enabled && Object.values(shifts).every((v) => !v) && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Nessuna sede ha un turno: non parte nessun mezzo.</div>}
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className="fs-cards2" style={{ gap: 8 }}>
                 {bases.map((b) => {
                   const v = shifts[b.id] ?? 0;
                   const isH24 = v === H24;
