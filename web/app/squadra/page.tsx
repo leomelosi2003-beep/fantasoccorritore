@@ -205,9 +205,9 @@ export default function Squadra() {
       <div style={wrap}>
         {tab === "pacchetti" && (<>
         {/* Pacchetto settimanale */}
-        <div style={{ background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 16, padding: 18,
+        <div className={`fs-pack-hero${pack && !pack.opened ? " ready" : ""}`} style={{ background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 16, padding: 18,
                       display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-          <div style={{ fontSize: 44, animation: pack && !pack.opened ? "packPulse 1.6s infinite" : undefined }}>🎴</div>
+          <div className="fs-pack-ico" style={{ fontSize: 44, animation: pack && !pack.opened ? "packPulse 1.6s infinite" : undefined }}>🎴</div>
           <div style={{ flex: "1 1 220px" }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>Pacchetto settimanale</div>
             <div style={{ fontSize: 14, opacity: 0.85 }}>
@@ -228,7 +228,7 @@ export default function Squadra() {
           {PACKS.map((p) => {
             const none = (p.kind === "leggendario" && !avail.leggendaria) || (p.kind === "epico" && !avail.epica && !avail.leggendaria);
             return (
-              <div key={p.kind} style={{ background: p.bg, color: "#fff", borderRadius: 16, padding: 14, display: "flex",
+              <div key={p.kind} className="fs-pack" style={{ background: p.bg, color: "#fff", borderRadius: 16, padding: 14, display: "flex",
                                          flexDirection: "column", gap: 6, boxShadow: p.glow }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 34 }}>{p.icon}</span>

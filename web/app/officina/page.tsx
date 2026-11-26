@@ -268,7 +268,7 @@ export default function Officina() {
       <div style={wrap}>
         {msg && <div style={{ ...box, marginBottom: 12, background: msg.ok ? "#effaf1" : "#fff1f1", color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>}
 
-        <div style={{ ...box, marginBottom: 12, padding: "8px 12px", background: winter ? "#EFF6FF" : "#FFF7ED", fontSize: 13 }}>
+        <div style={{ ...box, marginBottom: 12, padding: "8px 12px", background: winter ? "#EFF6FF" : "#FFF7ED", fontSize: 13, borderRadius: 999 }}>
           {winter ? "❄️ Inverno (15/11 – 15/4): monta gomme invernali o 4 stagioni." : "☀️ Estate: monta gomme estive o 4 stagioni."}
           <span style={{ color: "#666" }}> Mezzi usurati e pezzi vecchi si guastano più spesso.</span>
         </div>
@@ -343,8 +343,8 @@ export default function Officina() {
                       <span style={{ fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
                     </button>
                     {isOpen && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                        <div style={{ ...box, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", fontSize: 13 }}>
+                      <div className="fs-cards2" style={{ gap: 8, marginTop: 8 }}>
+                        <div className="fs-span" style={{ ...box, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", fontSize: 13 }}>
                           <strong>🛞 Gomme a tutta la sede:</strong>
                           <select value={pickTire["__base_" + b.id] ?? ""} onChange={(e) => setPickTire((p) => ({ ...p, ["__base_" + b.id]: e.target.value }))}
                                   style={{ flex: 1, minWidth: 160, fontSize: 12, padding: "4px 6px", borderRadius: 8 }}>

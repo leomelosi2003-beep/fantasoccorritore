@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26k", date: "26 novembre 2026", title: "🚑 Garage rivoluzionato",
+    items: ["In alto 4 azioni rapide: Compra un mezzo, Manutenzione, Revisioni, Benzinaio.",
+            "Ogni mezzo ora è una scheda corta: stato e tre indicatori (gasolio o batteria, usura, revisione). Tocca «Dettagli e azioni» per tutto il resto. Guasti e revisioni scadute restano sempre in vista.",
+            "Officina: sul PC i mezzi stanno su due colonne. Squadra: i pacchetti sembrano buste di figurine con il riflesso."],
+  },
+  {
     id: "2026-11-26j", date: "26 novembre 2026", title: "📍 Mappa e carte nuove",
     items: ["Nuovi segnaposti sulla mappa: goccia colorata con il simbolo in un cerchio bianco; i codici rossi hanno un'onda che pulsa per farsi notare.",
             "Le sedi hanno bordi più morbidi: le tue sono evidenziate in blu.",

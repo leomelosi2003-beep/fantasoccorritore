@@ -370,6 +370,7 @@ main details[open] > summary { margin-bottom: 8px; }
 
 /* ---------- trasferimenti: percorso da → a ---------- */
 .fs-cards2 { display: grid; gap: 10px; grid-template-columns: 1fr; }
+.fs-cards2 > .fs-span { grid-column: 1 / -1; }
 @media (min-width: 1000px) { .fs-cards2 { grid-template-columns: 1fr 1fr; } }
 .fs-trf-route { position: relative; padding-left: 20px; }
 .fs-trf-route::before { content: ""; position: absolute; left: 5px; top: 11px; bottom: 11px; border-left: 2px dashed #94A3B8; }
@@ -554,6 +555,53 @@ ${D} .fs-toast { background: rgba(23,35,61,.95) !important; }
 @keyframes fsHolo { 0%, 60% { transform: translateX(-60%) } 100% { transform: translateX(60%) } }
 ${D} .fs-card { background: #111A2E !important; }
 ${D} .fs-card img, ${D} .fs-card > div:nth-child(2) > span:first-child svg { box-shadow: 0 0 0 3px #111A2E, 0 6px 14px rgba(0,0,0,.4); }
+
+
+/* ---------- garage: riassunto compatto del mezzo ---------- */
+.fs-vsum { margin-top: 8px; display: grid; gap: 8px; }
+.fs-gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.fs-gauge { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 5px; background: #F5F8FC; border-radius: 12px; padding: 6px 8px; }
+.fs-gauge > span { grid-row: 1 / 3; font-size: 17px; }
+.fs-gauge > i { display: block; height: 6px; border-radius: 99px; background: #E2E8F0; overflow: hidden; }
+.fs-gauge > i > b { display: block; height: 100%; border-radius: 99px; }
+.fs-gauge > em { font-style: normal; font-size: 11.5px; font-weight: 800; color: #475569; font-variant-numeric: tabular-nums; }
+.fs-vmore { width: 100%; padding: 9px; border-radius: 12px; border: 1px solid #DCE4EF !important; background: #fff !important; color: #1D4ED8 !important;
+  font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: none !important; }
+.fs-valert { width: 100%; padding: 9px; border-radius: 12px; border: none !important; background: linear-gradient(135deg, #FB7185, #DC2626) !important; color: #fff !important;
+  font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 8px 18px rgba(220,38,38,.3) !important; }
+${D} .fs-gauge { background: #17233D; } ${D} .fs-gauge > i { background: #1C2A47; } ${D} .fs-gauge > em { color: #A8B4C7; }
+${D} .fs-vmore { background: #111A2E !important; border-color: rgba(148,163,184,.2) !important; color: #93C5FD !important; }
+
+
+/* ---------- garage: azioni rapide ---------- */
+.fs-gar-actions { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.fs-ga { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border-radius: 18px; border: 1px solid #E6ECF4 !important;
+  background: #fff !important; color: #0B1B33 !important; font: inherit; cursor: pointer; box-shadow: 0 2px 10px rgba(15,23,42,.06) !important; min-width: 0; }
+.fs-ga span { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.fs-ga b { font-size: 14.5px; } .fs-ga small { font-size: 11.5px; color: #64748B; font-weight: 600; }
+.fs-ga.main { background: linear-gradient(135deg, #FB923C, #E11D48) !important; color: #fff !important; border: none !important; box-shadow: 0 12px 26px rgba(225,29,72,.3) !important; }
+.fs-ga.main small { color: rgba(255,255,255,.85); } .fs-ga.main b { font-size: 16px; }
+.fs-ga.main svg { box-shadow: 0 0 0 2px rgba(255,255,255,.6); border-radius: 14px; }
+@media (max-width: 760px) {
+  .fs-gar-actions { grid-template-columns: 1fr 1fr 1fr; }
+  .fs-ga.main { grid-column: 1 / -1; }
+  .fs-ga:not(.main) { flex-direction: column; text-align: center; gap: 4px; padding: 10px 6px; }
+  .fs-ga:not(.main) small { display: none; }
+  .fs-ga:not(.main) b { font-size: 12.5px; }
+}
+${D} .fs-ga:not(.main) { background: #111A2E !important; border-color: rgba(148,163,184,.14) !important; color: #E6EDF7 !important; }
+
+
+/* ---------- squadra: pacchetti come buste di figurine ---------- */
+.fs-pack, .fs-pack-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: 22px !important; }
+.fs-pack::after, .fs-pack-hero.ready::after { content: ""; position: absolute; inset: -60%; z-index: -1; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,.35) 50%, transparent 58%); animation: fsHolo 5s ease-in-out infinite; }
+.fs-pack { transition: transform .2s; }
+@media (hover: hover) { .fs-pack:hover { transform: translateY(-4px) rotate(-.6deg); } }
+main div.fs-pack-hero[style] { background: radial-gradient(circle at 85% -20%, rgba(255,255,255,.25), transparent 45%), linear-gradient(135deg, #7C3AED, #1E3A8A) !important;
+  box-shadow: 0 16px 36px rgba(76,29,149,.35); }
+.fs-pack-ico { filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
+body.fs-lite .fs-pack::after, body.fs-lite .fs-pack-hero::after { animation: none !important; display: none; }
 
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

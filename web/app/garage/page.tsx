@@ -11,6 +11,7 @@ import FactionEmblem, { FACTION_STYLES } from "@/components/FactionEmblem";
 import EquipmentIcon from "@/components/EquipmentIcon";
 import TutorialCoach from "@/components/TutorialCoach";
 import PageHeader from "@/components/PageHeader";
+import AppIcon from "@/components/AppIcon";
 
 type Model = { id: string; name: string; base_cost: number; speed_factor: number; vmax_kmh?: number | null; agility?: number | null;
   base_reliability: number; base_durability: number; image_url: string | null; description: string | null;
@@ -147,6 +148,7 @@ export default function Garage() {
   const [picked, setPicked] = useState<Partial<Record<string, string>>>({});
   const [shop, setShop] = useState(false);
   const [gtab, setGtab] = useState<"mezzi" | "benzina">("mezzi");
+  const [vOpen, setVOpen] = useState<Record<string, boolean>>({});
   const [modelId, setModelId] = useState<string | null>(null);
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [baseId, setBaseId] = useState<string | null>(null);
@@ -544,17 +546,30 @@ export default function Garage() {
           );
         })()}
         {!shop && gtab === "mezzi" && (
-          <button onClick={openShop} data-tut="buy-vehicle"
-                  style={{ ...btn, width: "100%", padding: 16, fontSize: 18, background: "linear-gradient(135deg,#F59E0B,#EA6A1F)", marginBottom: 14,
-                           boxShadow: "0 4px 14px rgba(249,115,22,.35)" }}>
-            🚑 {firstVehicle ? "Compra la tua prima ambulanza" : "Compra una nuova ambulanza"}
-          </button>
-        )}
-        {!shop && gtab === "mezzi" && !firstVehicle && (
-          <button onClick={maintainAll}
-                  style={{ ...btn, width: "100%", padding: 12, fontSize: 15, background: "#6B7280", marginBottom: 14 }}>
-            🔧 Manutenzione a tutti i mezzi fermi in sede
-          </button>
+          <div className="fs-gar-actions">
+            <button onClick={openShop} data-tut="buy-vehicle" className="fs-ga main">
+              <AppIcon name="ambulance" size={40} />
+              <span><b>{firstVehicle ? "Compra la tua prima ambulanza" : "Compra un mezzo"}</b><small>Ambulanze, automediche, moto, barche, AIB…</small></span>
+            </button>
+            {!firstVehicle && (
+              <button onClick={maintainAll} className="fs-ga">
+                <AppIcon name="wrench" size={40} />
+                <span><b>Manutenzione</b><small>a tutti i mezzi fermi in sede</small></span>
+              </button>
+            )}
+            {!firstVehicle && (
+              <button onClick={serviceAll} disabled={busy} className="fs-ga">
+                <AppIcon name="gear" size={40} />
+                <span><b>Revisioni</b><small>a tutti quelli in scadenza</small></span>
+              </button>
+            )}
+            {!firstVehicle && (
+              <button onClick={() => setGtab("benzina")} className="fs-ga">
+                <AppIcon name="fuel" size={40} />
+                <span><b>Benzinaio</b><small>gasolio e pieno a tutti</small></span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* Acquisto: negozio guidato, un passo alla volta */}
@@ -870,11 +885,6 @@ export default function Garage() {
               Costa 5.000 € + il 10% del prezzo del modello e il mezzo resta in officina 15 minuti (l&apos;usura torna a zero).
               Nelle sedi in automatico la revisione si fa da sola.
             </details>
-            <div style={{ marginTop: 8 }}>
-              <button onClick={serviceAll} disabled={busy} style={{ ...btn, padding: "7px 12px", fontSize: 13, background: "#7C3AED", opacity: busy ? 0.4 : 1 }}>
-                🔧 Revisiona tutti i mezzi in scadenza
-              </button>
-            </div>
           </div>
         )}
         {vehicles.length === 0 ? (
@@ -996,6 +1006,37 @@ export default function Garage() {
                       </select>
                     ) : byId.base[v.base_id]?.name}
                   </div>
+                  {(() => {
+                    const tank = m?.tank_liters ?? 80;
+                    const fuelPct = m?.electric ? Math.max(0, Math.min(100, Number(v.battery_pct ?? 100))) : Math.min(100, (v.fuel_liters / tank) * 100);
+                    const servPct = m?.boat ? 0 : Math.min(100, (kmServ(v) / SERVICE_KM) * 100);
+                    const g = (ico: string, label: string, pct: number, col: string) => (
+                      <div className="fs-gauge" title={label}>
+                        <span>{ico}</span>
+                        <i><b style={{ width: `${Math.max(3, pct)}%`, background: col }} /></i>
+                        <em>{Math.round(pct)}%</em>
+                      </div>
+                    );
+                    return (
+                      <div className="fs-vsum">
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><StatusPill v={v} /></div>
+                        <div className="fs-gauges">
+                          {g(m?.electric ? "🔋" : "⛽", m?.electric ? "Batteria" : "Gasolio", fuelPct, fuelPct < 20 ? "#DC2626" : fuelPct < 50 ? "#EAB308" : "#0EA5E9")}
+                          {g("🛠️", "Usura", v.wear, v.wear >= 80 ? "#DC2626" : v.wear >= 50 ? "#EAB308" : "#16A34A")}
+                          {!m?.boat && g("📋", "Revisione (km fatti su 15.000)", servPct, servPct >= 100 ? "#DC2626" : servPct >= 85 ? "#EAB308" : "#7C3AED")}
+                        </div>
+                        {(v.issue_open || (!m?.boat && kmServ(v) >= SERVICE_KM)) && (
+                          <button className="fs-valert" onClick={() => router.push("/officina")}>
+                            {v.issue_open ? "⚠️ Guasto: fermo" : "📋 Revisione scaduta"} · vai in officina ›
+                          </button>
+                        )}
+                        <button className="fs-vmore" onClick={() => setVOpen((o) => ({ ...o, [v.id]: !o[v.id] }))}>
+                          {vOpen[v.id] ? "Chiudi dettagli ▲" : "Dettagli e azioni ▼"}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                  {vOpen[v.id] && <>
                   {(() => {
                     const lvl = v.speed_level ?? 0;
                     return (
@@ -1157,6 +1198,7 @@ export default function Garage() {
                     <button onClick={() => router.push("/usate")}
                             style={{ ...btn, width: "100%", marginTop: 8, background: "#B45309" }}>🏷️ Vedi l&apos;asta</button>
                   )}
+                                  </>}
                 </div>
               );
             })}
