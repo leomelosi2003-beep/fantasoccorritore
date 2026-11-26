@@ -64,6 +64,7 @@ function roundName(r: number, rounds: number) {
 
 export default function Tornei() {
   const [tab, setTab] = useState<"tornei" | "sfide">("tornei");
+  const [demo, setDemo] = useState<number | null>(null); // inizio della simulazione (ms)
   const [list, setList] = useState<TItem[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -100,8 +101,8 @@ export default function Tornei() {
   useEffect(() => {
     loadList(); loadChs(); loadFunds();
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
-    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); } catch {}
-    const t1 = setInterval(() => setNow(Date.now()), 1000);
+    try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("demo")) setDemo(Date.now()); } catch {}
+    const t1 = setInterval(() => setNow(Date.now()), 250);
     const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); } }, 30000);
     return () => { clearInterval(t1); clearInterval(t2); };
   }, [loadList, loadChs, loadFunds]);
@@ -140,8 +141,14 @@ export default function Tornei() {
       <div style={wrap}>
         {msg && <div style={{ ...card, color: msg.ok ? "#15803D" : "#B91C1C", fontWeight: 700 }}>{msg.text}</div>}
 
-        {tab === "tornei" && (
+        {tab === "tornei" && demo !== null && (
+          <SimDemo start={demo} now={now} orgs={orgs} me={meId} onRestart={() => setDemo(Date.now())} onClose={() => setDemo(null)} />
+        )}
+        {tab === "tornei" && demo === null && (
           <>
+            <button className="fs-sim-open" onClick={() => { setDemo(Date.now()); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+              <span>▶️</span><span><b>Guarda una simulazione</b><small>Un torneo di 6 ore mostrato in 50 secondi, con il tabellone che avanza</small></span>
+            </button>
             <details style={{ ...card, padding: "10px 14px" }}>
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
@@ -309,6 +316,84 @@ export default function Tornei() {
   );
 }
 
+// ---------------- simulazione (solo nel browser, non tocca il gioco) ----------------
+const SIM_H = 8000; // 1 ora di torneo = 8 secondi
+const FAKE = ["Croce Azzurra Pisa", "Misericordia Cecina", "Pubblica Assistenza Rosignano", "Croce Rossa Piombino", "SVS Livorno", "Misericordia Volterra",
+  "PA Castiglioncello", "Croce Verde Portoferraio", "Misericordia Collesalvetti", "PA Vada", "Croce Bianca Bibbona", "Misericordia San Vincenzo",
+  "PA Campiglia", "Croce Gialla Donoratico", "Misericordia Riparbella", "PA Capraia"];
+function rnd(seed: number) { let x = seed; return () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; }; }
+
+function SimDemo({ start, now, orgs, me, onRestart, onClose }: { start: number; now: number; orgs: Org[]; me: string | null; onRestart: () => void; onClose: () => void }) {
+  const sim = useMemo(() => {
+    const r = rnd(Math.floor(start / 1000));
+    const meOrg = orgs.find((o) => o.id === me);
+    const pool: Org[] = orgs.filter((o) => o.id !== me).slice(0, 15);
+    while (pool.length < 15) pool.push({ id: `f${pool.length}`, name: FAKE[pool.length], type: (["blu_giallo", "arancio_nero", "rosso_bianco"] as const)[pool.length % 3], logo_url: null });
+    const players = [...pool.slice(0, 4), meOrg ?? { id: "me", name: "La tua associazione", type: "blu_giallo", logo_url: null }, ...pool.slice(4, 15)];
+    const pace = new Map(players.map((p) => [p.id, 8 + Math.floor(r() * 22)]));
+    const T0 = new Date(); T0.setHours(15, 0, 0, 0);
+    const t0 = T0.getTime();
+    const rounds = 4; const all: (Match & { fa: number; fb: number })[] = [];
+    let prev: { org: Org; seed: number }[] = [];
+    for (let k = 0; k < 8; k++) prev.push({ org: players[k], seed: k + 1 }, { org: players[15 - k], seed: 16 - k });
+    for (let rd = 1; rd <= rounds; rd++) {
+      const M = prev.length / 2; const next: { org: Org; seed: number }[] = [];
+      for (let j = 0; j < M; j++) {
+        const a = rd === 1 ? prev[2 * j] : prev[j]; const b = rd === 1 ? prev[2 * j + 1] : prev[prev.length - 1 - j];
+        if (rd > 1 && j >= M) break;
+        const fa = Math.round((pace.get(a.org.id) ?? 10) * (0.7 + r() * 0.6)); const fb = Math.round((pace.get(b.org.id) ?? 10) * (0.7 + r() * 0.6));
+        const wA = fa > fb || (fa === fb && a.seed < b.seed);
+        all.push({ round: rd, slot: j, starts_at: new Date(t0 + (rd - 1) * 3600000).toISOString(), ends_at: new Date(t0 + rd * 3600000).toISOString(),
+          done: false, winner: (wA ? a : b).org.id, seed_a: a.seed, seed_b: b.seed, a: a.org, b: b.org, score_a: 0, score_b: 0, fa, fb });
+        next.push(wA ? a : b);
+      }
+      prev = next;
+      if (rd === 1) { /* round 2 si accoppia j contro M-1-j */ }
+    }
+    // al primo turno le coppie sono già in ordine; dal secondo uso l'accoppiamento del gioco (j contro M-1-j)
+    return { t0, rounds, all, players, meId: meOrg?.id ?? "me" };
+  }, [start, orgs, me]);
+  const elapsed = Math.max(0, now - start);
+  const simNow = sim.t0 + (elapsed / SIM_H) * 3600000;
+  const cur = Math.min(sim.rounds, Math.floor(elapsed / SIM_H) + 1);
+  const finished = elapsed >= sim.rounds * SIM_H;
+  const matches: Match[] = sim.all.filter((m) => m.round <= cur).map((m) => {
+    const st = new Date(m.starts_at).getTime(), en = new Date(m.ends_at).getTime();
+    const p = Math.max(0, Math.min(1, (simNow - st) / (en - st)));
+    const done = simNow >= en;
+    const wobble = (v: number) => Math.floor(v * p * (0.85 + 0.15 * Math.sin(p * 9 + v)));
+    return { ...m, done, winner: done ? m.winner : null, score_a: done ? m.fa : Math.min(m.fa, wobble(m.fa)), score_b: done ? m.fb : Math.min(m.fb, wobble(m.fb)) };
+  });
+  const d: Detail = { id: -1, kind: "rossi", title: "Simulazione: torneo codici rossi", status: finished ? "finito" : "in_corso", starts_at: new Date(sim.t0).toISOString(),
+    rounds: sim.rounds, size: 16, current_round: cur, prize: 3000000 + 16 * 100000, entry_fee: 100000, me: sim.meId, entries: sim.players, matches };
+  const pct = Math.min(100, (elapsed / (sim.rounds * SIM_H)) * 100);
+  const hh = new Date(simNow).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const myLast = [...matches].reverse().find((m) => m.a?.id === sim.meId || m.b?.id === sim.meId);
+  const myState = !myLast ? "" : !myLast.done ? `🔥 Stai giocando: ${roundName(myLast.round, sim.rounds)}` : myLast.winner === sim.meId ? (finished ? "🏆 HAI VINTO IL TORNEO!" : "✅ Passi il turno!") : `❌ Eliminato: ${roundName(myLast.round, sim.rounds).toLowerCase()}`;
+  return (
+    <>
+      <div className="fs-sim-bar">
+        <div><b>🎬 SIMULAZIONE</b><small>1 ora di torneo = 8 secondi · non è un torneo vero, nessun soldo in gioco</small></div>
+        <div className="fs-sim-clock">🕒 {hh}</div>
+        <div className="fs-sim-prog"><i style={{ width: `${pct}%` }} /></div>
+        <div className="fs-sim-btns">
+          <button onClick={onRestart}>↻ Ricomincia</button>
+          <button onClick={onClose}>✕ Chiudi</button>
+        </div>
+        {myState && <div className="fs-sim-me">{myState}</div>}
+      </div>
+      <Bracket d={d} now={simNow} me={sim.meId} />
+      {finished && (
+        <div style={{ ...card, textAlign: "center" }}>
+          <div style={{ fontWeight: 900, fontSize: 17 }}>Fine simulazione</div>
+          <div style={{ fontSize: 13.5, color: "#64748B", margin: "4px 0 10px" }}>Premi veri: 60% al vincitore, 25% al finalista, 7,5% ai semifinalisti. Il prossimo torneo vero è nella lista dei tornei.</div>
+          <button className="fs-tor-btn big" style={{ maxWidth: 320 }} onClick={onClose}>Vai ai tornei veri</button>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Side({ o, seed, score, win, lose, me }: { o: Org | null; seed: number | null; score: number | null; win: boolean; lose: boolean; me: boolean }) {
   return (
     <div className={`fs-bk-side${win ? " win" : ""}${lose ? " lose" : ""}${me ? " me" : ""}`}>
@@ -387,6 +472,18 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
 }
 
 const CSS = `
+.fs-sim-open { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 14px; border: none !important; border-radius: 20px;
+  background: linear-gradient(135deg, #A78BFA, #5B21B6) !important; color: #fff !important; font: inherit; cursor: pointer; box-shadow: 0 12px 28px rgba(91,33,182,.3) !important; }
+.fs-sim-open > span:first-child { font-size: 30px; } .fs-sim-open b, .fs-sim-open small { display: block; } .fs-sim-open b { font-size: 16px; } .fs-sim-open small { opacity: .9; font-weight: 600; }
+.fs-sim-bar { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; background: #0B1B33; color: #fff; border-radius: 20px; padding: 12px 14px; margin-bottom: 12px;
+  box-shadow: 0 12px 28px rgba(11,27,51,.3); }
+.fs-sim-bar b { display: block; letter-spacing: .08em; color: #FDE047; } .fs-sim-bar small { opacity: .8; font-size: 12px; }
+.fs-sim-clock { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.fs-sim-prog { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; }
+.fs-sim-prog i { display: block; height: 100%; background: linear-gradient(90deg, #A78BFA, #FDE047); border-radius: 99px; transition: width .25s linear; }
+.fs-sim-btns { grid-column: 1 / -1; display: flex; gap: 6px; }
+.fs-sim-btns button { flex: 1; padding: 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25) !important; background: rgba(255,255,255,.1) !important; color: #fff !important; font: inherit; font-weight: 800; cursor: pointer; box-shadow: none !important; }
+.fs-sim-me { grid-column: 1 / -1; text-align: center; font-weight: 900; font-size: 16px; background: rgba(255,255,255,.1); border-radius: 12px; padding: 8px; }
 .fs-tor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
 .fs-tor-card { position: relative; overflow: hidden; border-radius: 24px; padding: 16px; color: #fff; cursor: pointer; isolation: isolate;
   box-shadow: 0 14px 30px rgba(15,23,42,.18); transition: transform .2s, box-shadow .2s; }
