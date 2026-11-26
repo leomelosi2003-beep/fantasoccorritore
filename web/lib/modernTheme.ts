@@ -509,7 +509,54 @@ ${D} .fs-vimg { background: radial-gradient(circle at 50% 130%, #1E3A8A, #111A2E
 ${D} .fs-vimg.st-in_servizio { background: radial-gradient(circle at 50% 130%, #7C2D12, #111A2E 70%); }
 ${D} .fs-vimg.st-manutenzione { background: radial-gradient(circle at 50% 130%, #4C1D95, #111A2E 70%); }
 
+
+/* ---------- segnaposti della mappa ---------- */
+.fs-mpin { position: relative; }
+.fs-mpin-drop { position: absolute; inset: 0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2.5px solid #fff;
+  box-shadow: 0 4px 10px rgba(15,23,42,.45), inset 0 2px 0 rgba(255,255,255,.35); box-sizing: border-box; }
+.fs-mpin.ct .fs-mpin-drop { border: 2.5px dashed #0B1B33; }
+.fs-mpin-in { position: absolute; left: 50%; top: 50%; width: 62%; height: 62%; transform: translate(-50%, -50%); border-radius: 50%; background: #fff;
+  display: grid; place-items: center; font-weight: 900; font-family: system-ui, sans-serif; line-height: 1; box-shadow: inset 0 -2px 0 rgba(15,23,42,.08); }
+.fs-mpin.c-rosso::before { content: ""; position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; margin: -50% 0 0 -50%; border-radius: 50%;
+  background: rgba(225,29,72,.45); animation: fsPinPulse 1.8s ease-out infinite; z-index: -1; }
+@keyframes fsPinPulse { 0% { transform: scale(.6); opacity: .9 } 100% { transform: scale(2.1); opacity: 0 } }
+.fs-mpin-ct { position: absolute; right: -10px; top: -10px; font-size: 14px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+.fs-mpin-me { position: absolute; left: -10px; top: -10px; background: linear-gradient(135deg,#3B82F6,#1E3A8A); color: #fff; border-radius: 999px;
+  font-size: 10px; padding: 1px 4px; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.fs-bpin { box-shadow: 0 6px 14px rgba(15,23,42,.35), inset 0 1px 0 rgba(255,255,255,.6); }
+.fs-bpin.mine { box-shadow: 0 0 0 3px rgba(37,99,235,.25), 0 8px 18px rgba(30,58,138,.4); }
+body.fs-lite .fs-mpin.c-rosso::before, .fs-zooming .fs-mpin.c-rosso::before { display: none; }
+
+
+html body .fs-fleet .fs-fleet-ico { padding: 0 !important; background: transparent !important; overflow: visible !important; box-shadow: none !important; line-height: 0; width: 46px !important; height: 46px !important; }
+.fs-fleet-ico svg { box-shadow: 0 10px 24px rgba(234,88,12,.4); border-radius: 16px; }
+.fs-fleet-ico.open svg { box-shadow: 0 0 0 3px #fff, 0 10px 24px rgba(234,88,12,.45); }
+
+
+/* ---------- messaggi rapidi e avvisi sulla mappa ---------- */
+.fs-toast { background: rgba(11,27,51,.92) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 18px !important;
+  border: 1px solid rgba(255,255,255,.12); box-shadow: 0 18px 40px rgba(15,23,42,.4) !important; animation: fsToast .35s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes fsToast { from { opacity: 0; transform: translate(-50%, 16px) scale(.95) } to { opacity: 1; transform: translate(-50%, 0) } }
+.fs-note { border-radius: 18px !important; background: linear-gradient(135deg, #FB923C, #E11D48) !important; border: 1px solid rgba(255,255,255,.25);
+  backdrop-filter: blur(8px); }
+${D} .fs-toast { background: rgba(23,35,61,.95) !important; }
+
+
+/* ---------- carte dei volontari stile figurina ---------- */
+.fs-card { border-radius: 22px !important; overflow: hidden; isolation: isolate; padding-top: 16px !important; transition: transform .2s; }
+.fs-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 52px; z-index: -1;
+  background: linear-gradient(135deg, var(--rc), color-mix(in srgb, var(--rc) 40%, #fff)); opacity: .22; }
+.fs-card img, .fs-card > div:nth-child(2) > span:first-child svg { border-radius: 16px !important; box-shadow: 0 0 0 3px #fff, 0 6px 14px rgba(15,23,42,.2); }
+@media (hover: hover) { .fs-card:hover { transform: translateY(-4px) rotate(-.4deg); } }
+.fs-card.r-epica::after, .fs-card.r-leggendaria::after { content: ""; position: absolute; inset: -50%; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.55) 48%, transparent 56%); animation: fsHolo 4.5s ease-in-out infinite; }
+.fs-card.r-leggendaria::after { background: linear-gradient(115deg, transparent 38%, rgba(253,224,71,.5) 46%, rgba(255,255,255,.7) 50%, rgba(244,114,182,.4) 54%, transparent 62%); }
+@keyframes fsHolo { 0%, 60% { transform: translateX(-60%) } 100% { transform: translateX(60%) } }
+${D} .fs-card { background: #111A2E !important; }
+${D} .fs-card img, ${D} .fs-card > div:nth-child(2) > span:first-child svg { box-shadow: 0 0 0 3px #111A2E, 0 6px 14px rgba(0,0,0,.4); }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }
+body.fs-lite .fs-card::after, body.fs-lite .fs-auto-hero::after, body.fs-lite .fs-obj.ready { animation: none !important; }
 `;

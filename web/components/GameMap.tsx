@@ -511,6 +511,7 @@ const REQ: Record<string, string> = {
 const CODE_COLOR: Record<MissionPin["code"], string> = {
   nessuno: "#3B82F6", verde: "#16A34A", giallo: "#EAB308", rosso: "#DC2626",
 };
+const CODE_DARK: Record<MissionPin["code"], string> = { nessuno: "#1E40AF", verde: "#14532D", giallo: "#A16207", rosso: "#881337" };
 
 // "5 min fa", "2 ore fa", "3 giorni fa"
 function lastSeen(t: string) {
@@ -538,10 +539,10 @@ function baseIcon(type: BasePin["org_type"], mine: boolean, logo?: string | null
     : `<span style="position:absolute;right:-8px;bottom:-8px;width:18px;height:18px;border-radius:50%;background:#EA6A1F;color:#fff;font:900 8px/18px system-ui;text-align:center;border:2px solid #fff">${ally.name.slice(0, 2).toUpperCase()}</span>`) : "";
   return memoIcon(`base|${type}|${mine}|${logo}|${online}|${hq}|${color ?? ""}|${twin ? twin.type + twin.logo : ""}|${ally ? ally.name + ally.logo_url : ""}`, () => L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${w}px;height:${s}px;border-radius:10px;background:${color ?? "#fff"};display:flex;gap:1px;
-           align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45);
-           border:${mine ? "3px solid #111" : "2px solid #6B7280"}">${svg}${twin ? `<span style="font-size:11px;line-height:1">🤝</span>${tw}` : ""}
-           <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "#111" : "#6B7280"};color:#fff;border-radius:6px;
+    html: `<div class="fs-bpin${mine ? " mine" : ""}" style="position:relative;width:${w}px;height:${s}px;border-radius:${mine ? 14 : 11}px;background:${color ?? "#fff"};display:flex;gap:1px;
+           align-items:center;justify-content:center;
+           border:${mine ? "3px solid #2563EB" : "2px solid #94A3B8"}">${svg}${twin ? `<span style="font-size:11px;line-height:1">🤝</span>${tw}` : ""}
+           <span style="position:absolute;left:-7px;top:-8px;background:${mine ? "linear-gradient(135deg,#3B82F6,#1E3A8A)" : "#64748B"};color:#fff;border-radius:7px;
            font-size:10px;line-height:15px;padding:0 3px;border:1.5px solid #fff">${hq ? "⭐" : "🏠"}</span>${online
            ? `<span title="Online" style="position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;
               background:#22C55E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></span>` : ""}${al}</div>`,
@@ -562,19 +563,15 @@ function missionIcon(m: MissionPin, mineGoing: boolean) {
   let ic = missionIcons.get(k);
   if (ic) return ic;
   const color = CODE_COLOR[m.code];
-  const ink = m.code === "giallo" ? "#422006" : "#fff";
-  const s = m.contestable ? 30 : 26;
+  const big = m.contestable ? 34 : 30;
   ic = L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${s}px;height:${s}px">
-      <div style="width:${s}px;height:${s}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};
-        border:2px ${m.contestable ? "dashed #111" : "solid #fff"};box-shadow:0 2px 6px rgba(0,0,0,.45);box-sizing:border-box"></div>
-      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:${ink};
-        font:900 ${m.category === "mare" ? 18 : 14}px/1 system-ui,sans-serif">${missionKind(m).glyph}</span>
-      ${m.contestable ? `<span style="position:absolute;right:-9px;top:-9px;font-size:13px">⚔️</span>` : ""}
-      ${mineGoing ? `<span style="position:absolute;left:-8px;top:-8px;background:#2563EB;color:#fff;border-radius:999px;
-        font-size:10px;padding:0 3px;border:1.5px solid #fff">🚑</span>` : ""}</div>`,
-    iconSize: [s, s], iconAnchor: [s / 2, Math.round(s * 1.2)], popupAnchor: [0, -s],
+    html: `<div class="fs-mpin c-${m.code}${m.contestable ? " ct" : ""}${mineGoing ? " mine" : ""}" style="width:${big}px;height:${big}px">
+      <i class="fs-mpin-drop" style="background:linear-gradient(135deg, ${color}, ${CODE_DARK[m.code]})"></i>
+      <b class="fs-mpin-in" style="color:${color === "#EAB308" ? "#854D0E" : color};font-size:${m.category === "mare" ? 17 : 13}px">${missionKind(m).glyph}</b>
+      ${m.contestable ? `<span class="fs-mpin-ct">⚔️</span>` : ""}
+      ${mineGoing ? `<span class="fs-mpin-me">🚑</span>` : ""}</div>`,
+    iconSize: [big, big], iconAnchor: [big / 2, Math.round(big * 1.2)], popupAnchor: [0, -big],
   });
   missionIcons.set(k, ic);
   return ic;

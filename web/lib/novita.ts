@@ -4,6 +4,13 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26j", date: "26 novembre 2026", title: "📍 Mappa e carte nuove",
+    items: ["Nuovi segnaposti sulla mappa: goccia colorata con il simbolo in un cerchio bianco; i codici rossi hanno un'onda che pulsa per farsi notare.",
+            "Le sedi hanno bordi più morbidi: le tue sono evidenziate in blu.",
+            "Le carte dei volontari sembrano figurine: fascia del colore della rarità, e le epiche e leggendarie hanno un riflesso olografico.",
+            "Messaggi e avvisi sulla mappa più eleganti; il tasto dei mezzi ha la nuova icona disegnata."],
+  },
+  {
     id: "2026-11-26i", date: "26 novembre 2026", title: "✨ Ultimi ritocchi: Garage, aste e primo avvio",
     items: ["Garage: ogni mezzo ha una «vetrina» colorata in base allo stato (blu in sede, arancione in servizio, viola in officina).",
             "Usato e aste: tempo che scorre sulla foto (diventa rosso negli ultimi 2 minuti), etichetta «Sei in testa», spiegazioni in un riquadro da aprire.",

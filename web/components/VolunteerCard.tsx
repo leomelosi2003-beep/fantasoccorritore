@@ -100,7 +100,7 @@ export default function VolunteerCard({ c, compact = false }: { c: Card; compact
   const st = stateLabel(c);
   const expired = c.state === "scaduta";
   return (
-    <div style={{ background: "#fff", borderRadius: 16, border: `3px solid ${r.border}`, boxShadow: r.glow,
+    <div className={`fs-card r-${c.rarity}`} style={{ background: "#fff", borderRadius: 16, border: `3px solid ${r.border}`, boxShadow: r.glow, ["--rc" as string]: r.border,
                   padding: 12, opacity: expired ? 0.55 : 1, fontFamily: "system-ui, sans-serif", position: "relative" }}>
       <div style={{ position: "absolute", top: 8, right: 10, fontSize: 10, fontWeight: 800, letterSpacing: ".06em",
                     color: r.text, textTransform: "uppercase" }}>{r.label}</div>
