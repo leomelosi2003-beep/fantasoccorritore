@@ -6,7 +6,8 @@ export const NOVITA: Novita[] = [
   {
     id: "2026-11-26o", date: "26 novembre 2026", title: "⚔️ Tornei: partecipano tutti",
     items: ["Ai tornei non serve più iscriversi e non si paga niente: entrano in automatico tutte le associazioni attive (servizi conclusi negli ultimi 2 giorni, fino a 64).",
-            "Chi aveva già pagato l'iscrizione è stato rimborsato."],
+            "Chi aveva già pagato l'iscrizione è stato rimborsato.",
+            "In cima alla pagina dei tornei c'è il TUO torneo: conto alla rovescia all'inizio, il tuo primo avversario e, durante il torneo, il tuo incontro con il punteggio in diretta e il tempo che manca."],
   },
   {
     id: "2026-11-26n", date: "26 novembre 2026", title: "🏅 Classifica dei tornei",

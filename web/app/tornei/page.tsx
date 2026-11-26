@@ -1,7 +1,7 @@
 "use client";
 // Tornei a eliminazione diretta (ogni incontro dura 1 ora: vince chi conclude più servizi del tipo del torneo)
 // e sfide 1 contro 1 tra associazioni.
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import PageHeader from "@/components/PageHeader";
 import FactionEmblem from "@/components/FactionEmblem";
@@ -20,6 +20,11 @@ type Match = {
 };
 type Detail = { id: number; kind: Kind; title: string; status: TItem["status"]; starts_at: string; rounds: number | null; size: number | null;
   current_round: number; prize: number; entry_fee: number; me: string; entries: Org[]; matches: Match[] };
+type MyStatus = {
+  id: number; kind: Kind; title: string; status: "iscrizioni" | "in_corso"; starts_at: string; in: boolean; players?: number; rounds?: number;
+  current_round?: number; out_round?: number | null; my_seed?: number; opp_seed?: number | null; opp?: Org | null; prize?: number;
+  match?: { round: number; starts_at: string; ends_at: string; done: boolean; won: boolean; my_score: number | null; opp_score: number | null; opp: Org | null };
+} | null;
 type BoardRow = { id: string; name: string; type: string; logo_url: string | null; wins: number; finals: number; semis: number; challenges: number; points: number; me: boolean };
 type Challenge = {
   id: number; kind: Kind; stake: number; status: "in_attesa" | "in_corso" | "finita" | "rifiutata" | "scaduta" | "annullata";
@@ -76,6 +81,8 @@ export default function Tornei() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [expected, setExpected] = useState<number | null>(null);
+  const [mine, setMine] = useState<MyStatus>(null);
+  const loadMine = useCallback(async () => { const { data } = await supabase.rpc("my_tournament_status"); setMine((data as MyStatus) ?? null); }, []);
   // nuova sfida
   const [cTo, setCTo] = useState(""); const [cKind, setCKind] = useState<Kind>("servizi"); const [cStake, setCStake] = useState(0); const [cQ, setCQ] = useState("");
 
@@ -106,9 +113,10 @@ export default function Tornei() {
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
     try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } } catch {}
     const t1 = setInterval(() => setNow(Date.now()), 1000);
-    const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); } }, 30000);
+    loadMine();
+    const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); loadMine(); } }, 30000);
     return () => { clearInterval(t1); clearInterval(t2); };
-  }, [loadList, loadChs, loadFunds]);
+  }, [loadList, loadChs, loadFunds, loadMine]);
   useEffect(() => {
     if (openId == null) return;
     loadDetail(openId);
@@ -146,16 +154,7 @@ export default function Tornei() {
 
         {tab === "tornei" && (
           <>
-            <details style={{ ...card, padding: "10px 14px" }}>
-              <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
-              <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
-                Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
-                Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno concluso servizi negli ultimi 2 giorni (le 64 con più reputazione), gratis.
-                È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
-                In caso di pareggio passa la testa di serie (chi ha più reputazione). Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
-                Il torneo compare nella lista 3 ore prima. Premi: 60% del montepremi al vincitore, 25% al finalista, 7,5% a ciascun semifinalista.
-              </div>
-            </details>
+            <MyTournament st={mine} now={now} meName={orgs.find((o) => o.id === meId) ?? null} onOpen={(id) => setOpenId(id)} />
 
             {list === null && <div style={card}>Caricamento…</div>}
             {list && list.length === 0 && (
@@ -204,6 +203,16 @@ export default function Tornei() {
                 ))}
               </div>
             )}
+            <details style={{ ...card, padding: "10px 14px" }}>
+              <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
+              <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
+                Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
+                Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno concluso servizi negli ultimi 2 giorni (le 64 con più reputazione), gratis.
+                È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
+                In caso di pareggio passa la testa di serie (chi ha più reputazione). Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
+                Il torneo compare nella lista 3 ore prima. Premi: 60% del montepremi al vincitore, 25% al finalista, 7,5% a ciascun semifinalista.
+              </div>
+            </details>
           </>
         )}
 
@@ -341,6 +350,72 @@ export default function Tornei() {
   );
 }
 
+function two(n: number) { return String(n).padStart(2, "0"); }
+function Countdown({ to, now }: { to: string; now: number }) {
+  const ms = Math.max(0, new Date(to).getTime() - now);
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), sec = Math.floor((ms % 60000) / 1000);
+  return (
+    <div className="fs-cd">
+      {h > 0 && <><span><b>{two(h)}</b><small>ore</small></span><i>:</i></>}
+      <span><b>{two(m)}</b><small>min</small></span><i>:</i><span><b>{two(sec)}</b><small>sec</small></span>
+    </div>
+  );
+}
+
+function MyTournament({ st, now, meName, onOpen }: { st: MyStatus; now: number; meName: Org | null; onOpen: (id: number) => void }) {
+  if (!st) return null;
+  const k = KIND[st.kind];
+  const me = meName ?? { id: "me", name: "Tu", type: "blu_giallo", logo_url: null };
+  const head = (
+    <div className="fs-my-top"><span>{k.icon} {k.label}</span><span>🏆 {euro(st.prize ?? 0)}</span></div>
+  );
+  const vs = (opp: Org | null | undefined, my: number | null | undefined, their: number | null | undefined, showScore: boolean) => (
+    <div className="fs-my-vs">
+      <div><FactionEmblem type={me.type as never} size={54} logo={me.logo_url} /><b>Tu</b></div>
+      <div className="fs-my-score">{showScore ? <><span>{my ?? 0}</span><i>–</i><span>{their ?? 0}</span></> : <em>VS</em>}</div>
+      <div>{opp ? <FactionEmblem type={opp.type as never} size={54} logo={opp.logo_url} /> : <span className="fs-my-bye">✓</span>}<b>{opp ? opp.name : "Nessuno"}</b></div>
+    </div>
+  );
+  let body: ReactNode;
+  if (st.status === "iscrizioni") {
+    body = <>
+      <div className="fs-my-label">Il torneo inizia tra</div>
+      <Countdown to={st.starts_at} now={now} />
+      <div className="fs-my-sub">alle {clock(st.starts_at)} · {st.players ?? 0} associazioni · {st.rounds ?? 0} turni da 1 ora</div>
+      {st.in ? <>
+        <div className="fs-my-label" style={{ marginTop: 14 }}>Il tuo primo avversario</div>
+        {vs(st.opp, null, null, false)}
+        <div className="fs-my-note">{st.opp ? `Sei la testa di serie n° ${st.my_seed}, lui la n° ${st.opp_seed}. Può cambiare fino all'inizio se cambia la classifica della reputazione.` : "Passi il primo turno senza giocare (sei tra le teste di serie)."}</div>
+      </> : <div className="fs-my-note">Non sei in gara: entrano le associazioni che hanno concluso servizi negli ultimi 2 giorni.</div>}
+    </>;
+  } else if (!st.in) {
+    body = <div className="fs-my-note" style={{ fontSize: 15 }}>Torneo in corso ({roundName(st.current_round ?? 1, st.rounds ?? 1)}). Non sei in gara: partecipano le associazioni attive negli ultimi 2 giorni.</div>;
+  } else if (st.out_round) {
+    body = <>
+      <div className="fs-my-label">Sei stato eliminato · {roundName(st.out_round, st.rounds ?? 1)}</div>
+      {st.match && vs(st.match.opp, st.match.my_score, st.match.opp_score, true)}
+      <div className="fs-my-note">Il torneo continua: segui chi vince nel tabellone qui sotto.</div>
+    </>;
+  } else if (st.match) {
+    const m = st.match;
+    const started = new Date(m.starts_at).getTime() <= now;
+    body = <>
+      <div className="fs-my-label">{roundName(m.round, st.rounds ?? 1)} · {m.done ? (m.won ? "✅ Hai passato il turno!" : "Incontro finito") : started ? "🔴 IN CORSO" : "Prossimo incontro"}</div>
+      {vs(m.opp, m.my_score, m.opp_score, started || m.done)}
+      {!m.done && <><div className="fs-my-label" style={{ marginTop: 6 }}>{started ? "Finisce tra" : "Inizia tra"}</div><Countdown to={started ? m.ends_at : m.starts_at} now={now} /></>}
+      {!m.done && started && <div className="fs-my-note">{(m.my_score ?? 0) > (m.opp_score ?? 0) ? "Sei in vantaggio: continua a mandare mezzi!" : (m.my_score ?? 0) < (m.opp_score ?? 0) ? `Sei sotto di ${(m.opp_score ?? 0) - (m.my_score ?? 0)}: manda più ${k.label.toLowerCase()} che puoi!` : "Siete pari: ogni servizio conta!"}</div>}
+      {m.done && m.won && <div className="fs-my-note">Il prossimo turno inizia appena finiscono tutti gli incontri di questo.</div>}
+    </>;
+  }
+  return (
+    <div className="fs-my" style={{ background: `linear-gradient(150deg, ${k.a}, ${k.b} 55%, #0B1B33)` }} onClick={() => onOpen(st.id)}>
+      {head}
+      <div className="fs-my-title">{st.title}</div>
+      {body}
+    </div>
+  );
+}
+
 function Side({ o, seed, score, win, lose, me }: { o: Org | null; seed: number | null; score: number | null; win: boolean; lose: boolean; me: boolean }) {
   return (
     <div className={`fs-bk-side${win ? " win" : ""}${lose ? " lose" : ""}${me ? " me" : ""}`}>
@@ -429,6 +504,33 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
 }
 
 const CSS = `
+.fs-my { position: relative; overflow: hidden; border-radius: 26px; padding: 16px; margin-bottom: 14px; color: #fff; text-align: center; cursor: pointer;
+  box-shadow: 0 18px 40px rgba(15,23,42,.28); isolation: isolate; }
+.fs-my::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 80% -10%, rgba(255,255,255,.35), transparent 45%); }
+.fs-my-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 800; }
+.fs-my-top span { background: rgba(0,0,0,.25); padding: 4px 10px; border-radius: 999px; }
+.fs-my-title { font-size: 20px; font-weight: 900; margin: 10px 0 8px; letter-spacing: -.02em; }
+.fs-my-label { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; opacity: .9; }
+.fs-my-sub { font-size: 13px; font-weight: 700; opacity: .9; margin-top: 4px; }
+.fs-my-note { font-size: 13px; font-weight: 600; opacity: .92; margin-top: 8px; line-height: 1.4; background: rgba(0,0,0,.2); border-radius: 14px; padding: 8px 10px; }
+.fs-cd { display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin: 6px 0 2px; }
+.fs-cd span { display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28); border-radius: 16px;
+  min-width: 70px; padding: 6px 4px 4px; backdrop-filter: blur(6px); }
+.fs-cd b { font-size: 38px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.fs-cd small { font-size: 10.5px; font-weight: 800; text-transform: uppercase; opacity: .85; margin-top: 2px; }
+.fs-cd i { font-style: normal; font-size: 30px; font-weight: 900; margin-top: 4px; opacity: .7; }
+.fs-my-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; margin-top: 8px; }
+.fs-my-vs > div:not(.fs-my-score) { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.fs-my-vs img, .fs-my-vs svg { border-radius: 50%; box-shadow: 0 0 0 3px rgba(255,255,255,.8), 0 8px 18px rgba(0,0,0,.3); }
+.fs-my-vs b { font-size: 14px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fs-my-score { display: flex; align-items: center; gap: 6px; font-size: 40px; font-weight: 900; font-variant-numeric: tabular-nums; text-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.fs-my-score i { font-style: normal; opacity: .6; font-size: 26px; } .fs-my-score em { font-style: normal; font-size: 24px; opacity: .85; }
+.fs-my-bye { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.2); font-size: 24px; font-weight: 900; }
+@media (max-width: 640px) {
+  .fs-my { padding: 14px 12px; border-radius: 22px; } .fs-my-title { font-size: 17px; }
+  .fs-cd span { min-width: 60px; } .fs-cd b { font-size: 32px; }
+  .fs-my-score { font-size: 32px; }
+}
 .fs-tb-podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin: 6px 0 14px; padding: 18px 10px 0; border-radius: 24px;
   background: radial-gradient(circle at 50% 0%, rgba(253,224,71,.35), transparent 60%), linear-gradient(160deg, #2E1065, #0B1B33); overflow: hidden; }
 .fs-tb-p { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; text-align: center; min-width: 0; }
