@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-26o", date: "26 novembre 2026", title: "⚔️ Tornei: partecipano tutti",
+    items: ["Ai tornei non serve più iscriversi e non si paga niente: entrano in automatico tutte le associazioni attive (servizi conclusi negli ultimi 2 giorni, fino a 64).",
+            "Chi aveva già pagato l'iscrizione è stato rimborsato."],
+  },
+  {
     id: "2026-11-26n", date: "26 novembre 2026", title: "🏅 Classifica dei tornei",
     items: ["Nuova classifica di chi vince più tornei (Tornei e sfide → 🏅 Classifica, oppure dalla Classifica → ⚔️ Tornei): torneo vinto 10 punti, finale 5, semifinale 2, sfida vinta 1."],
   },

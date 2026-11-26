@@ -75,6 +75,7 @@ export default function Tornei() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [expected, setExpected] = useState<number | null>(null);
   // nuova sfida
   const [cTo, setCTo] = useState(""); const [cKind, setCKind] = useState<Kind>("servizi"); const [cStake, setCStake] = useState(0); const [cQ, setCQ] = useState("");
 
@@ -101,6 +102,7 @@ export default function Tornei() {
 
   useEffect(() => {
     loadList(); loadChs(); loadFunds();
+    supabase.rpc("tournament_expected").then(({ data }) => setExpected(typeof data === "number" ? data : null));
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
     try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } } catch {}
     const t1 = setInterval(() => setNow(Date.now()), 1000);
@@ -135,7 +137,7 @@ export default function Tornei() {
     <main style={shell}>
       <PageHeader icon="⚔️" title="Tornei e sfide" tone="purple" funds={funds}
         sub="Ogni incontro dura 1 ora: vince chi conclude più servizi del tipo richiesto"
-        tabs={[{ key: "tornei", label: "🏆 Tornei", badge: openT.filter((t) => !t.joined).length || null },
+        tabs={[{ key: "tornei", label: "🏆 Tornei", badge: runT.length || null },
                { key: "sfide", label: "⚔️ Sfide 1 contro 1", badge: incoming || live || null }, { key: "classifica", label: "🏅 Classifica" }]}
         tab={tab} onTab={(k) => { setTab(k as "tornei" | "sfide" | "classifica"); if (k === "classifica") supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); }}
         links={[{ href: "/classifica", label: "🏆 Classifica" }, { href: "/obiettivi", label: "🎯 Obiettivi" }]} />
@@ -148,10 +150,10 @@ export default function Tornei() {
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
                 Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
-                Le iscrizioni aprono 3 ore prima e costano 100.000 €, che vanno nel montepremi.
+                Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno concluso servizi negli ultimi 2 giorni (le 64 con più reputazione), gratis.
                 È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
                 In caso di pareggio passa la testa di serie (chi ha più reputazione). Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
-                Premi: 60% del montepremi al vincitore, 25% al finalista, 7,5% a ciascun semifinalista.
+                Il torneo compare nella lista 3 ore prima. Premi: 60% del montepremi al vincitore, 25% al finalista, 7,5% a ciascun semifinalista.
               </div>
             </details>
 
@@ -175,21 +177,10 @@ export default function Tornei() {
                       <div className="fs-tor-title">{t.title}</div>
                       <div className="fs-tor-prize">🏆 {euro(t.prize)}</div>
                       <div className="fs-tor-meta">
-                        <span>👥 {t.entries}/64</span>
+                        <span>👥 {t.status === "iscrizioni" ? `${expected ?? "…"} associazioni` : `${t.entries} in gara`}</span>
                         <span>⏱ {live ? `finisce ${clock(t.ends_at)}` : `tra ${left(t.starts_at, now)}`}</span>
-                        {t.status === "iscrizioni" && <span>🎟 {euro(t.entry_fee)}</span>}
                       </div>
-                      {t.status === "iscrizioni" && (t.joined ? (
-                        <button className="fs-tor-btn ghost" disabled={busy} onClick={async (e) => {
-                          e.stopPropagation();
-                          if (await gameConfirm(`Ritirarti dal torneo?\nTi vengono restituiti ${euro(t.entry_fee)}.`)) act("tournament_leave", { p_id: t.id }, "Ti sei ritirato, quota restituita.");
-                        }}>✓ Iscritto · ritirati</button>
-                      ) : (
-                        <button className="fs-tor-btn" disabled={busy} onClick={async (e) => {
-                          e.stopPropagation();
-                          if (await gameConfirm(`Iscriversi al torneo?\nLa quota è ${euro(t.entry_fee)} e va nel montepremi.`)) act("tournament_join", { p_id: t.id }, "Iscrizione fatta! Il torneo parte all'ora indicata.");
-                        }}>🎟 Iscriviti</button>
-                      ))}
+                      {t.status === "iscrizioni" && <div className="fs-tor-you">✓ Partecipi in automatico, non devi fare niente</div>}
                       {live && t.joined && (
                         <div className="fs-tor-you">{t.my_out ? `Eliminato al ${roundName(t.my_out, t.rounds ?? 1).toLowerCase()}` : "🔥 Sei ancora in gara!"}</div>
                       )}
@@ -376,13 +367,12 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
       <div style={card}>
         <div style={{ fontWeight: 900, fontSize: 17 }}>{k.icon} {d.title}</div>
         <div style={{ fontSize: 13, color: "#64748B", margin: "2px 0 10px" }}>
-          {d.status === "annullato" ? "Annullato: servivano almeno 2 iscritti. Le quote sono state restituite." : `Il tabellone si crea all'inizio, ${dayClock(d.starts_at)}. Iscritti:`}
+          {d.status === "annullato" ? "Annullato: servivano almeno 2 associazioni attive." : `Il tabellone si crea all'inizio, ${dayClock(d.starts_at)}, con tutte le associazioni attive.`}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {d.entries.map((o) => (
             <span key={o.id} className={`fs-bk-chip${o.id === me ? " me" : ""}`}><FactionEmblem type={o.type as never} size={20} logo={o.logo_url} />{o.name}</span>
           ))}
-          {d.entries.length === 0 && <span style={{ color: "#94A3B8", fontSize: 13 }}>Ancora nessuno: sii il primo!</span>}
         </div>
       </div>
     );
