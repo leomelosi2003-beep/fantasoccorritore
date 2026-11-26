@@ -207,7 +207,7 @@ export default function Tornei() {
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
                 Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
-                Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno concluso servizi negli ultimi 2 giorni (le 64 con più reputazione), gratis.
+                Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno almeno un mezzo (fino a 64), gratis.
                 È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
                 In caso di pareggio passa la testa di serie (chi ha più reputazione). Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
                 Il torneo compare nella lista 3 ore prima. Premi: 60% del montepremi al vincitore, 25% al finalista, 7,5% a ciascun semifinalista.
@@ -386,10 +386,10 @@ function MyTournament({ st, now, meName, onOpen }: { st: MyStatus; now: number; 
         <div className="fs-my-label" style={{ marginTop: 14 }}>Il tuo primo avversario</div>
         {vs(st.opp, null, null, false)}
         <div className="fs-my-note">{st.opp ? `Sei la testa di serie n° ${st.my_seed}, lui la n° ${st.opp_seed}. Può cambiare fino all'inizio se cambia la classifica della reputazione.` : "Passi il primo turno senza giocare (sei tra le teste di serie)."}</div>
-      </> : <div className="fs-my-note">Non sei in gara: entrano le associazioni che hanno concluso servizi negli ultimi 2 giorni.</div>}
+      </> : <div className="fs-my-note">Non sei in gara: entrano tutte le associazioni che hanno almeno un mezzo.</div>}
     </>;
   } else if (!st.in) {
-    body = <div className="fs-my-note" style={{ fontSize: 15 }}>Torneo in corso ({roundName(st.current_round ?? 1, st.rounds ?? 1)}). Non sei in gara: partecipano le associazioni attive negli ultimi 2 giorni.</div>;
+    body = <div className="fs-my-note" style={{ fontSize: 15 }}>Torneo in corso ({roundName(st.current_round ?? 1, st.rounds ?? 1)}). Non sei in gara: partecipano le associazioni con almeno un mezzo.</div>;
   } else if (st.out_round) {
     body = <>
       <div className="fs-my-label">Sei stato eliminato · {roundName(st.out_round, st.rounds ?? 1)}</div>
