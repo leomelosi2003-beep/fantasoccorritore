@@ -225,18 +225,19 @@ export default function Garage() {
 
   // Mezzi ordinati: per sede o per tipo, con filtro per tipo e scelta dell'ordine; sezioni richiudibili
   const [expanded, setExpanded] = useState<Record<string, boolean>>({}); // tendine chiuse di base: si aprono al clic
-  const [groupBy, setGroupBy] = useState<"sede" | "tipo">("sede");
+  const [groupBy, setGroupBy] = useState<"nessuno" | "sede" | "tipo">("nessuno");
+  const [q, setQ] = useState("");
   const [kindFilter, setKindFilter] = useState<Kind | "tutti">("tutti");
   const [sortBy, setSortBy] = useState<"tipo" | "nome" | "km" | "usura">("tipo");
   const [layout, setLayout] = useState<"schede" | "elenco">("schede");
   useEffect(() => {
     try {
-      const g = JSON.parse(localStorage.getItem("fs_garage_view") ?? "{}");
+      const g = JSON.parse(localStorage.getItem("fs_garage_view2") ?? "{}");
       if (g.groupBy) setGroupBy(g.groupBy); if (g.sortBy) setSortBy(g.sortBy); if (g.layout) setLayout(g.layout);
     } catch {}
   }, []);
   useEffect(() => {
-    try { localStorage.setItem("fs_garage_view", JSON.stringify({ groupBy, sortBy, layout })); } catch {}
+    try { localStorage.setItem("fs_garage_view2", JSON.stringify({ groupBy, sortBy, layout })); } catch {}
   }, [groupBy, sortBy, layout]);
   const kindOf = useCallback((v: Vehicle): Kind => {
     const m = byId.model[v.model_id];
@@ -262,14 +263,20 @@ export default function Garage() {
     return c;
   }, [vehicles, kindOf]);
   const garageGroups = useMemo(() => {
-    const list0 = vehicles.filter((v) => kindFilter === "tutti" || kindOf(v) === kindFilter);
+    const qq = q.trim().toLowerCase();
+    const list0 = vehicles.filter((v) => (kindFilter === "tutti" || kindOf(v) === kindFilter)
+      && (!qq || v.call_sign.toLowerCase().includes(qq) || (byId.model[v.model_id]?.name ?? "").toLowerCase().includes(qq)
+          || (byId.base[v.base_id]?.name ?? "").toLowerCase().includes(qq)));
     const cmp = (a: Vehicle, b: Vehicle) =>
       sortBy === "nome" ? a.call_sign.localeCompare(b.call_sign, "it", { numeric: true })
       : sortBy === "km" ? Number(b.odometer_km ?? 0) - Number(a.odometer_km ?? 0)
       : sortBy === "usura" ? b.wear - a.wear
       : kindRank(kindOf(a)) - kindRank(kindOf(b)) || a.call_sign.localeCompare(b.call_sign, "it", { numeric: true });
     const groups: { key: string; name: string; icon: string; list: Vehicle[] }[] = [];
-    if (groupBy === "tipo") {
+    if (groupBy === "nessuno" || qq) {
+      const list = list0.sort(cmp);
+      if (list.length) groups.push({ key: "__tutti__", name: "Tutti", icon: "🚑", list });
+    } else if (groupBy === "tipo") {
       for (const k of KINDS) {
         const list = list0.filter((v) => kindOf(v) === k.k).sort(cmp);
         if (list.length) groups.push({ key: "k_" + k.k, name: k.label, icon: k.icon, list });
@@ -283,7 +290,7 @@ export default function Garage() {
       if (others.length) groups.push({ key: "__altri__", name: "Altri mezzi", icon: "🏠", list: others });
     }
     return groups;
-  }, [vehicles, bases, groupBy, kindFilter, sortBy, kindOf]);
+  }, [vehicles, bases, groupBy, kindFilter, sortBy, kindOf, q, byId]);
 
   function openShop() {
     setWiz(1); setCustomKit(false);
@@ -502,7 +509,7 @@ export default function Garage() {
       <TutorialCoach page="garage" />
       {/* Testata */}
       <PageHeader icon="🚑" title="Garage" tone="orange" funds={org.funds}
-        sub={`${vehicles.filter((v) => v.status !== "fuori_servizio").length} mezzi · compra, rifornisci e scegli l'uso dei tuoi mezzi`}
+        sub={`${vehicles.filter((v) => v.status !== "fuori_servizio").length} mezzi · 🟢 ${vehicles.filter((v) => v.status === "disponibile" && !v.issue_open).length} pronti · 🚨 ${vehicles.filter((v) => v.status === "in_servizio").length} in servizio · 🔧 ${vehicles.filter((v) => v.status === "manutenzione").length} in officina`}
         tabs={[{ key: "mezzi", label: "🚑 I miei mezzi", badge: vehicles.length || null }, { key: "compra", label: "🛒 Compra" }, { key: "benzina", label: "⛽ Benzinaio" }]}
         tab={shop ? "compra" : gtab}
         onTab={(k) => { if (k === "compra") { if (!shop) openShop(); } else { setShop(false); setGtab(k as "mezzi" | "benzina"); } }}
@@ -519,32 +526,6 @@ export default function Garage() {
                         color: msg.ok ? "#166534" : "#a00" }}>{msg.text}</div>
         )}
 
-        {/* riepilogo: com'è messa la flotta in questo momento */}
-        {!shop && gtab === "mezzi" && vehicles.length > 0 && (() => {
-          const ready = vehicles.filter((v) => v.status === "disponibile" && !v.issue_open).length;
-          const busyN = vehicles.filter((v) => v.status === "in_servizio").length;
-          const shopN = vehicles.filter((v) => v.status === "manutenzione").length;
-          const care = vehicles.filter((v) => v.status !== "fuori_servizio" && needsCare(v)).length;
-          const tiles: [string, string, number, string, string | null][] = [
-            ["🚑", "Mezzi", vehicles.filter((v) => v.status !== "fuori_servizio").length, "#13294B", null],
-            ["🟢", "Pronti in sede", ready, "#15803D", null],
-            ["🚨", "In servizio", busyN, "#C2410C", "/"],
-            ["🔧", "In officina", shopN, "#5B21B6", "/officina"],
-            ["⚠️", "Da sistemare", care, care ? "#B91C1C" : "#15803D", "/officina"],
-          ];
-          return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8, marginBottom: 14 }}>
-              {tiles.map(([ico, label, n, col, href]) => (
-                <button key={label} onClick={() => href && router.push(href)}
-                        style={{ background: "#fff", border: "none", borderRadius: 14, padding: "10px 12px", textAlign: "left", cursor: href ? "pointer" : "default",
-                                 boxShadow: "0 2px 10px rgba(19,41,75,.08)", borderLeft: `5px solid ${col}`, opacity: 1 }}>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: col, lineHeight: 1.1 }}>{ico} {n}</div>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#475569" }}>{label}{href ? " ›" : ""}</div>
-                </button>
-              ))}
-            </div>
-          );
-        })()}
         {!shop && gtab === "mezzi" && (
           <div className="fs-gar-actions">
             <button onClick={openShop} data-tut="buy-vehicle" className="fs-ga main">
@@ -839,52 +820,32 @@ export default function Garage() {
 
         {/* I miei mezzi */}
         {!shop && gtab === "mezzi" && <>
-        <h2 style={{ display: "flex", alignItems: "center", gap: 8, margin: "18px 2px 10px" }}>🚑 I tuoi mezzi</h2>
         {vehicles.length > 0 && (
-          <div style={{ ...box, marginBottom: 12, padding: 12 }}>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button onClick={() => setKindFilter("tutti")}
-                      style={{ ...btn, padding: "6px 10px", fontSize: 13, background: kindFilter === "tutti" ? "#111" : "#eee", color: kindFilter === "tutti" ? "#fff" : "#111" }}>
-                Tutti · {vehicles.length}
-              </button>
-              {KINDS.filter((k) => kindCounts[k.k]).map((k) => (
-                <button key={k.k} onClick={() => setKindFilter(k.k)}
-                        style={{ ...btn, padding: "6px 10px", fontSize: 13, background: kindFilter === k.k ? "#111" : "#eee", color: kindFilter === k.k ? "#fff" : "#111" }}>
-                  {k.icon} {k.label} · {kindCounts[k.k]}
-                </button>
-              ))}
+          <div className="fs-gtool">
+            <div className="fs-gsearch">
+              <span>🔎</span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un mezzo per nome, modello o sede…" />
+              {q && <button onClick={() => setQ("")} aria-label="Cancella">✕</button>}
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 13, alignItems: "center" }}>
-              <label>Raggruppa{" "}
-                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as "sede" | "tipo")} style={{ fontSize: 13, padding: "4px 6px", borderRadius: 8 }}>
-                  <option value="sede">per sede</option><option value="tipo">per tipo</option>
-                </select>
-              </label>
-              <label>Ordina{" "}
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "tipo" | "nome" | "km" | "usura")} style={{ fontSize: 13, padding: "4px 6px", borderRadius: 8 }}>
-                  <option value="tipo">per tipo</option><option value="nome">per nome</option>
-                  <option value="km">per km (più alti prima)</option><option value="usura">per usura</option>
-                </select>
-              </label>
-              <span style={{ display: "inline-flex", borderRadius: 8, overflow: "hidden", border: "1px solid #ccc" }}>
+            <div className="fs-gopts">
+              <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as "nessuno" | "sede" | "tipo")} aria-label="Raggruppa">
+                <option value="nessuno">📋 Tutti insieme</option><option value="sede">🏠 Per sede</option><option value="tipo">🚑 Per tipo</option>
+              </select>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "tipo" | "nome" | "km" | "usura")} aria-label="Ordina">
+                <option value="tipo">↕ Tipo</option><option value="nome">↕ Nome</option><option value="km">↕ Km</option><option value="usura">↕ Usura</option>
+              </select>
+              <span className="fs-gview">
                 {(["schede", "elenco"] as const).map((l) => (
-                  <button key={l} onClick={() => setLayout(l)}
-                          style={{ border: "none", padding: "5px 10px", fontSize: 13, cursor: "pointer", background: layout === l ? "#111" : "#fff", color: layout === l ? "#fff" : "#111" }}>
-                    {l === "schede" ? "🗂️ Schede" : "📋 Elenco"}
-                  </button>
+                  <button key={l} className={layout === l ? "on" : ""} onClick={() => setLayout(l)} title={l === "schede" ? "Schede" : "Elenco"}>{l === "schede" ? "▦" : "☰"}</button>
                 ))}
               </span>
             </div>
-            <details style={{ fontSize: 12, color: "#555", marginTop: 10, background: "#F0F9FF", borderRadius: 10, padding: "8px 10px" }}>
-              <summary style={{ cursor: "pointer", fontWeight: 700, color: "#1E3A8A" }}>📘 Regole: limite chilometri e revisione</summary>
-              <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
-              <strong>{kmFmt(KM_LIMIT)}</strong> in emergenza non può più fare emergenze e diventa da sola <strong>🚗 solo ordinari</strong>.
-              È definitivo: da lì in poi fa solo dimissioni e trasporti ordinari.
-              Automediche, moto, barche, antincendio e passi lunghi non hanno questo limite.
-              <br />🔧 <strong>Revisione ogni {kmFmt(SERVICE_KM)}</strong> per tutti i mezzi di terra (barche escluse): se è scaduta il mezzo non parte.
-              Costa 5.000 € + il 10% del prezzo del modello e il mezzo resta in officina 15 minuti (l&apos;usura torna a zero).
-              Nelle sedi in automatico la revisione si fa da sola.
-            </details>
+            <div className="fs-gchips">
+              <button className={kindFilter === "tutti" ? "on" : ""} onClick={() => setKindFilter("tutti")}>Tutti <b>{vehicles.length}</b></button>
+              {KINDS.filter((k) => kindCounts[k.k]).map((k) => (
+                <button key={k.k} className={kindFilter === k.k ? "on" : ""} onClick={() => setKindFilter(k.k)}>{k.icon} {k.label} <b>{kindCounts[k.k]}</b></button>
+              ))}
+            </div>
           </div>
         )}
         {vehicles.length === 0 ? (
@@ -895,10 +856,10 @@ export default function Garage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {garageGroups.length === 0 && <div style={{ ...box, textAlign: "center", color: "#666" }}>Nessun mezzo di questo tipo.</div>}
             {garageGroups.map(({ key, name, icon, list }) => {
-              const open = !!expanded[key];
+              const open = key === "__tutti__" || !!expanded[key];
               return (
               <div key={key}>
-                <button onClick={() => setExpanded((c) => ({ ...c, [key]: !c[key] }))}
+                {key !== "__tutti__" && <button onClick={() => setExpanded((c) => ({ ...c, [key]: !c[key] }))}
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
                                  background: "linear-gradient(135deg,#1D3D6B,#13294B)", color: "#fff", borderRadius: 12, padding: "10px 14px",
                                  boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
@@ -913,7 +874,7 @@ export default function Garage() {
                   )}
                   <span style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, padding: "1px 10px", fontSize: 13, fontWeight: 800 }}>{list.length}</span>
                   <span style={{ opacity: 0.9, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
-                </button>
+                </button>}
                 {groupBy === "sede" && key !== "__altri__" && (() => {
                   const own = list;
                   const next = Math.min(3, Math.min(...own.map((v) => v.speed_level ?? 0)) + 1);
@@ -1209,6 +1170,16 @@ export default function Garage() {
             })}
           </div>
         )}
+        {vehicles.length > 0 && <div style={{ marginTop: 14 }}><details style={{ fontSize: 12, color: "#555", background: "#F0F9FF", borderRadius: 10, padding: "8px 10px" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, color: "#1E3A8A" }}>📘 Regole: limite chilometri e revisione</summary>
+              <strong>Limite chilometrico:</strong> come previsto dalle regole sui mezzi di soccorso, un&apos;ambulanza che arriva a{" "}
+              <strong>{kmFmt(KM_LIMIT)}</strong> in emergenza non può più fare emergenze e diventa da sola <strong>🚗 solo ordinari</strong>.
+              È definitivo: da lì in poi fa solo dimissioni e trasporti ordinari.
+              Automediche, moto, barche, antincendio e passi lunghi non hanno questo limite.
+              <br />🔧 <strong>Revisione ogni {kmFmt(SERVICE_KM)}</strong> per tutti i mezzi di terra (barche escluse): se è scaduta il mezzo non parte.
+              Costa 5.000 € + il 10% del prezzo del modello e il mezzo resta in officina 15 minuti (l&apos;usura torna a zero).
+              Nelle sedi in automatico la revisione si fa da sola.
+            </details></div>}
         </>}
       </div>
     </main>

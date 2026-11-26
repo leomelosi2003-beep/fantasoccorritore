@@ -603,6 +603,33 @@ main div.fs-pack-hero[style] { background: radial-gradient(circle at 85% -20%, r
 .fs-pack-ico { filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
 body.fs-lite .fs-pack::after, body.fs-lite .fs-pack-hero::after { animation: none !important; display: none; }
 
+
+/* ---------- garage: barra di ricerca e filtri ---------- */
+.fs-gtool { background: #fff; border-radius: 22px; padding: 10px; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(15,23,42,.07); border: 1px solid #EDF1F7;
+  display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.fs-gsearch { display: flex; align-items: center; gap: 8px; background: #F3F6FB; border-radius: 14px; padding: 0 12px; border: 1px solid #E2E8F0; min-width: 0; }
+.fs-gsearch:focus-within { border-color: #3B82F6; box-shadow: 0 0 0 4px rgba(59,130,246,.15); background: #fff; }
+.fs-gsearch input { flex: 1; min-width: 0; border: none !important; outline: none; background: transparent !important; font: inherit; font-size: 15px; padding: 11px 0; box-shadow: none !important; }
+.fs-gsearch button { border: none !important; background: #CBD5E1 !important; color: #fff !important; width: 22px; height: 22px; min-height: 0 !important; border-radius: 50%; font-size: 11px; cursor: pointer; padding: 0; box-shadow: none !important; }
+.fs-gopts { display: flex; gap: 6px; align-items: center; }
+.fs-gopts select { padding: 9px 8px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; font: inherit; font-size: 13px; font-weight: 700; color: #0B1B33; }
+.fs-gview { display: inline-flex; background: #EEF2F7; border-radius: 12px; padding: 3px; }
+.fs-gview button { border: none !important; background: transparent !important; color: #64748B !important; width: 34px; height: 32px; min-height: 0 !important; border-radius: 9px; font-size: 16px; cursor: pointer; box-shadow: none !important; padding: 0; }
+.fs-gview button.on { background: #fff !important; color: #1D4ED8 !important; box-shadow: 0 2px 6px rgba(15,23,42,.12) !important; }
+.fs-gchips { grid-column: 1 / -1; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.fs-gchips::-webkit-scrollbar { display: none; }
+.fs-gchips button { flex-shrink: 0; white-space: nowrap; border: 1px solid #E2E8F0 !important; background: #fff !important; color: #334155 !important; border-radius: 999px;
+  padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: none !important; min-height: 0 !important; }
+.fs-gchips button b { margin-left: 4px; color: #94A3B8; }
+.fs-gchips button.on { background: linear-gradient(135deg, #3B82F6, #1E3A8A) !important; color: #fff !important; border-color: transparent !important; }
+.fs-gchips button.on b { color: rgba(255,255,255,.8); }
+@media (max-width: 640px) { .fs-gtool { grid-template-columns: 1fr; } .fs-gopts select { flex: 1; } }
+${D} .fs-gtool { background: #111A2E; border-color: rgba(148,163,184,.12); }
+${D} .fs-gsearch { background: #0D1424; border-color: rgba(148,163,184,.2); } ${D} .fs-gsearch input { color: #E6EDF7; }
+${D} .fs-gopts select { background: #0D1424; color: #E6EDF7; border-color: rgba(148,163,184,.2); }
+${D} .fs-gview { background: #0D1424; } ${D} .fs-gview button.on { background: #1C2A47 !important; color: #93C5FD !important; }
+${D} .fs-gchips button { background: #0D1424 !important; color: #CBD5E1 !important; border-color: rgba(148,163,184,.2) !important; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }
