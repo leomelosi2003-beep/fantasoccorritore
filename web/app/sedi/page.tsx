@@ -37,6 +37,8 @@ const MAX_LEVEL = 10;
 
 export default function Sedi() {
   const router = useRouter();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
   const [stab, setStab] = useState<"mie" | "nuova">("mie");
   const [org, setOrg] = useState<Organization | null>(null);
   const ally = useMyAllianceBadge(org?.id);
@@ -202,7 +204,30 @@ export default function Sedi() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 22, background: b.color ?? "transparent", borderRadius: 8, padding: b.color ? "0 4px" : 0 }}>{b.is_headquarters ? "🏛️" : "🏠"}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{b.name}{ally && !b.owner_name && <AllyChip a={ally} size={18} />}</div>
+                {editing === b.id ? (
+                  <form className="fs-rename" onSubmit={async (e) => {
+                    e.preventDefault();
+                    const name = newName.trim();
+                    if (name === b.name) { setEditing(null); return; }
+                    setBusy(true);
+                    const { error } = await supabase.rpc("rename_base", { p_base: b.id, p_name: name });
+                    setBusy(false);
+                    if (error) { setMsg({ ok: false, text: error.message.includes("BAD_NAME") ? "Il nome deve avere tra 2 e 40 caratteri." : "Non riesco a cambiare il nome, riprova." }); return; }
+                    setMsg({ ok: true, text: `🏠 Sede rinominata: ${name}` }); setEditing(null); load();
+                  }}>
+                    <input autoFocus value={newName} maxLength={40} onChange={(e) => setNewName(e.target.value)} placeholder="Nome della sede" />
+                    <button type="submit" disabled={busy || newName.trim().length < 2} style={{ ...btn, fontSize: 13, padding: "7px 12px" }}>Salva</button>
+                    <button type="button" onClick={() => setEditing(null)} style={{ ...btn, fontSize: 13, padding: "7px 10px", background: "#EEF2F7", color: "#334155" }}>Annulla</button>
+                  </form>
+                ) : (
+                  <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {b.name}
+                    {!b.owner_name && (
+                      <button onClick={() => { setEditing(b.id); setNewName(b.name); }} title="Cambia nome" className="fs-rename-btn">✏️ Rinomina</button>
+                    )}
+                    {ally && !b.owner_name && <AllyChip a={ally} size={18} />}
+                  </div>
+                )}
                 {b.owner_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Sede di {b.owner_name}, condivisa con te: puoi ampliarla, migliorarla e metterci i tuoi mezzi</div>}
                 {b.twin_name && <div style={{ fontSize: 12, color: "#0E7490", fontWeight: 700 }}>🤝 Condivisa con {b.twin_name}: anche lui può ampliarla e metterci i suoi mezzi</div>}
                 <div style={{ fontSize: 13, color: "#666" }}>{b.is_headquarters ? "Sede centrale · " : ""}Livello {b.level} · 🚑 {parked[b.id] ?? 0}/{b.vehicle_capacity} posti</div>

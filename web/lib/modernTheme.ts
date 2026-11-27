@@ -630,6 +630,14 @@ ${D} .fs-gopts select { background: #0D1424; color: #E6EDF7; border-color: rgba(
 ${D} .fs-gview { background: #0D1424; } ${D} .fs-gview button.on { background: #1C2A47 !important; color: #93C5FD !important; }
 ${D} .fs-gchips button { background: #0D1424 !important; color: #CBD5E1 !important; border-color: rgba(148,163,184,.2) !important; }
 
+
+/* ---------- sedi: cambia nome ---------- */
+.fs-rename-btn { border: 1px solid #DCE4EF !important; background: #F5F8FC !important; color: #1D4ED8 !important; border-radius: 999px; padding: 2px 9px;
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: none !important; min-height: 0 !important; }
+.fs-rename { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.fs-rename input { flex: 1; min-width: 160px; padding: 8px 10px; border-radius: 10px; border: 2px solid #3B82F6; font: inherit; font-size: 15px; font-weight: 700; }
+${D} .fs-rename-btn { background: #17233D !important; border-color: rgba(148,163,184,.2) !important; color: #93C5FD !important; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }
