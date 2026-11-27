@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-27a", date: "27 novembre 2026", title: "👥 775 volontari nuovi nei pacchetti",
+    items: ["Arrivano 775 volontari nuovi: autisti (anche avanzati), soccorritori base e avanzati, infermieri, medici, bagnini, AIB e capiservizio.",
+            "Anche le associazioni più grandi trovano di nuovo carte che non hanno: circa 1 su 8 è epica, 1 su 33 leggendaria."],
+  },
+  {
     id: "2026-11-26r", date: "26 novembre 2026", title: "🦺 Classifica Protezione Civile",
     items: ["Nuova classifica del mese: mezzi mandati sulle missioni di Protezione Civile. Premi ai primi 10: 3 milioni al primo, poi a scendere fino a 300.000 €."],
   },
