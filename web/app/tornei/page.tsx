@@ -220,7 +220,7 @@ export default function Tornei() {
             <details style={{ ...card, padding: "10px 14px" }}>
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
-                Ci sono 3 serie (A, B e C) e ognuna ha il suo tabellone, così le associazioni piccole giocano tra loro. Ogni lunedì i primi 3 salgono di serie e gli ultimi 3 scendono. Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
+                Ci sono 3 serie (A, B e C) e ognuna ha il suo tabellone, così le associazioni piccole giocano tra loro. Ogni lunedì i primi 3 salgono di serie e gli ultimi 3 scendono. Punti: torneo vinto 10, finale 6, semifinale 3, quarti di finale 1. Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
                 Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno almeno un mezzo (fino a 64), gratis.
                 È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
                 In caso di pareggio passa la testa di serie (chi ha più reputazione). Se le squadre sono dispari, chi passa il primo turno senza giocare è estratto a sorte. Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
@@ -249,7 +249,7 @@ export default function Tornei() {
                 <div className="fs-div-rules">
                   {stand.division !== "A" && <span className="up">⬆ i primi 3 salgono in {stand.division === "B" ? "Serie A" : "Serie B"}</span>}
                   {stand.division !== "C" && <span className="down">⬇ gli ultimi 3 scendono in {stand.division === "A" ? "Serie B" : "Serie C"}</span>}
-                  <span>Punti: torneo vinto 10 · finale 5 · semifinale 2 · incontro vinto 1</span>
+                  <span>Punti: torneo vinto 10 · finale 6 · semifinale 3 · quarti 1</span>
                 </div>
                 {stand.rows.map((r, i) => {
                   const n = stand.rows.length;
@@ -260,7 +260,7 @@ export default function Tornei() {
                       <span className="fs-tb-pos">{i + 1}</span>
                       <FactionEmblem type={r.type as never} size={30} logo={r.logo_url} />
                       <span className="fs-tb-name">{r.name}{up && <em className="fs-z up">⬆</em>}{down && <em className="fs-z down">⬇</em>}</span>
-                      <span className="fs-tb-stats"><span title="Tornei vinti">🏆 {r.wins}</span><span title="Finali">🥈 {r.finals}</span><span title="Incontri vinti">✔ {r.matches}</span></span>
+                      <span className="fs-tb-stats"><span title="Tornei vinti">🏆 {r.wins}</span><span title="Finali">🥈 {r.finals}</span><span title="Semifinali e quarti">🎖️ {r.matches}</span></span>
                       <b className="fs-tb-pts">{r.points}</b>
                     </div>
                   );
@@ -269,7 +269,7 @@ export default function Tornei() {
             )}
             <div style={{ fontWeight: 900, fontSize: 17, margin: "18px 2px 8px" }}>🏆 Albo d&apos;oro di tutti i tornei</div>
             <div style={{ ...card, padding: "10px 14px", fontSize: 13, color: "#475569" }}>
-              Punti: 🏆 torneo vinto 10 · 🥈 finale 5 · 🥉 semifinale 2 · ⚔️ sfida vinta 1
+              Punti: 🏆 torneo vinto 10 · 🥈 finale 6 · 🥉 semifinale 3 · 🎖️ quarti 1 · ⚔️ sfida vinta 1
             </div>
             {board === null && <div style={card}>Caricamento…</div>}
             {board && board.length === 0 && <div style={{ ...card, textAlign: "center", color: "#64748B" }}>Ancora nessun torneo concluso: il primo campione potresti essere tu!</div>}

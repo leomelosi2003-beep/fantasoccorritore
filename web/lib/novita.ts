@@ -6,7 +6,7 @@ export const NOVITA: Novita[] = [
   {
     id: "2026-11-27b", date: "27 novembre 2026", title: "🏟️ Campionato: Serie A, B e C",
     items: ["I tornei ora si giocano in 3 serie: le associazioni più grandi in Serie A, le medie in B, le più piccole in C. Ognuna ha il suo tabellone, così anche le piccole possono vincere.",
-            "Punti della settimana: torneo vinto 10, finale 5, semifinale 2, ogni incontro vinto 1. Ogni lunedì i primi 3 della B salgono in A, i primi 3 della C salgono in B; gli ultimi 3 di A e B scendono.",
+            "Punti della settimana (dai quarti di finale in su): torneo vinto 10, finale 6, semifinale 3, quarti 1. Contano anche i tornei giocati prima delle serie. Ogni lunedì i primi 3 della B salgono in A, i primi 3 della C salgono in B; gli ultimi 3 di A e B scendono.",
             "Montepremi: Serie A 100%, Serie B 70%, Serie C 50%. Classifica della tua serie in Tornei e sfide → 🏅 Campionato."],
   },
   {
