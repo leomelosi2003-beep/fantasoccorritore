@@ -4,6 +4,11 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-27d", date: "27 novembre 2026", title: "🏠 Si può vendere la sede principale",
+    items: ["In Le mie sedi ora puoi mettere all'asta anche la sede principale (🏷️), se hai almeno un'altra sede. La tua nuova sede principale diventa un'altra delle tue sedi.",
+            "Come per le altre sedi, prima sposta le ambulanze dal Garage."],
+  },
+  {
     id: "2026-11-27c", date: "27 novembre 2026", title: "🎁 Regalo per tutti + automatica sempre attiva",
     items: ["Ogni associazione nuova parte già con un F-Ducalis (Ducato) con il kit completo e un equipaggio intero (autista, soccorritore avanzato e soccorritore base). Lo stesso regalo è andato a chi non aveva ancora mezzi.",
             "La modalità automatica è sempre attiva: scegli solo i turni delle sedi. Prende tutti i tipi di servizio; la modalità aggressiva non c'è più.",
