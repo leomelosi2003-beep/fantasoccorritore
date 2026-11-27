@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-27c", date: "27 novembre 2026", title: "🎁 Regalo per tutti + automatica sempre attiva",
+    items: ["Regalo a tutte le associazioni: un F-Ducalis (Ducato) con il kit completo e un equipaggio intero (autista, soccorritore avanzato e soccorritore base) nella sede principale.",
+            "La modalità automatica è sempre attiva: scegli solo i turni delle sedi. Prende tutti i tipi di servizio; la modalità aggressiva non c'è più.",
+            "Si paga come prima per i turni scelti; se finiscono i soldi si ferma per quell'ora e riparte da sola."],
+  },
+  {
     id: "2026-11-27b", date: "27 novembre 2026", title: "🏟️ Campionato: Serie A, B e C",
     items: ["I tornei ora si giocano in 3 serie: le associazioni più grandi in Serie A, le medie in B, le più piccole in C. Ognuna ha il suo tabellone, così anche le piccole possono vincere.",
             "Punti della settimana (dai quarti di finale in su): torneo vinto 10, finale 6, semifinale 3, quarti 1. Contano anche i tornei giocati prima delle serie. Ogni lunedì i primi 3 della B salgono in A, i primi 3 della C salgono in B; gli ultimi 3 di A e B scendono.",

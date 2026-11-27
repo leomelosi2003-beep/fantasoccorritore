@@ -166,42 +166,28 @@ export default function Automatico() {
       <div style={wrap}>
         {!loaded ? <div style={{ padding: 20, color: "#888", textAlign: "center" }}>Caricamento…</div> : (
           <>
-            <AutoDiagnosis reserve={reserve} codes={codes} onReserve={(r) => save({ reserve: r })} onCodes={(c) => save({ codes: c })} />
-            <div style={card} className={`fs-auto-hero${enabled ? " on" : ""}`}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900, fontSize: 22 }}>{enabled ? "🟢 Automatica ACCESA" : "⚪ Automatica spenta"}</div>
-                  <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
-                    La centrale assegna da sola i servizi alle tue ambulanze libere, ogni minuto, anche quando non sei collegato.
-                    Sceglie il mezzo più vicino e l&apos;equipaggio più riposato.
-                  </div>
-                  <div style={{ fontSize: 13, marginTop: 6, fontWeight: 700, color: "#0F766E" }}>
-                    💶 Si paga per ogni sede aperta: <strong>{prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} all&apos;ora a sede</strong>.
-                    In quest&apos;ora: <strong>{hourCost != null ? hourCost.toLocaleString("it-IT") + " €" : "…"}</strong>
-                    {prices && <> · al giorno circa <strong>{Number(prices.day_estimate).toLocaleString("it-IT")} €</strong></>}.
-                    Si paga a ogni ora piena; se finiscono i soldi si spegne da sola.
-                    {enabled && paidUntil && new Date(paidUntil).getTime() > Date.now() &&
-                      <> · Pagata fino alle {new Date(paidUntil).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</>}
-                  </div>
-                </div>
-                <button disabled={busy} onClick={() => save({ enabled: !enabled })} aria-label="Attiva o spegni"
-                        style={{ width: 64, height: 36, borderRadius: 18, border: "none", cursor: "pointer", position: "relative",
-                                 background: enabled ? "#0F766E" : "#ccc", transition: "background .2s", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 4, left: enabled ? 32 : 4, width: 28, height: 28, borderRadius: "50%",
-                                 background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
-                </button>
+            <div style={card} className="fs-auto-hero on">
+              <div style={{ fontWeight: 900, fontSize: 22 }}>🟢 Automatica sempre attiva</div>
+              <div style={{ fontSize: 13.5, color: "#475569", marginTop: 4, lineHeight: 1.5 }}>
+                La centrale manda da sola i tuoi mezzi liberi su tutti i servizi vicini (rossi, gialli, verdi, ordinari e trasferimenti), ogni minuto,
+                anche quando non sei collegato. Devi solo scegliere <strong>in quali turni lavora ogni sede</strong> qui sotto.
+              </div>
+              <div style={{ fontSize: 13, marginTop: 8, fontWeight: 700, color: "#0F766E" }}>
+                💶 {prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} all&apos;ora per ogni sede in turno · in quest&apos;ora: {hourCost != null ? hourCost.toLocaleString("it-IT") + " €" : "…"}
+                {prices && <> · al giorno circa {Number(prices.day_estimate).toLocaleString("it-IT")} €</>}.
+                Se finiscono i soldi si ferma per quell&apos;ora e riparte da sola.
               </div>
               {msg && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: msg.ok ? "#15803D" : "#B91C1C" }}>{msg.text}</div>}
             </div>
 
-            <div style={{ ...card, border: enabled && Object.values(shifts).every((v) => !v) ? "2px solid #DC2626" : undefined }}>
+            <div style={{ ...card, border: Object.values(shifts).every((v) => !v) ? "2px solid #DC2626" : undefined }}>
               <div style={{ fontWeight: 800, marginBottom: 4 }}>🕐 Turni delle sedi</div>
               <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
                 Scegli in quali turni ogni sede lavora in automatico. Fuori turno i suoi mezzi restano a te, da usare a mano.
                 <strong> H24</strong> = tutti e 4 i turni: al massimo {MAX_H24} sedi (anche nessuna). Le altre sedi possono fare i turni che vuoi.
                 Ogni turno costa {prices ? prices.base_hour.toLocaleString("it-IT") + " €" : "…"} l&apos;ora per sede.
               </div>
-              {enabled && Object.values(shifts).every((v) => !v) && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Nessuna sede ha un turno: non parte nessun mezzo.</div>}
+              {Object.values(shifts).every((v) => !v) && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginBottom: 8 }}>Nessuna sede ha un turno: non parte nessun mezzo.</div>}
               <div className="fs-cards2" style={{ gap: 8 }}>
                 {bases.map((b) => {
                   const v = shifts[b.id] ?? 0;
@@ -239,127 +225,6 @@ export default function Automatico() {
                 })}
               </div>
               <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>Il bordo arancione tratteggiato indica il turno in corso.</div>
-            </div>
-
-            <div style={card}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>🚐 Ambulanze solo per dimissioni e trasferimenti</div>
-              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
-                Le ambulanze segnate qui, in automatico, prendono solo dialisi, dimissioni e trasferimenti (anche quelli urgenti):
-                mai le emergenze. A mano puoi sempre usarle come vuoi.
-              </div>
-              {ambulances.length === 0 && <div style={{ fontSize: 13, color: "#888" }}>Nessuna ambulanza.</div>}
-              <div style={{ display: "grid", gap: 6 }}>
-                {ambulances.map((a) => (
-                  <button key={a.id} disabled={busy} onClick={() => toggleTransportOnly(a.id)}
-                          style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "8px 12px", borderRadius: 12,
-                                   cursor: "pointer", font: "inherit", border: a.only ? "2px solid #0E7490" : "1px solid #ddd",
-                                   background: a.only ? "#ecfeff" : "#fff", color: "#111" }}>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <strong>{a.call_sign}</strong>
-                      {a.base_name && <span style={{ fontSize: 12, color: "#666" }}> · {a.base_name}</span>}
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: a.only ? "#0E7490" : "#999" }}>{a.only ? "solo dimissioni e trasferimenti" : "tutti i servizi"}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={card}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>Quali servizi prendere</div>
-              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>Se ci sono più servizi, la precedenza va ai codici più gravi: rosso, poi giallo, poi verde, poi gli altri.</div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {CODES.map((c) => {
-                  const on = codes.includes(c.key);
-                  return (
-                    <button key={c.key} disabled={busy} onClick={() => toggleCode(c.key)}
-                            style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "10px 12px", borderRadius: 12,
-                                     cursor: "pointer", font: "inherit", border: on ? `2px solid ${c.color}` : "1px solid #ddd",
-                                     background: on ? "#f6f6f4" : "#fff", color: "#111" }}>
-                      <span style={{ width: 16, height: 16, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1 }}>
-                        <strong>{c.label}</strong>
-                        <span style={{ display: "block", fontSize: 12, color: "#666" }}>{c.hint}</span>
-                      </span>
-                      <span style={{ fontSize: 20 }}>{on ? "✅" : "⬜"}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ ...card, border: steal ? "2px solid #DC2626" : undefined }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800 }}>⚔️ Modalità aggressiva: occupa tutto e ruba i servizi</div>
-                  <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
-                    Le tue ambulanze partono subito su ogni servizio, senza il minuto di attesa, per non lasciarne agli altri.
-                    <br />🔴 <strong>Rosso:</strong> ci manda <strong>due ambulanze</strong>, così il servizio è bloccato e nessuno può più contenderlo.
-                    <br />🟡 <strong>Giallo:</strong> se l&apos;ha già preso un altro giocatore ma nessuno è arrivato, ci manda la tua ambulanza più vicina per arrivare prima e soffiarglielo.
-                    <br />Vale anche sui rossi presi da altri, tranne quelli già bloccati con due mezzi.
-                  </div>
-                  {steal && !codes.includes("rosso") && !codes.includes("giallo") && <div style={{ fontSize: 12, color: "#B91C1C", fontWeight: 700, marginTop: 4 }}>Attiva i codici rossi e/o gialli qui sopra.</div>}
-                </div>
-                <button disabled={busy} onClick={() => save({ steal: !steal })} aria-label="Modalità aggressiva"
-                        style={{ width: 64, height: 36, borderRadius: 18, border: "none", cursor: "pointer", position: "relative",
-                                 background: steal ? "#DC2626" : "#ccc", transition: "background .2s", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 4, left: steal ? 32 : 4, width: 28, height: 28, borderRadius: "50%",
-                                 background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
-                </button>
-              </div>
-            </div>
-
-            <div style={{ ...card, border: refill ? "2px solid #16A34A" : undefined }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800 }}>🔋 Ricarica automatica dei volontari</div>
-                  <div style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
-                    Quando mancano autisti o soccorritori per le ambulanze libere, sveglia da solo i volontari a riposo
-                    (prima gli autisti) pagando <strong>2.000 € a volontario</strong> (a mano costa 1.500 €).
-                    Ne ricarica solo quanti servono per riempire le ambulanze libere.
-                  </div>
-                </div>
-                <button disabled={busy} aria-label="Ricarica automatica" onClick={async () => {
-                          const v = !refill; setRefill(v); setBusy(true);
-                          const { error } = await supabase.rpc("set_auto_refill", { p_on: v });
-                          setBusy(false);
-                          setMsg(error ? { ok: false, text: "Non riesco a salvare, riprova." } : { ok: true, text: v ? "🔋 Ricarica automatica attiva." : "Ricarica automatica spenta." });
-                        }}
-                        style={{ width: 64, height: 36, borderRadius: 18, border: "none", cursor: "pointer", position: "relative",
-                                 background: refill ? "#16A34A" : "#ccc", transition: "background .2s", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 4, left: refill ? 32 : 4, width: 28, height: 28, borderRadius: "50%",
-                                 background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
-                </button>
-              </div>
-            </div>
-
-            <div style={card}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>📍 Distanza massima</div>
-              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
-                Prende solo i servizi entro questa distanza dall&apos;ambulanza, e ci manda sempre la tua ambulanza libera più vicina.
-                In ogni caso un&apos;ambulanza non esce mai a più di 20 km dalla sua sede: resta nella sua zona.
-              </div>
-              <select value={maxKm} disabled={busy} onChange={async (e) => {
-                        const km = Number(e.target.value); setMaxKm(km); setBusy(true);
-                        const { error } = await supabase.rpc("set_auto_max_km", { p_km: km });
-                        setBusy(false);
-                        setMsg(error ? { ok: false, text: "Non riesco a salvare, riprova." } : { ok: true, text: `📍 Solo servizi entro ${km} km.` });
-                      }}
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }}>
-                {[3, 5, 8, 10, 15, 20].map((k) => <option key={k} value={k}>{k} km{k === 10 ? " (consigliato)" : ""}</option>)}
-              </select>
-            </div>
-
-            <div style={card}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>Ambulanze da tenere libere</div>
-              <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
-                La modalità automatica lascia sempre libere almeno queste ambulanze, così puoi usarle tu a mano.
-              </div>
-              <select value={reserve} disabled={busy} onChange={(e) => save({ reserve: Number(e.target.value) })}
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", fontSize: 15 }}>
-                {Array.from({ length: Math.max(1, fleet) + 1 }, (_, i) => i).map((n) => (
-                  <option key={n} value={n}>{n === 0 ? "Nessuna: usa tutte le ambulanze" : `${n} ${n === 1 ? "ambulanza" : "ambulanze"}`}</option>
-                ))}
-              </select>
             </div>
 
             <div style={card}>
