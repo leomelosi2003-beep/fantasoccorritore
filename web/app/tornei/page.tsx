@@ -13,6 +13,12 @@ type Org = { id: string; name: string; type: string; logo_url: string | null };
 type TItem = {
   id: number; kind: Kind; title: string; status: "iscrizioni" | "in_corso" | "finito" | "annullato"; starts_at: string; ends_at: string;
   rounds: number | null; current_round: number; entry_fee: number; prize: number; entries: number; joined: boolean; my_out: number | null; winner: string | null;
+  division: "A" | "B" | "C" | null;
+};
+type Standing = { division: "A" | "B" | "C"; mine: "A" | "B" | "C"; week_ends: string; size: number;
+  rows: { id: string; name: string; type: string; logo_url: string | null; points: number; wins: number; finals: number; matches: number; me: boolean }[] };
+const DIV: Record<string, { a: string; b: string; label: string }> = {
+  A: { a: "#FDE047", b: "#B45309", label: "Serie A" }, B: { a: "#CBD5E1", b: "#475569", label: "Serie B" }, C: { a: "#FDBA74", b: "#9A3412", label: "Serie C" },
 };
 type Match = {
   round: number; slot: number; starts_at: string; ends_at: string; done: boolean; winner: string | null;
@@ -71,6 +77,13 @@ function roundName(r: number, rounds: number) {
 export default function Tornei() {
   const [tab, setTab] = useState<"tornei" | "sfide" | "classifica">("tornei");
   const [board, setBoard] = useState<BoardRow[] | null>(null);
+  const [myDiv, setMyDiv] = useState<"A" | "B" | "C" | null>(null);
+  const [stand, setStand] = useState<Standing | null>(null);
+  const [standDiv, setStandDiv] = useState<"A" | "B" | "C" | null>(null);
+  const loadStand = useCallback(async (dv: string | null) => {
+    const { data } = await supabase.rpc("division_standings", { p_div: dv });
+    const st = data as Standing | null; setStand(st); if (st) setMyDiv(st.mine);
+  }, []);
   const [list, setList] = useState<TItem[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -90,7 +103,7 @@ export default function Tornei() {
     const { data } = await supabase.rpc("tournaments_list");
     const l = ((data as TItem[]) ?? []);
     setList(l);
-    setOpenId((cur) => cur ?? (l.find((t) => t.status === "in_corso") ?? l.find((t) => t.status === "iscrizioni") ?? l[0])?.id ?? null);
+    setOpenId((cur) => cur ?? (l.find((t) => t.status === "in_corso" && t.joined) ?? l.find((t) => t.status === "in_corso") ?? l.find((t) => t.status === "iscrizioni") ?? l[0])?.id ?? null);
   }, []);
   const loadDetail = useCallback(async (id: number) => {
     const { data } = await supabase.rpc("tournament_detail", { p_id: id });
@@ -113,10 +126,10 @@ export default function Tornei() {
     supabase.rpc("orgs_directory").then(({ data }) => setOrgs(((data as Org[]) ?? []).map((o) => ({ id: o.id, name: o.name, type: o.type, logo_url: o.logo_url }))));
     try { const q = new URLSearchParams(location.search); if (q.get("tab") === "sfide") setTab("sfide"); if (q.get("tab") === "classifica") { setTab("classifica"); supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); } } catch {}
     const t1 = setInterval(() => setNow(Date.now()), 1000);
-    loadMine();
+    loadMine(); loadStand(null);
     const t2 = setInterval(() => { if (!document.hidden) { loadList(); loadChs(); loadMine(); } }, 30000);
     return () => { clearInterval(t1); clearInterval(t2); };
-  }, [loadList, loadChs, loadFunds, loadMine]);
+  }, [loadList, loadChs, loadFunds, loadMine, loadStand]);
   useEffect(() => {
     if (openId == null) return;
     loadDetail(openId);
@@ -137,16 +150,17 @@ export default function Tornei() {
   const meId = detail?.me ?? chs?.[0]?.me ?? null;
   const incoming = (chs ?? []).filter((c) => !c.mine && c.status === "in_attesa").length;
   const live = (chs ?? []).filter((c) => c.status === "in_corso").length;
-  const openT = (list ?? []).filter((t) => t.status === "iscrizioni");
-  const runT = (list ?? []).filter((t) => t.status === "in_corso");
+  const inMyDiv = (t: TItem) => t.joined || !t.division || !myDiv || t.division === myDiv;
+  const openT = (list ?? []).filter((t) => t.status === "iscrizioni" && inMyDiv(t));
+  const runT = (list ?? []).filter((t) => t.status === "in_corso" && inMyDiv(t));
   const pastT = (list ?? []).filter((t) => t.status === "finito" || t.status === "annullato");
 
   return (
     <main style={shell}>
       <PageHeader icon="⚔️" title="Tornei e sfide" tone="purple" funds={funds}
-        sub="Ogni incontro dura 1 ora: vince chi conclude più servizi del tipo richiesto"
+        sub={myDiv ? `Sei in ${DIV[myDiv].label} · ogni incontro dura 1 ora, vince chi conclude più servizi` : "Ogni incontro dura 1 ora: vince chi conclude più servizi del tipo richiesto"}
         tabs={[{ key: "tornei", label: "🏆 Tornei", badge: runT.length || null },
-               { key: "sfide", label: "⚔️ Sfide 1 contro 1", badge: incoming || live || null }, { key: "classifica", label: "🏅 Classifica" }]}
+               { key: "sfide", label: "⚔️ Sfide 1 contro 1", badge: incoming || live || null }, { key: "classifica", label: "🏅 Campionato" }]}
         tab={tab} onTab={(k) => { setTab(k as "tornei" | "sfide" | "classifica"); if (k === "classifica") supabase.rpc("tournament_board").then(({ data }) => setBoard((data as BoardRow[]) ?? [])); }}
         links={[{ href: "/classifica", label: "🏆 Classifica" }, { href: "/obiettivi", label: "🎯 Obiettivi" }]} />
       <div style={wrap}>
@@ -170,7 +184,7 @@ export default function Tornei() {
                     <div key={t.id} className={`fs-tor-card${openId === t.id ? " sel" : ""}`} onClick={() => setOpenId(t.id)}
                          style={{ background: `linear-gradient(135deg, ${k.a}, ${k.b})` }}>
                       <div className="fs-tor-top">
-                        <span className="fs-tor-k">{k.icon} {k.label}</span>
+                        <span className="fs-tor-k">{t.division && <b className="fs-div-b" style={{ background: `linear-gradient(135deg, ${DIV[t.division].a}, ${DIV[t.division].b})` }}>{t.division}</b>}{k.icon} {k.label}</span>
                         <span className={`fs-tor-st${live ? " live" : ""}`}>{live ? `● LIVE · ${roundName(t.current_round, t.rounds ?? 1)}` : `Inizia ${dayClock(t.starts_at)}`}</span>
                       </div>
                       <div className="fs-tor-title">{t.title}</div>
@@ -206,7 +220,7 @@ export default function Tornei() {
             <details style={{ ...card, padding: "10px 14px" }}>
               <summary style={{ fontWeight: 800, cursor: "pointer", color: "#6D28D9" }}>ℹ️ Come funzionano i tornei</summary>
               <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.55 }}>
-                Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
+                Ci sono 3 serie (A, B e C) e ognuna ha il suo tabellone, così le associazioni piccole giocano tra loro. Ogni lunedì i primi 3 salgono di serie e gli ultimi 3 scendono. Ogni giorno ci sono 3 tornei: alle 9, alle 15 e alle 21 (quello delle 21 mai sugli ordinari, che di notte non ci sono).
                 Non serve iscriversi: partecipano in automatico tutte le associazioni che hanno almeno un mezzo (fino a 64), gratis.
                 È a eliminazione diretta: ogni incontro dura 1 ora e passa il turno chi conclude più servizi del tipo del torneo (rossi, gialli, verdi o ordinari), anche in automatica.
                 In caso di pareggio passa la testa di serie (chi ha più reputazione). Se le squadre sono dispari, chi passa il primo turno senza giocare è estratto a sorte. Con 64 iscritti il torneo dura 6 ore, con meno iscritti meno turni.
@@ -218,6 +232,42 @@ export default function Tornei() {
 
         {tab === "classifica" && (
           <>
+            <div className="fs-div-tabs">
+              {(["A", "B", "C"] as const).map((dv) => (
+                <button key={dv} className={(standDiv ?? myDiv) === dv ? "on" : ""} onClick={() => { setStandDiv(dv); loadStand(dv); }}
+                        style={{ ["--da" as string]: DIV[dv].a, ["--db" as string]: DIV[dv].b }}>
+                  {DIV[dv].label}{myDiv === dv && <small>la tua</small>}
+                </button>
+              ))}
+            </div>
+            {stand && (
+              <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+                <div className="fs-div-head" style={{ background: `linear-gradient(135deg, ${DIV[stand.division].a}, ${DIV[stand.division].b})` }}>
+                  <div><b>🏟️ {DIV[stand.division].label}</b><small>{stand.size} associazioni · classifica della settimana</small></div>
+                  <div className="fs-div-cd"><small>promozioni e retrocessioni tra</small><b>{left(stand.week_ends, now)}</b></div>
+                </div>
+                <div className="fs-div-rules">
+                  {stand.division !== "A" && <span className="up">⬆ i primi 3 salgono in {stand.division === "B" ? "Serie A" : "Serie B"}</span>}
+                  {stand.division !== "C" && <span className="down">⬇ gli ultimi 3 scendono in {stand.division === "A" ? "Serie B" : "Serie C"}</span>}
+                  <span>Punti: torneo vinto 10 · finale 5 · semifinale 2 · incontro vinto 1</span>
+                </div>
+                {stand.rows.map((r, i) => {
+                  const n = stand.rows.length;
+                  const up = stand.division !== "A" && i < 3;
+                  const down = stand.division !== "C" && i >= n - 3 && !up;
+                  return (
+                    <div key={r.id} className={`fs-tb-row${r.me ? " me" : ""}${up ? " zup" : ""}${down ? " zdown" : ""}`}>
+                      <span className="fs-tb-pos">{i + 1}</span>
+                      <FactionEmblem type={r.type as never} size={30} logo={r.logo_url} />
+                      <span className="fs-tb-name">{r.name}{up && <em className="fs-z up">⬆</em>}{down && <em className="fs-z down">⬇</em>}</span>
+                      <span className="fs-tb-stats"><span title="Tornei vinti">🏆 {r.wins}</span><span title="Finali">🥈 {r.finals}</span><span title="Incontri vinti">✔ {r.matches}</span></span>
+                      <b className="fs-tb-pts">{r.points}</b>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ fontWeight: 900, fontSize: 17, margin: "18px 2px 8px" }}>🏆 Albo d&apos;oro di tutti i tornei</div>
             <div style={{ ...card, padding: "10px 14px", fontSize: 13, color: "#475569" }}>
               Punti: 🏆 torneo vinto 10 · 🥈 finale 5 · 🥉 semifinale 2 · ⚔️ sfida vinta 1
             </div>
@@ -504,6 +554,25 @@ function Bracket({ d, now, me }: { d: Detail; now: number; me: string | null }) 
 }
 
 const CSS = `
+.fs-div-b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; margin-right: 6px; color: #fff; font-size: 12px; font-weight: 900; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.fs-div-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.fs-div-tabs button { padding: 12px 6px; border-radius: 16px; border: 2px solid #E2E8F0 !important; background: #fff !important; color: #0B1B33 !important; font: inherit;
+  font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: none !important; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.fs-div-tabs button small { font-size: 11px; font-weight: 700; opacity: .8; }
+.fs-div-tabs button.on { background: linear-gradient(135deg, var(--da), var(--db)) !important; color: #fff !important; border-color: transparent !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3); box-shadow: 0 10px 22px rgba(15,23,42,.2) !important; }
+.fs-div-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #fff; padding: 14px 16px; text-shadow: 0 1px 3px rgba(0,0,0,.25); flex-wrap: wrap; }
+.fs-div-head b { display: block; font-size: 18px; font-weight: 900; } .fs-div-head small { display: block; font-size: 12.5px; font-weight: 700; opacity: .92; }
+.fs-div-cd { text-align: right; } .fs-div-cd b { font-size: 16px; }
+.fs-div-rules { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #EEF2F7; font-size: 12.5px; font-weight: 700; color: #64748B; }
+.fs-div-rules span { background: #F1F5F9; border-radius: 999px; padding: 3px 9px; }
+.fs-div-rules .up { background: #DCFCE7; color: #166534; } .fs-div-rules .down { background: #FEE2E2; color: #991B1B; }
+.fs-tb-row.zup { box-shadow: inset 4px 0 0 #22C55E; } .fs-tb-row.zdown { box-shadow: inset 4px 0 0 #EF4444; }
+.fs-z { font-style: normal; margin-left: 6px; font-size: 12px; font-weight: 900; } .fs-z.up { color: #16A34A; } .fs-z.down { color: #DC2626; }
+html.dark .fs-div-tabs button:not(.on) { background: #111A2E !important; border-color: rgba(148,163,184,.18) !important; color: #E6EDF7 !important; }
+html.dark .fs-div-rules { border-color: rgba(148,163,184,.12); } html.dark .fs-div-rules span { background: #17233D; }
+html.dark .fs-div-rules .up { background: #0F3324; color: #6EE7A0; } html.dark .fs-div-rules .down { background: #3A1622; color: #FCA5A5; }
+@media (max-width: 640px) { .fs-div-cd { text-align: left; } .fs-div-tabs button { font-size: 14px; padding: 10px 4px; } }
 .fs-my { position: relative; overflow: hidden; border-radius: 26px; padding: 16px; margin-bottom: 14px; color: #fff; text-align: center; cursor: pointer;
   box-shadow: 0 18px 40px rgba(15,23,42,.28); isolation: isolate; }
 .fs-my::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 80% -10%, rgba(255,255,255,.35), transparent 45%); }

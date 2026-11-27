@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-27b", date: "27 novembre 2026", title: "🏟️ Campionato: Serie A, B e C",
+    items: ["I tornei ora si giocano in 3 serie: le associazioni più grandi in Serie A, le medie in B, le più piccole in C. Ognuna ha il suo tabellone, così anche le piccole possono vincere.",
+            "Punti della settimana: torneo vinto 10, finale 5, semifinale 2, ogni incontro vinto 1. Ogni lunedì i primi 3 della B salgono in A, i primi 3 della C salgono in B; gli ultimi 3 di A e B scendono.",
+            "Montepremi: Serie A 100%, Serie B 70%, Serie C 50%. Classifica della tua serie in Tornei e sfide → 🏅 Campionato."],
+  },
+  {
     id: "2026-11-27a", date: "27 novembre 2026", title: "👥 775 volontari nuovi nei pacchetti",
     items: ["Arrivano 775 volontari nuovi: autisti (anche avanzati), soccorritori base e avanzati, infermieri, medici, bagnini, AIB e capiservizio.",
             "Anche le associazioni più grandi trovano di nuovo carte che non hanno: circa 1 su 8 è epica, 1 su 33 leggendaria."],
