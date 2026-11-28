@@ -638,6 +638,16 @@ ${D} .fs-gchips button { background: #0D1424 !important; color: #CBD5E1 !importa
 .fs-rename input { flex: 1; min-width: 160px; padding: 8px 10px; border-radius: 10px; border: 2px solid #3B82F6; font: inherit; font-size: 15px; font-weight: 700; }
 ${D} .fs-rename-btn { background: #17233D !important; border-color: rgba(148,163,184,.2) !important; color: #93C5FD !important; }
 
+
+/* ---------- sedi: uso dei mezzi della sede ---------- */
+.fs-buse { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; width: 100%; margin-top: 6px; font-size: 12px; font-weight: 700; color: #64748B; }
+.fs-buse > span { margin-right: 2px; }
+.fs-buse button { flex: 1; min-width: 90px; padding: 7px 6px; border-radius: 10px; border: 1px solid #DCE4EF !important; background: #fff !important; color: #334155 !important;
+  font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; box-shadow: none !important; }
+.fs-buse button.on { background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important; color: #fff !important; border-color: transparent !important; }
+.fs-buse button small { opacity: .7; font-weight: 700; }
+${D} .fs-buse button:not(.on) { background: #111A2E !important; border-color: rgba(148,163,184,.2) !important; color: #CBD5E1 !important; }
+
 /* niente animazioni per chi le ha tolte dal telefono o usa la modalità leggera */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.fs-lite main > * { animation: none !important; }

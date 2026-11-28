@@ -4,6 +4,12 @@ export type Novita = { id: string; date: string; title: string; items: string[] 
 
 export const NOVITA: Novita[] = [
   {
+    id: "2026-11-28a", date: "28 novembre 2026", title: "🔁 Uso dei mezzi sistemato + tasto per tutta la sede",
+    items: ["Nuovo uso «🔁 Entrambi»: l'ambulanza fa sia emergenze sia ordinari (dialisi e dimissioni). Si sceglie nel Garage, in Dettagli e azioni.",
+            "Prima l'automatica non rispettava l'uso scelto (mandava i mezzi «solo ordinari» sulle emergenze e viceversa, e restavano fermi): ora lo rispetta.",
+            "In Le mie sedi ogni sede ha i tasti 🚨 Emergenze / 🚗 Ordinari / 🔁 Entrambi per cambiare l'uso di tutti i suoi mezzi in un colpo."],
+  },
+  {
     id: "2026-11-27d", date: "27 novembre 2026", title: "🏠 Si può vendere la sede principale",
     items: ["In Le mie sedi ora puoi mettere all'asta anche la sede principale (🏷️), se hai almeno un'altra sede. La tua nuova sede principale diventa un'altra delle tue sedi.",
             "Come per le altre sedi, prima sposta le ambulanze dal Garage."],

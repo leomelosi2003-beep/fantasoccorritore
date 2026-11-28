@@ -149,6 +149,14 @@ export default function Garage() {
   const [shop, setShop] = useState(false);
   const [gtab, setGtab] = useState<"mezzi" | "benzina">("mezzi");
   const [vOpen, setVOpen] = useState<Record<string, boolean>>({});
+  const [useBoth, setUseBoth] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    supabase.rpc("my_vehicle_uses").then(({ data }) => {
+      const m: Record<string, boolean> = {};
+      for (const r of ((data as { id: string; use_both: boolean }[]) ?? [])) m[r.id] = r.use_both;
+      setUseBoth(m);
+    });
+  }, [vehicles]);
   const [modelId, setModelId] = useState<string | null>(null);
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [baseId, setBaseId] = useState<string | null>(null);
@@ -451,6 +459,7 @@ export default function Garage() {
     }
     setMsg({ ok: true, text: use === "ordinari" ? `🚗 ${v.call_sign}: ora fa solo ordinari (dialisi e dimissioni).`
                       : use === "trasferimenti" ? `⇄ ${v.call_sign}: ora fa solo trasferimenti.`
+                      : use === "entrambi" ? `🔁 ${v.call_sign}: ora fa sia emergenze sia ordinari.`
                       : `🚨 ${v.call_sign}: ora fa le emergenze.` });
     load();
   }
@@ -1127,10 +1136,10 @@ export default function Garage() {
                     </button>
                   )}
                   {m && !m.automedica && !m.boat && !m.moto && !m.ordinaria && !m.aib && !m.maxi && (() => {
-                    const cur = v.converted_ordinaria ? "ordinari" : (m.transfer_only && !v.long_emergency) ? "trasferimenti" : "emergenze";
+                    const cur = v.converted_ordinaria ? "ordinari" : useBoth[v.id] ? "entrambi" : (m.transfer_only && !v.long_emergency) ? "trasferimenti" : "emergenze";
                     const opts: [string, string][] = m.transfer_only
-                      ? [["trasferimenti", "⇄ Solo trasferimenti"], ["emergenze", "🚨 Trasf. + emergenze"], ["ordinari", "🚗 Solo ordinari"]]
-                      : [["emergenze", "🚨 Solo emergenze"], ["ordinari", "🚗 Solo ordinari"]];
+                      ? [["trasferimenti", "⇄ Solo trasferimenti"], ["emergenze", "🚨 Trasf. + emergenze"], ["ordinari", "🚗 Solo ordinari"], ["entrambi", "🔁 Tutto"]]
+                      : [["emergenze", "🚨 Solo emergenze"], ["ordinari", "🚗 Solo ordinari"], ["entrambi", "🔁 Entrambi"]];
                     return (
                       <div style={{ marginTop: 8 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", marginBottom: 4 }}>USO DEL MEZZO (gratis, cambia quando vuoi)</div>
@@ -1139,7 +1148,7 @@ export default function Garage() {
                             <button key={k} onClick={() => k !== cur && setUse(v, k)}
                                     disabled={busy || (v.km_retired && k !== "ordinari")}
                                     style={{ ...btn, flex: 1, minWidth: 90, padding: "6px 4px", fontSize: 12,
-                                             background: k === cur ? (k === "ordinari" ? "#0E7490" : k === "trasferimenti" ? "#6D28D9" : "#DC2626") : "#fff",
+                                             background: k === cur ? (k === "ordinari" ? "#0E7490" : k === "trasferimenti" ? "#6D28D9" : k === "entrambi" ? "#16A34A" : "#DC2626") : "#fff",
                                              color: k === cur ? "#fff" : "#334155", border: k === cur ? "none" : "1px solid #CBD5E1",
                                              opacity: v.km_retired && k !== "ordinari" ? 0.4 : 1 }}>
                               {label}

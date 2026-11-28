@@ -37,6 +37,14 @@ const MAX_LEVEL = 10;
 
 export default function Sedi() {
   const router = useRouter();
+  const [uses, setUses] = useState<Record<string, { emergenze: number; ordinari: number; entrambi: number }>>({});
+  const loadUses = useCallback(async () => {
+    const { data } = await supabase.rpc("my_base_uses");
+    const m: Record<string, { emergenze: number; ordinari: number; entrambi: number }> = {};
+    for (const r of ((data as { base_id: string; emergenze: number; ordinari: number; entrambi: number }[]) ?? [])) m[r.base_id] = r;
+    setUses(m);
+  }, []);
+  useEffect(() => { loadUses(); }, [loadUses]);
   const [editing, setEditing] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [stab, setStab] = useState<"mie" | "nuova">("mie");
@@ -263,6 +271,25 @@ export default function Sedi() {
               {(!b.is_headquarters || bases.filter((x) => !x.owner_name && x.id !== b.id).length > 0) && !b.rented && !b.owner_name && (
                 <button disabled={busy} onClick={() => sellBase(b)} title="Metti la sede all'asta"
                         style={{ ...btn, fontSize: 13, padding: "8px 10px", background: "#fff", color: "#B45309", border: "1px solid #B45309" }}>🏷️</button>
+              )}
+              {!b.owner_name && uses[b.id] && (uses[b.id].emergenze + uses[b.id].ordinari + uses[b.id].entrambi) > 0 && (
+                <div className="fs-buse">
+                  <span>Mezzi della sede:</span>
+                  {([["emergenze", "🚨 Emergenze"], ["ordinari", "🚗 Ordinari"], ["entrambi", "🔁 Entrambi"]] as const).map(([k, l]) => {
+                    const u = uses[b.id]; const tot = u.emergenze + u.ordinari + u.entrambi;
+                    const on = u[k] === tot;
+                    return (
+                      <button key={k} className={on ? "on" : ""} disabled={busy} onClick={async () => {
+                        setBusy(true); setMsg(null);
+                        const { data, error } = await supabase.rpc("set_base_use", { p_base: b.id, p_use: k });
+                        setBusy(false);
+                        if (error) { setMsg({ ok: false, text: friendlyError(error.message) }); return; }
+                        setMsg({ ok: true, text: `${b.name}: ${data} mezzi ora fanno ${k === "emergenze" ? "solo emergenze" : k === "ordinari" ? "solo ordinari (dialisi e dimissioni)" : "sia emergenze sia ordinari"}.` });
+                        loadUses();
+                      }}>{l}{!on && u[k] > 0 && <small> {u[k]}</small>}</button>
+                    );
+                  })}
+                </div>
               )}
               <button onClick={() => setCustom(custom === b.id ? null : b.id)} title="Personalizza la sede"
                       style={{ ...btn, fontSize: 13, padding: "8px 10px", background: custom === b.id ? "#111" : "#7C3AED" }}>⚙️ Personalizza</button>
